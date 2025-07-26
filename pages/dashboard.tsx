@@ -72,5 +72,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-feat: add upload/download buttons on dashboard
