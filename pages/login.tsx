@@ -1,5 +1,5 @@
-import { supabase } from '../lib/supabase';
 import { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -8,7 +8,6 @@ export default function Login() {
     await supabase.auth.signInWithOtp({
       email,
       options: {
-        // *** ใช้ redirectTo (v2) ***
         redirectTo: 'https://owneros-checklist.vercel.app/dashboard'
       }
     });
@@ -18,11 +17,8 @@ export default function Login() {
   return (
     <div style={{ padding: 40 }}>
       <h1>Login</h1>
-      <input
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        placeholder="Enter your email"
-      />
+      <input value={email} onChange={e => setEmail(e.target.value)}
+             placeholder="Enter your email" />
       <button onClick={handleLogin}>Send Magic Link</button>
     </div>
   );
