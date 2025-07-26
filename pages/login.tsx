@@ -6,13 +6,11 @@ export default function Login() {
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`
-      }
-    });
-    alert('Check your email for the Magic Link!');
-  };
+  email,
+  options: {
+    emailRedirectTo: 'https://owneros-checklist.vercel.app/dashboard'
+  }
+});
 
   return (
     <div style={{ padding: 40 }}>
