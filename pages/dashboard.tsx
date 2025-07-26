@@ -1,5 +1,6 @@
-
+// pages/dashboard.tsx
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 
 type ChecklistItem = {
@@ -9,65 +10,76 @@ type ChecklistItem = {
 };
 
 export default function Dashboard() {
-  const [checklists, setChecklists] = useState<ChecklistItem[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
+  const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  // โหลดข้อมูลหลังได้ session
   useEffect(() => {
-    const getUserAndData = async () => {
+    const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
-      setUser(user);
+      if (!user) {
+        router.replace('/login');
+        return; // ออกจากฟังก์ชัน
+      }
 
       const { data, error } = await supabase
         .from('checklists')
         .select('*')
         .eq('user_id', user.id);
 
-      if (data) setChecklists(data);
-      if (error) alert(error.message);
+      if (error) console.error(error.message);
+      else setItems(data ?? []);
+
+      setLoading(false);
     };
 
-    getUserAndData();
-  }, []);
+    fetchData();
+  }, [router]);
 
-  const toggleChecklist = async (id: number, is_done: boolean) => {
+  const toggle = async (id: number, done: boolean) => {
     const { error } = await supabase
       .from('checklists')
-      .update({ is_done: !is_done })
+      .update({ is_done: !done })
       .eq('id', id);
 
     if (!error) {
-      setChecklists(prev =>
-        prev.map(item =>
-          item.id === id ? { ...item, is_done: !is_done } : item
-        )
+      setItems((prev) =>
+        prev.map((i) => (i.id === id ? { ...i, is_done: !done } : i))
       );
     }
   };
 
-  if (!user) return <p>Loading...</p>;
+  if (loading) return <p style={{ padding: 40 }}>Loading…</p>;
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Checklist ของคุณ</h1>
-      {checklists.length === 0 ? (
+      {items.length === 0 ? (
         <p>ไม่มีรายการใน checklist</p>
       ) : (
         <ul>
-          {checklists.map(item => (
-            <li key={item.id}>
+          {items.map((i) => (
+            <li key={i.id}>
               <input
                 type="checkbox"
-                checked={item.is_done}
-                onChange={() => toggleChecklist(item.id, item.is_done)}
-              />
-              {' '}
-              {item.name}
+                checked={i.is_done}
+                onChange={() => toggle(i.id, i.is_done)}
+              />{' '}
+              {i.name}
             </li>
           ))}
         </ul>
       )}
     </div>
   );
+}
+
+/**
+ * ทำให้เพจเป็น SSR — รองรับพารามิเตอร์ใดๆ จาก Magic Link
+ * ถ้าไม่อยากใช้ getServerSideProps สามารถลบได้ ไม่บังคับ
+ */
+export async function getServerSideProps() {
+  return { props: {} };
 }
