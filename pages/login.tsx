@@ -8,7 +8,7 @@ export default function Login() {
     await supabase.auth.signInWithOtp({
       email,
       options: {
-        redirectTo: 'https://owneros-checklist.vercel.app/dashboard'
+        emailRedirectTo: 'https://owneros-checklist.vercel.app/dashboard'
       }
     });
     alert('Check your email for the magic link!');
