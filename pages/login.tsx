@@ -8,16 +8,21 @@ export default function Login() {
     await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: 'https://owneros-checklist.vercel.app/dashboard'
-    });
+        emailRedirectTo: 'https://owneros-checklist.vercel.app/dashboard',
+      },                // ← ปิด object options แล้วมีคอมมา
+    });                 // ← ปิด object ของ signInWithOtp
+
     alert('Check your email for the magic link!');
   };
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Login</h1>
-      <input value={email} onChange={e => setEmail(e.target.value)}
-             placeholder="Enter your email" />
+      <input
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Enter your email"
+      />
       <button onClick={handleLogin}>Send Magic Link</button>
     </div>
   );
