@@ -9,7 +9,6 @@ export default function Login() {
       email,
       options: {
         emailRedirectTo: 'https://owneros-checklist.vercel.app/dashboard'
-      }
     });
     alert('Check your email for the magic link!');
   };
