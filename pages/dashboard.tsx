@@ -57,18 +57,31 @@ export default function Dashboard() {
       <h1>Checklist ของคุณ</h1>
       {items.length===0
         ? <p>ไม่มีรายการใน checklist</p>
-        : <ul>{items.map(i=>(
-            <li key={i.id} style={{marginBottom:8}}>
-              <input type="checkbox" checked={i.is_done}
-                     onChange={()=>toggle(i.id,i.is_done)} /> {i.name}{' '}
-              {i.file_path
-                ? <>
-                    <a href={urlFor(i.file_path)} target="_blank">ดาวน์โหลดไฟล์</a>{' '}
-                    <button onClick={()=>uploadFile(i.id)}>เปลี่ยนไฟล์</button>
-                  </>
-                : <button onClick={()=>uploadFile(i.id)}>Upload ไฟล์</button>}
-            </li>
-          ))}</ul>}
+        : <ul>
+  {items.map(i => (
+    <li key={i.id} style={{ marginBottom: 8 }}>
+      <input
+        type="checkbox"
+        checked={i.is_done}
+        onChange={() => toggle(i.id, i.is_done)}
+      />{' '}
+      {i.name}{' '}
+      {i.file_path ? (
+        <>
+          {/* ลิงก์ดาวน์โหลด + ปุ่มเปลี่ยนไฟล์ */}
+          <a href={urlFor(i.file_path)} target="_blank" rel="noopener">
+            {i.file_path.split('/').pop()}
+          </a>{' '}
+          <button onClick={() => uploadFile(i.id)}>เปลี่ยนไฟล์</button>
+        </>
+      ) : (
+        /* ยังไม่อัปโหลด → ปุ่ม Upload */
+        <button onClick={() => uploadFile(i.id)}>Upload ไฟล์</button>
+      )}
+    </li>
+  ))}
+</ul>
+>}
     </div>
   );
 }
