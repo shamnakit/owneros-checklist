@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Summary Checklist Progress</title>
+  <link href="./output.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen p-6 text-gray-800">
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-2xl shadow">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">📈 สรุปความคืบหน้า Checklist</h1>
+      <p class="text-sm text-gray-500">แสดงสถานะความครบถ้วนของแต่ละหมวด</p>
+    </header>
+
+    <div id="summary" class="space-y-4"></div>
+
+    <div class="mt-6 text-right">
+      <a href="index.html" class="text-blue-600 hover:underline">← กลับหน้าหลัก</a>
+    </div>
+  </div>
+
+  <script>
+    const groups = [
+      { id: 'group1_checklist', title: '1. กลยุทธ์องค์กร', total: 6 },
+      { id: 'group2_checklist', title: '2. โครงสร้างองค์กร', total: 3 },
+      { id: 'group3_checklist', title: '3. คู่มือปฏิบัติงาน', total: 3 },
+      { id: 'group4_checklist', title: '4. ระบบบุคคล & HR', total: 3 },
+      { id: 'group5_checklist', title: '5. ระบบการเงิน', total: 3 },
+      { id: 'group6_checklist', title: '6. ระบบลูกค้า / ขาย', total: 3 },
+    ];
+
+    const summaryDiv = document.getElementById('summary');
+
+    groups.forEach(group => {
+      const saved = JSON.parse(localStorage.getItem(group.id) || '{}');
+      const checkedCount = Object.values(saved).filter(Boolean).length;
+      const percent = Math.round((checkedCount / group.total) * 100);
+
+      const section = document.createElement('div');
+      section.className = 'p-4 bg-gray-50 border rounded-xl';
+      section.innerHTML = `
+        <div class="flex justify-between items-center">
+          <h2 class="font-semibold">${group.title}</h2>
+          <span class="text-sm text-gray-600">${checkedCount} / ${group.total} รายการ (${percent}%)</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded h-2 mt-2">
+          <div class="bg-blue-600 h-2 rounded" style="width: ${percent}%"></div>
+        </div>
+      `;
+      summaryDiv.appendChild(section);
+    });
+  </script>
+</body>
+</html>

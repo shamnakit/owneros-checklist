@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Checklist: กลยุทธ์องค์กร</title>
+  <link href="./output.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen p-6 text-gray-800">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded-2xl shadow">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">📋 หมวด 1: กลยุทธ์องค์กร</h1>
+      <p class="text-sm text-gray-500">รายการย่อยสำหรับการวางกลยุทธ์ระดับบริษัท</p>
+    </header>
+
+    <ul id="checklist" class="space-y-4">
+      <li class="flex items-center">
+        <input type="checkbox" id="item1" class="mr-3 w-5 h-5" />
+        <label for="item1" class="text-lg">Vision Statement</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item2" class="mr-3 w-5 h-5" />
+        <label for="item2" class="text-lg">Mission Statement</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item3" class="mr-3 w-5 h-5" />
+        <label for="item3" class="text-lg">Core Values</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item4" class="mr-3 w-5 h-5" />
+        <label for="item4" class="text-lg">Business Model Canvas (BMC)</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item5" class="mr-3 w-5 h-5" />
+        <label for="item5" class="text-lg">SWOT Analysis</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item6" class="mr-3 w-5 h-5" />
+        <label for="item6" class="text-lg">OKR (Objectives & Key Results)</label>
+      </li>
+    </ul>
+
+    <div class="mt-6 text-right">
+      <a href="index.html" class="text-blue-600 hover:underline">← กลับหน้าหลัก</a>
+    </div>
+  </div>
+
+  <script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+
+  const supabaseUrl = 'https://owneros-checklist.supabase.co'
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRuanBscnRsY2pqZmVod2J0ZmptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzNDY2OTgsImV4cCI6MjA2ODkyMjY5OH0.PTA_0lX7sxiZPNxEzFaQKvRY3o0qElgLTKY0fjwYQ9w'
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  async function loadChecklist() {
+    const { data, error } = await supabase
+      .from('checklists')
+      .select('*')
+      .eq('group_name', 'กลยุทธ์องค์กร')
+
+    if (error) {
+      console.error('โหลดข้อมูลล้มเหลว:', error)
+      return
+    }
+
+    const checklist = document.getElementById('checklist')
+    checklist.innerHTML = ''
+
+    data.forEach(item => {
+      const li = document.createElement('li')
+      li.className = 'flex items-center'
+
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.checked = item.is_done
+      checkbox.className = 'mr-3 w-5 h-5'
+      checkbox.addEventListener('change', async () => {
+        const { error: updateError } = await supabase
+          .from('checklists')
+          .update({ is_done: checkbox.checked })
+          .eq('id', item.id)
+
+        if (updateError) {
+          alert('❌ บันทึกไม่สำเร็จ')
+          checkbox.checked = !checkbox.checked
+        }
+      })
+
+      const label = document.createElement('label')
+      label.textContent = item.name
+      label.className = 'text-lg'
+
+      li.appendChild(checkbox)
+      li.appendChild(label)
+      checklist.appendChild(li)
+    })
+  }
+
+  loadChecklist()
+</script>
+
+</body>
+</html>

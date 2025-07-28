@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Checklist: ระบบลูกค้า / ขาย</title>
+  <link href="./output.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen p-6 text-gray-800">
+  <div class="max-w-3xl mx-auto bg-white p-6 rounded-2xl shadow">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">📋 หมวด 6: ระบบลูกค้า / ขาย</h1>
+      <p class="text-sm text-gray-500">รายการย่อยสำหรับบริหารความสัมพันธ์ลูกค้าและกระบวนการขาย</p>
+    </header>
+
+    <ul id="checklist" class="space-y-4">
+      <li class="flex items-center">
+        <input type="checkbox" id="item1" class="mr-3 w-5 h-5" />
+        <label for="item1" class="text-lg">Customer Journey</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item2" class="mr-3 w-5 h-5" />
+        <label for="item2" class="text-lg">CRM (Customer Relationship Management)</label>
+      </li>
+      <li class="flex items-center">
+        <input type="checkbox" id="item3" class="mr-3 w-5 h-5" />
+        <label for="item3" class="text-lg">ระบบ Feedback จากลูกค้า</label>
+      </li>
+    </ul>
+
+    <div class="mt-6 text-right">
+      <a href="index.html" class="text-blue-600 hover:underline">← กลับหน้าหลัก</a>
+    </div>
+  </div>
+
+  <script>
+    const checklistId = 'group6_checklist';
+    const checklist = document.querySelectorAll('#checklist input[type="checkbox"]');
+
+    // โหลดสถานะจาก localStorage
+    const saved = JSON.parse(localStorage.getItem(checklistId) || '{}');
+    checklist.forEach((item) => {
+      if (saved[item.id]) item.checked = true;
+      item.addEventListener('change', () => {
+        saved[item.id] = item.checked;
+        localStorage.setItem(checklistId, JSON.stringify(saved));
+      });
+    });
+  </script>
+</body>
+</html>
