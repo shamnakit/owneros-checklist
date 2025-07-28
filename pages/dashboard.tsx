@@ -48,7 +48,7 @@ export default function Dashboard() {
     fileInput.type = 'file';
     fileInput.accept = '*/*';
     fileInput.onchange = async e => {
-      const file = e.target.files?.[0];
+      const file = (e.target as HTMLInputElement).files?.[0]; // ✅ correct
       if (!file || !session?.user) return;
 
       const path = `${session.user.id}/${id}/${file.name}`;
