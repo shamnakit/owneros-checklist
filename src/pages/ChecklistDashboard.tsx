@@ -1,12 +1,13 @@
 import React from "react";
+import Link from "next/link";
 
 const sections = [
-  { id: 1, title: "กลยุทธ์องค์กร" },
-  { id: 2, title: "โครงสร้างองค์กร" },
-  { id: 3, title: "คู่มือปฏิบัติงาน" },
-  { id: 4, title: "ระบบบุคคล & HR" },
-  { id: 5, title: "ระบบการเงิน" },
-  { id: 6, title: "ระบบลูกค้า / ขาย" },
+  { id: 1, title: "กลยุทธ์องค์กร", path: "/checklist/group1" },
+  { id: 2, title: "โครงสร้างองค์กร", path: "/checklist/group2" },
+  { id: 3, title: "คู่มือปฏิบัติงาน", path: "/checklist/group3" },
+  { id: 4, title: "ระบบบุคคล & HR", path: "/checklist/group4" },
+  { id: 5, title: "ระบบการเงิน", path: "/checklist/group5" },
+  { id: 6, title: "ระบบลูกค้า / ขาย", path: "/checklist/group6" },
 ];
 
 export default function ChecklistDashboard() {
@@ -43,9 +44,11 @@ export default function ChecklistDashboard() {
                 {section.id}. {section.title}
               </h3>
               <p className="text-sm text-slate-500 mb-4">Progress: 0%</p>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
-                เข้าดู Checklist
-              </button>
+              <Link href={section.path}>
+                <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                  เข้าดู Checklist
+                </button>
+              </Link>
             </div>
           ))}
         </div>
