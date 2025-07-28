@@ -9,7 +9,8 @@ module.exports = {
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx}',
-    './src/**/*.{js,ts,jsx,tsx}',
+    './src/**/*.{js,ts,jsx,tsx}',     // <<< สำคัญ
+    './components/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {},
