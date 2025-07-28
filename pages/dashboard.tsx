@@ -2,65 +2,93 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 
-type Item = { id:number; name:string; is_done:boolean; file_path:string|null };
-
 export default function Dashboard() {
-  const router = useRouter();
-  const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
+  const [items, setItems] = useState([]);
+  const router = useRouter();
 
   useEffect(() => {
-    (async () => {
-      const { data:{ user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const { data } = await supabase
-        .from('checklists')
-        .select('*')
-        .eq('user_id', user.id);
+      if (!session) {
+        router.push('/login');
+      } else {
+        setSession(session);
+        const { data } = await supabase
+          .from('checklists')
+          .select('*')
+          .eq('user_id', session.user.id);
 
-      setItems(data ?? []);
-      setLoading(false);
-    })();
+        setItems(data ?? []);
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) router.push('/login');
+      setSession(session);
+    });
+
+    return () => listener?.subscription.unsubscribe();
   }, [router]);
 
-  const toggle = async (id:number, done:boolean) => {
-    await supabase.from('checklists').update({ is_done:!done }).eq('id', id);
-    setItems(p => p.map(i => i.id===id ? {...i,is_done:!done}:i));
+  const toggle = async (id, done) => {
+    await supabase.from('checklists').update({ is_done: !done }).eq('id', id);
+    setItems(p => p.map(i => i.id === id ? { ...i, is_done: !done } : i));
   };
 
-  const uploadFile = async (id:number) => {
+  const uploadFile = async (id) => {
     const fileInput = document.createElement('input');
-    fileInput.type='file'; fileInput.accept='*/*';
+    fileInput.type = 'file';
+    fileInput.accept = '*/*';
     fileInput.onchange = async e => {
-      const file = (e.target as HTMLInputElement).files?.[0]; if (!file) return;
-      const { data:{ user } } = await supabase.auth.getUser(); if (!user) return;
+      const file = e.target.files?.[0];
+      if (!file || !session?.user) return;
 
-      const path = `${user.id}/${id}/${file.name}`;
+      const path = `${session.user.id}/${id}/${file.name}`;
       const { error } = await supabase
-        .storage.from('checklist-files').upload(path, file, { upsert:true });
+        .storage.from('checklist-files').upload(path, file, { upsert: true });
+
       if (error) return alert(error.message);
 
-      await supabase.from('checklists').update({ file_path:path }).eq('id', id);
-      setItems(p => p.map(i => i.id===id ? {...i,file_path:path}:i));
+      await supabase.from('checklists').update({ file_path: path }).eq('id', id);
+      setItems(p => p.map(i => i.id === id ? { ...i, file_path: path } : i));
     };
     fileInput.click();
   };
 
-  if (loading) return <p style={{padding:40}}>Loading…</p>;
-
-  const urlFor = (fp:string) =>
+  const urlFor = (fp) =>
     supabase.storage.from('checklist-files').getPublicUrl(fp).data.publicUrl;
 
+  if (loading) return <div className="p-6">Loading...</div>;
+
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Checklist ของคุณ</h1>
-            {items.length === 0 ? (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-2">📋 OwnerOS Dashboard</h1>
+      <p className="text-sm text-gray-600 mb-6">👤 ผู้ใช้งาน: {session?.user?.email}</p>
+
+      <button
+        onClick={async () => {
+          await supabase.auth.signOut();
+          router.push('/login');
+        }}
+        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 mb-4"
+      >
+        ออกจากระบบ
+      </button>
+
+      {items.length === 0 ? (
         <p>ไม่มีรายการใน checklist</p>
       ) : (
         <ul>
           {items.map(i => (
-            <li key={i.id} style={{ marginBottom: 8 }}>
+            <li key={i.id} className="mb-2">
               <input
                 type="checkbox"
                 checked={i.is_done}
@@ -73,13 +101,18 @@ export default function Dashboard() {
                     href={urlFor(i.file_path)}
                     target="_blank"
                     rel="noopener"
+                    className="text-blue-600 underline"
                   >
                     {i.file_path.split('/').pop()}
                   </a>{' '}
-                  <button onClick={() => uploadFile(i.id)}>เปลี่ยนไฟล์</button>
+                  <button onClick={() => uploadFile(i.id)} className="ml-2 text-sm text-green-600 underline">
+                    เปลี่ยนไฟล์
+                  </button>
                 </>
               ) : (
-                <button onClick={() => uploadFile(i.id)}>Upload ไฟล์</button>
+                <button onClick={() => uploadFile(i.id)} className="ml-2 text-sm text-blue-600 underline">
+                  Upload ไฟล์
+                </button>
               )}
             </li>
           ))}
