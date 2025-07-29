@@ -1,6 +1,8 @@
 import { useUserProfile } from "@/hooks/useUserProfile";
 import Image from "next/image";
 import Link from "next/link";
+import { supabase } from "@/utils/supabaseClient";
+
 
 export default function Sidebar() {
   const { profile, loading } = useUserProfile();
