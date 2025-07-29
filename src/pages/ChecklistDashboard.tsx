@@ -14,13 +14,22 @@ const sections = [
 ];
 
 export default function ChecklistDashboard() {
-  const { profile } = useUserProfile();
+  const context = useUserProfile();
 
-    const handleLogout = async () => {
+  if (!context || context.loading || !context.profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        กำลังโหลดข้อมูลผู้ใช้...
+      </div>
+    );
+  }
+
+  const { profile } = context;
+
+  const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/login"; // ✅ แก้จาก "/" เป็น "/login"
+    window.location.href = "/login";
   };
-
 
   return (
     <div className="min-h-screen flex">
@@ -29,7 +38,7 @@ export default function ChecklistDashboard() {
         <div>
           {/* Avatar Section */}
           <div className="flex flex-col items-center mb-6">
-            {profile?.avatar_url && (
+            {profile.avatar_url ? (
               <Image
                 src={profile.avatar_url}
                 alt="User Avatar"
@@ -37,10 +46,14 @@ export default function ChecklistDashboard() {
                 height={72}
                 className="rounded-full border-2 border-white mb-2"
               />
+            ) : (
+              <div className="w-[72px] h-[72px] rounded-full bg-gray-600 mb-2 flex items-center justify-center text-xl">
+                👤
+              </div>
             )}
             <div className="text-center">
               <div className="text-lg font-bold">
-                {profile?.company_name || "OwnerOS"}
+                {profile.company_name || "OwnerOS"}
               </div>
               <Link href="/profile" className="text-sm text-blue-300 hover:underline">
                 แก้ไขโปรไฟล์
@@ -49,7 +62,7 @@ export default function ChecklistDashboard() {
           </div>
 
           {/* Company Logo */}
-          {profile?.company_logo_url && (
+          {profile.company_logo_url && (
             <div className="flex justify-center mb-6">
               <Image
                 src={profile.company_logo_url}

@@ -1,14 +1,12 @@
-// pages/checklist/summary.tsx
-import MainLayout from "@/layouts/MainLayout";
+import dynamic from "next/dynamic";
 
-export default function SummaryPage() {
+const MainLayout = dynamic(() => import("@/layouts/MainLayout"), { ssr: false });
+const SummaryPage = dynamic(() => import("@/components/checklist/SummaryPage"), { ssr: false });
+
+export default function Page() {
   return (
     <MainLayout>
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-4">Summary</h1>
-        <p>นี่คือหน้าสรุปผลการดำเนินงานของระบบ OwnerOS Checklist.</p>
-        {/* เพิ่มกราฟ / รายงาน / ผลการประเมินต่าง ๆ ได้ที่นี่ */}
-      </div>
+      <SummaryPage />
     </MainLayout>
   );
 }
