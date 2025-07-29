@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useUser } from "@/hooks/useUser";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/utils/supabaseClient";
 
 const sections = [
@@ -14,7 +14,7 @@ const sections = [
 ];
 
 export default function ChecklistDashboard() {
-  const { profile } = useUser();
+  const { profile } = useUserProfile();
 
     const handleLogout = async () => {
     await supabase.auth.signOut();
