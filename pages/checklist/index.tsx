@@ -1,5 +1,5 @@
 // pages/checklist/index.tsx
-import MainLayout from "@/components/layouts/MainLayout";
+import MainLayout from "@/pages/components/MainLayout";
 
 export default function ChecklistPage() {
   return (

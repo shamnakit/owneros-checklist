@@ -1,4 +1,4 @@
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
@@ -8,7 +8,7 @@ export default function Sidebar() {
 
   if (loading || !profile) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
         <p>กำลังโหลดข้อมูล...</p>
       </div>
     );

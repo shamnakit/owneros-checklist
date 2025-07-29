@@ -2,16 +2,19 @@
 import MainLayout from "@/components/MainLayout";
 import "@/styles/globals.css";
 import { useRouter } from "next/router";
+import { UserProfileProvider } from "@/contexts/UserProfileContext";
 
-export default function App({ Component, pageProps }) {
+export default function MyApp({ Component, pageProps }) {
   const router = useRouter();
   const useLayout = router.pathname.startsWith("/checklist");
 
   const Layout = useLayout ? MainLayout : ({ children }) => <>{children}</>;
 
   return (
-    <Layout>
-      <Component {...pageProps} />
-    </Layout>
+    <UserProfileProvider>
+      <Layout>
+        <Component {...pageProps} />
+      </Layout>
+    </UserProfileProvider>
   );
 }

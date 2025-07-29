@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import MainLayout from "@/components/layouts/MainLayout";
+import MainLayout from "@/components/MainLayout";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
