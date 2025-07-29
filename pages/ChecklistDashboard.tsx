@@ -26,18 +26,18 @@ export default function ChecklistDashboard() {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col justify-between">
         <div>
-          {/* User Avatar & Company Info */}
-          <div className="flex items-center space-x-3 mb-6">
+          {/* Avatar Section */}
+          <div className="flex flex-col items-center mb-6">
             {profile?.avatar_url && (
               <Image
                 src={profile.avatar_url}
                 alt="Avatar"
-                width={40}
-                height={40}
-                className="rounded-full border border-white"
+                width={64}
+                height={64}
+                className="rounded-full mb-2 border-2 border-white"
               />
             )}
-            <div>
+            <div className="text-center">
               <div className="font-bold text-lg">
                 {profile?.company_name || "OwnerOS"}
               </div>
@@ -47,15 +47,15 @@ export default function ChecklistDashboard() {
             </div>
           </div>
 
-          {/* Company Logo */}
+          {/* Company Logo (if needed to remain) */}
           {profile?.company_logo_url && (
-            <div className="mb-6">
+            <div className="flex justify-center mb-6">
               <Image
                 src={profile.company_logo_url}
                 alt="Company Logo"
-                width={60}
-                height={60}
-                className="rounded bg-white p-1 mx-auto"
+                width={40}
+                height={40}
+                className="rounded bg-white p-1"
               />
             </div>
           )}
