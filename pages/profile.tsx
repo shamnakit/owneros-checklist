@@ -11,15 +11,16 @@ export default function ProfilePage() {
   const [companyLogoUrl, setCompanyLogoUrl] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const router = useRouter();
 
   useEffect(() => {
     const getProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
       setUser(user);
+
       if (user) {
         const { data } = await supabase
           .from("profiles")
@@ -35,12 +36,16 @@ export default function ProfilePage() {
           setAvatarUrl(data.avatar_url || "");
         }
       }
+
+      setLoading(false);
     };
+
     getProfile();
   }, []);
 
   const updateProfile = async () => {
     if (!user) return;
+
     const updates = {
       id: user.id,
       full_name: fullName,
@@ -51,6 +56,7 @@ export default function ProfilePage() {
     };
 
     const { error } = await supabase.from("profiles").upsert(updates);
+
     if (error) {
       alert("บันทึกไม่สำเร็จ");
     } else {
@@ -79,14 +85,15 @@ export default function ProfilePage() {
 
     if (uploadError) {
       alert("อัปโหลดโลโก้ไม่สำเร็จ");
-      setUploadingLogo(false);
-      return;
+    } else {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+      setCompanyLogoUrl(data.publicUrl);
     }
 
-    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    setCompanyLogoUrl(data.publicUrl);
     setUploadingLogo(false);
   };
+
+  if (loading) return <p className="text-center mt-10">กำลังโหลด...</p>;
 
   return (
     <div className="max-w-xl mx-auto py-10 px-4">
@@ -99,7 +106,6 @@ export default function ProfilePage() {
         ← ย้อนกลับ
       </button>
 
-      {/* Full Name */}
       <label className="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
       <input
         type="text"
@@ -108,7 +114,6 @@ export default function ProfilePage() {
         onChange={(e) => setFullName(e.target.value)}
       />
 
-      {/* Role */}
       <label className="block text-sm font-medium text-gray-700">ตำแหน่ง</label>
       <input
         type="text"
@@ -117,7 +122,6 @@ export default function ProfilePage() {
         onChange={(e) => setRole(e.target.value)}
       />
 
-      {/* Company Name */}
       <label className="block text-sm font-medium text-gray-700">ชื่อบริษัท</label>
       <input
         type="text"
@@ -126,16 +130,9 @@ export default function ProfilePage() {
         onChange={(e) => setCompanyName(e.target.value)}
       />
 
-      {/* Company Logo */}
       <label className="block text-sm font-medium text-gray-700">โลโก้บริษัท</label>
       {companyLogoUrl && (
-        <Image
-          src={companyLogoUrl}
-          alt="Logo"
-          width={120}
-          height={120}
-          className="mt-2"
-        />
+        <Image src={companyLogoUrl} alt="Logo" width={120} height={120} className="mt-2" />
       )}
       <input
         type="file"
@@ -145,10 +142,10 @@ export default function ProfilePage() {
         disabled={uploadingLogo}
       />
 
-      {/* Avatar Selection */}
       <label className="block text-sm font-medium text-gray-700 mb-2">รูปผู้ใช้ (Avatar)</label>
       <div className="flex gap-4 mb-6">
         <button
+          type="button"
           className={`border rounded p-2 ${
             avatarUrl.includes("male.png") ? "ring-2 ring-blue-500" : ""
           }`}
@@ -157,6 +154,7 @@ export default function ProfilePage() {
           <Image src="/avatars/male.png" alt="ชาย" width={60} height={60} />
         </button>
         <button
+          type="button"
           className={`border rounded p-2 ${
             avatarUrl.includes("female.png") ? "ring-2 ring-pink-500" : ""
           }`}
