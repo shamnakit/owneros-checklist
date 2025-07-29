@@ -65,25 +65,31 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6">
-          <ul className="space-y-2">
-            <li>
-              <Link href="/checklist" className="hover:underline block">
-                ✔ Checklist
-              </Link>
-            </li>
-            <li>
-              <Link href="/checklist/summary" className="hover:underline block">
-                📊 Summary
-              </Link>
-            </li>
-            <li>
-              <Link href="/checklist/settings" className="hover:underline block">
-                ⚙ Settings
-              </Link>
-            </li>
-          </ul>
-        </nav>
+<nav className="mt-6">
+  <ul className="space-y-2">
+    <li>
+      <Link href="/checklist" className="hover:underline block">
+        ✔ Checklist
+      </Link>
+    </li>
+    <li>
+      <Link href="/checklist/summary" className="hover:underline block">
+        📊 Summary
+      </Link>
+    </li>
+    <li>
+      <Link href="/checklist/settings" className="hover:underline block">
+        ⚙ Settings
+      </Link>
+    </li>
+    <li>
+      <Link href="/checklist/change-password" className="hover:underline block text-yellow-400">
+        🔐 เปลี่ยนรหัสผ่าน
+      </Link>
+    </li>
+  </ul>
+</nav>
+
       </div>
 
       {/* Logout */}
