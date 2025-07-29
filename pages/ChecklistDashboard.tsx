@@ -16,10 +16,11 @@ const sections = [
 export default function ChecklistDashboard() {
   const { profile } = useUser();
 
-  const handleLogout = async () => {
+    const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/login"; // ✅ แก้จาก "/" เป็น "/login"
   };
+
 
   return (
     <div className="min-h-screen flex">
@@ -31,14 +32,14 @@ export default function ChecklistDashboard() {
             {profile?.avatar_url && (
               <Image
                 src={profile.avatar_url}
-                alt="Avatar"
-                width={64}
-                height={64}
-                className="rounded-full mb-2 border-2 border-white"
+                alt="User Avatar"
+                width={72}
+                height={72}
+                className="rounded-full border-2 border-white mb-2"
               />
             )}
             <div className="text-center">
-              <div className="font-bold text-lg">
+              <div className="text-lg font-bold">
                 {profile?.company_name || "OwnerOS"}
               </div>
               <Link href="/profile" className="text-sm text-blue-300 hover:underline">
@@ -47,35 +48,35 @@ export default function ChecklistDashboard() {
             </div>
           </div>
 
-          {/* Company Logo (if needed to remain) */}
+          {/* Company Logo */}
           {profile?.company_logo_url && (
             <div className="flex justify-center mb-6">
               <Image
                 src={profile.company_logo_url}
                 alt="Company Logo"
-                width={40}
-                height={40}
-                className="rounded bg-white p-1"
+                width={48}
+                height={48}
+                className="bg-white p-1 rounded"
               />
             </div>
           )}
 
-          {/* Menu */}
+          {/* Navigation */}
           <nav className="space-y-3">
-            <Link href="/checklist">
-              <div className="flex items-center space-x-2 hover:text-blue-400">
+            <Link href="/checklistPage">
+              <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
                 <span>📋</span>
                 <span>Checklist</span>
               </div>
             </Link>
             <Link href="/summary">
-              <div className="flex items-center space-x-2 hover:text-blue-400">
+              <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
                 <span>📊</span>
                 <span>Summary</span>
               </div>
             </Link>
             <Link href="/settings">
-              <div className="flex items-center space-x-2 hover:text-blue-400">
+              <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
                 <span>⚙️</span>
                 <span>Settings</span>
               </div>
@@ -83,7 +84,7 @@ export default function ChecklistDashboard() {
           </nav>
         </div>
 
-        {/* Logout Button */}
+        {/* Logout */}
         <button
           onClick={handleLogout}
           className="w-full text-sm mt-6 bg-red-600 px-4 py-2 rounded text-white hover:bg-red-700"
@@ -92,7 +93,7 @@ export default function ChecklistDashboard() {
         </button>
       </aside>
 
-      {/* Main content */}
+      {/* Main Content */}
       <main className="flex-1 bg-slate-50 p-10">
         <h2 className="text-2xl font-bold text-slate-800">Checklist ระบบองค์กร</h2>
         <p className="text-slate-500 mt-1 mb-6">
