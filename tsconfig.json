@@ -13,16 +13,11 @@
     "isolatedModules": true,
     "jsx": "preserve",
 
-    // ✅ เพิ่มส่วนนี้
     "baseUrl": "src",
     "paths": {
       "@/*": ["*"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]
 }
