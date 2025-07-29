@@ -1,4 +1,4 @@
-// ChecklistDashboard.tsx (เพิ่มแสดงโปรไฟล์ด้านบนสุดของ Sidebar)
+// ChecklistDashboard.tsx (แสดงโปรไฟล์ผู้ใช้ + อัปโหลดโลโก้บริษัท)
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
@@ -14,12 +14,22 @@ const sections = [
 ];
 
 export default function ChecklistDashboard() {
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<any>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserEmail(user?.email || null);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUserInfo(user);
+
+      if (user) {
+        // ดึง avatar URL จาก storage
+        const { data } = await supabase.storage.from("avatars").getPublicUrl(`${user.id}/avatar.png`);
+        setAvatarUrl(data?.publicUrl || null);
+      }
     };
     loadUser();
   }, []);
@@ -29,6 +39,25 @@ export default function ChecklistDashboard() {
     window.location.href = "/login";
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      const file = e.target.files?.[0];
+      if (!file || !userInfo?.id) return;
+
+      const filePath = `${userInfo.id}/avatar.png`;
+
+      await supabase.storage.from("avatars").upload(filePath, file, {
+        upsert: true,
+      });
+
+      const { data } = await supabase.storage.from("avatars").getPublicUrl(filePath);
+      setAvatarUrl(data?.publicUrl || null);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
@@ -36,10 +65,26 @@ export default function ChecklistDashboard() {
         <div>
           {/* Profile */}
           <div className="mb-6 text-sm text-slate-300">
-            {userEmail && (
-              <div className="flex items-center gap-2 text-white font-medium">
-                <span>👤</span>
-                <span>{userEmail}</span>
+            {userInfo && (
+              <div className="flex flex-col items-start gap-3">
+                <div className="flex items-center gap-2">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} className="w-10 h-10 rounded-full" alt="avatar" />
+                  ) : (
+                    <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center">👤</div>
+                  )}
+                  <div>
+                    <p className="text-white font-medium">{userInfo.user_metadata.full_name || userInfo.email}</p>
+                    <p className="text-xs text-slate-400">{userInfo.email}</p>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  disabled={uploading}
+                  className="text-xs"
+                />
               </div>
             )}
           </div>
