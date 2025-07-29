@@ -1,36 +1,39 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabaseClient';
-import Image from 'next/image';
-import { useRouter } from 'next/router';
+import { useEffect, useState } from "react";
+import { supabase } from "@/utils/supabaseClient";
+import Image from "next/image";
+import { useRouter } from "next/router";
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [user, setUser] = useState(null);
-  const [companyName, setCompanyName] = useState('');
-  const [companyLogoUrl, setCompanyLogoUrl] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [userName, setUserName] = useState('');
-  const [userPosition, setUserPosition] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [role, setRole] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  const router = useRouter();
+
   useEffect(() => {
     const getProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('company_name, company_logo_url, avatar_url, name, position')
-          .eq('id', user.id)
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (data) {
-          setCompanyName(data.company_name || '');
-          setCompanyLogoUrl(data.company_logo_url || '');
-          setAvatarUrl(data.avatar_url || '');
-          setUserName(data.name || '');
-          setUserPosition(data.position || '');
+          setFullName(data.full_name || "");
+          setRole(data.role || "");
+          setCompanyName(data.company_name || "");
+          setCompanyLogoUrl(data.company_logo_url || "");
+          setAvatarUrl(data.avatar_url || "");
         }
       }
     };
@@ -38,105 +41,117 @@ export default function ProfilePage() {
   }, []);
 
   const updateProfile = async () => {
-    await supabase.from('profiles').upsert({
+    if (!user) return;
+    const updates = {
       id: user.id,
+      full_name: fullName,
+      role,
       company_name: companyName,
       company_logo_url: companyLogoUrl,
       avatar_url: avatarUrl,
-      name: userName,
-      position: userPosition
-    });
-    alert('อัปเดตสำเร็จ');
+    };
+
+    const { error } = await supabase.from("profiles").upsert(updates);
+    if (error) {
+      alert("บันทึกไม่สำเร็จ");
+    } else {
+      alert("บันทึกสำเร็จ");
+    }
   };
 
-  const uploadImage = async (e, type) => {
-    try {
-      const file = e.target.files[0];
-      if (!file || !user) return;
+  const uploadFile = async (e, type: "logo" | "avatar") => {
+    const file = e.target.files[0];
+    if (!file || !user) return;
 
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/${type}.${fileExt}`;
-      if (type === 'logo') setUploadingLogo(true);
-      else setUploadingAvatar(true);
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${user.id}/${type}.${fileExt}`;
+    const bucket = "company-logos"; // ใช้ bucket เดียวกัน
 
-      const { error: uploadError } = await supabase.storage
-        .from('company-logos')
-        .upload(filePath, file, { upsert: true });
+    type === "logo" ? setUploadingLogo(true) : setUploadingAvatar(true);
 
-      if (uploadError) throw uploadError;
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, { upsert: true });
 
-      const { data } = supabase.storage.from('company-logos').getPublicUrl(filePath);
-      if (type === 'logo') setCompanyLogoUrl(data.publicUrl);
-      else setAvatarUrl(data.publicUrl);
-    } catch (error) {
-      alert('อัปโหลดไม่สำเร็จ');
-    } finally {
-      setUploadingLogo(false);
-      setUploadingAvatar(false);
+    if (uploadError) {
+      alert("อัปโหลดไฟล์ไม่สำเร็จ");
+      type === "logo" ? setUploadingLogo(false) : setUploadingAvatar(false);
+      return;
     }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    type === "logo" ? setCompanyLogoUrl(data.publicUrl) : setAvatarUrl(data.publicUrl);
+
+    type === "logo" ? setUploadingLogo(false) : setUploadingAvatar(false);
   };
 
   return (
     <div className="max-w-xl mx-auto py-10 px-4">
-      <button onClick={() => router.back()} className="mb-6 text-blue-600 underline">← ย้อนกลับ</button>
-
       <h1 className="text-2xl font-bold mb-6">โปรไฟล์บริษัท</h1>
 
+      <button
+        onClick={() => router.back()}
+        className="mb-6 text-sm text-blue-600 hover:underline"
+      >
+        ← ย้อนกลับ
+      </button>
+
+      {/* Full Name */}
+      <label className="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
+      <input
+        type="text"
+        className="mt-1 mb-4 block w-full border rounded-md p-2"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+      />
+
+      {/* Role */}
+      <label className="block text-sm font-medium text-gray-700">ตำแหน่ง</label>
+      <input
+        type="text"
+        className="mt-1 mb-4 block w-full border rounded-md p-2"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+      />
+
+      {/* Company Name */}
       <label className="block text-sm font-medium text-gray-700">ชื่อบริษัท</label>
       <input
         type="text"
-        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+        className="mt-1 mb-4 block w-full border rounded-md p-2"
         value={companyName}
         onChange={(e) => setCompanyName(e.target.value)}
       />
 
-      <label className="block mt-6 text-sm font-medium text-gray-700">โลโก้บริษัท</label>
+      {/* Company Logo */}
+      <label className="block text-sm font-medium text-gray-700">โลโก้บริษัท</label>
       {companyLogoUrl && (
-        <div className="mt-2">
-          <Image src={companyLogoUrl} alt="Company Logo" width={150} height={150} />
-        </div>
+        <Image src={companyLogoUrl} alt="Logo" width={120} height={120} className="mt-2" />
       )}
       <input
         type="file"
         accept="image/*"
-        className="mt-2"
-        onChange={(e) => uploadImage(e, 'logo')}
+        className="mt-2 mb-4"
+        onChange={(e) => uploadFile(e, "logo")}
         disabled={uploadingLogo}
       />
 
-      <label className="block mt-6 text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
-      <input
-        type="text"
-        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-        value={userName}
-        onChange={(e) => setUserName(e.target.value)}
-      />
-
-      <label className="block mt-6 text-sm font-medium text-gray-700">ตำแหน่งผู้ใช้</label>
-      <input
-        type="text"
-        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
-        value={userPosition}
-        onChange={(e) => setUserPosition(e.target.value)}
-      />
-
-      <label className="block mt-6 text-sm font-medium text-gray-700">Avatar ผู้ใช้</label>
+      {/* Avatar */}
+      <label className="block text-sm font-medium text-gray-700">รูปผู้ใช้ (Avatar)</label>
       {avatarUrl && (
-        <div className="mt-2">
-          <Image src={avatarUrl} alt="User Avatar" width={100} height={100} className="rounded-full" />
-        </div>
+        <Image src={avatarUrl} alt="Avatar" width={100} height={100} className="mt-2 rounded-full" />
       )}
       <input
         type="file"
         accept="image/*"
-        className="mt-2"
-        onChange={(e) => uploadImage(e, 'avatar')}
+        className="mt-2 mb-6"
+        onChange={(e) => uploadFile(e, "avatar")}
         disabled={uploadingAvatar}
       />
 
       <button
         onClick={updateProfile}
-        className="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
       >
         บันทึกโปรไฟล์
       </button>
