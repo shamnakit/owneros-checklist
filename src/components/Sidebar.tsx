@@ -1,7 +1,8 @@
-import { useUserProfile } from "@/contexts/UserProfileContext";
+import { useUserProfile } from "../contexts/UserProfileContext";
+import { supabase } from "../utils/supabaseClient";
 import Image from "next/image";
 import Link from "next/link";
-import { supabase } from "@/utils/supabaseClient";
+
 
 export default function Sidebar() {
   const { profile, loading } = useUserProfile();

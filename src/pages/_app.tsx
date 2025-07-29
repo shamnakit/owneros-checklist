@@ -20,8 +20,6 @@ function MyApp({ Component, pageProps }) {
   );
 }
 
-export default MyApp;
-
 // ✅ Sidebar.tsx (แก้ลิงก์ให้คลิกได้จริง)
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import Image from "next/image";
