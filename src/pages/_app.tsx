@@ -1,5 +1,5 @@
 // pages/_app.tsx
-import MainLayout from "@/components/MainLayout";
+import MainLayout from "@/layouts/MainLayout";
 import "@/styles/globals.css";
 import { useRouter } from "next/router";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
