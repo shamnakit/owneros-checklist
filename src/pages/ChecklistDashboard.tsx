@@ -1,8 +1,7 @@
-// ChecklistDashboard.tsx (แสดงโปรไฟล์ผู้ใช้ + อัปโหลดโลโก้บริษัท)
-
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
+import { useRouter } from "next/router";
 
 const sections = [
   { id: 1, title: "กลยุทธ์องค์กร", path: "/checklist/group1" },
@@ -14,48 +13,36 @@ const sections = [
 ];
 
 export default function ChecklistDashboard() {
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
-    const loadUser = async () => {
+    const fetchProfile = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      setUserInfo(user);
-
       if (user) {
-        // ดึง avatar URL จาก storage
-        const { data } = await supabase.storage.from("avatars").getPublicUrl(`${user.id}/avatar.png`);
-        setAvatarUrl(data?.publicUrl || null);
+        setUserEmail(user.email || "");
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, avatar_url")
+          .eq("id", user.id)
+          .single();
+        if (profile) {
+          setFullName(profile.full_name || "");
+          setAvatarUrl(profile.avatar_url || "");
+        }
       }
     };
-    loadUser();
+    fetchProfile();
   }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/login";
-  };
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      setUploading(true);
-      const file = e.target.files?.[0];
-      if (!file || !userInfo?.id) return;
-
-      const filePath = `${userInfo.id}/avatar.png`;
-
-      await supabase.storage.from("avatars").upload(filePath, file, {
-        upsert: true,
-      });
-
-      const { data } = await supabase.storage.from("avatars").getPublicUrl(filePath);
-      setAvatarUrl(data?.publicUrl || null);
-    } finally {
-      setUploading(false);
-    }
+    router.push("/login");
   };
 
   return (
@@ -63,30 +50,25 @@ export default function ChecklistDashboard() {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col justify-between">
         <div>
-          {/* Profile */}
-          <div className="mb-6 text-sm text-slate-300">
-            {userInfo && (
-              <div className="flex flex-col items-start gap-3">
-                <div className="flex items-center gap-2">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} className="w-10 h-10 rounded-full" alt="avatar" />
-                  ) : (
-                    <div className="w-10 h-10 bg-slate-600 rounded-full flex items-center justify-center">👤</div>
-                  )}
-                  <div>
-                    <p className="text-white font-medium">{userInfo.user_metadata.full_name || userInfo.email}</p>
-                    <p className="text-xs text-slate-400">{userInfo.email}</p>
-                  </div>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  disabled={uploading}
-                  className="text-xs"
+          {/* User profile section */}
+          <div className="mb-6 cursor-pointer" onClick={() => setShowProfilePopup(true)}>
+            <div className="flex items-center gap-3">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="w-10 h-10 rounded-full border"
                 />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-slate-600 flex items-center justify-center">
+                  👤
+                </div>
+              )}
+              <div className="text-sm">
+                <div className="font-medium">{fullName || "ไม่ระบุชื่อ"}</div>
+                <div className="text-slate-400 text-xs">{userEmail}</div>
               </div>
-            )}
+            </div>
           </div>
 
           <h1 className="text-2xl font-bold mb-6">OwnerOS</h1>
@@ -106,15 +88,12 @@ export default function ChecklistDashboard() {
           </nav>
         </div>
 
-        {/* Footer: Logout */}
-        <div className="text-sm text-slate-300 space-y-2 mt-6">
-          <button
-            onClick={handleLogout}
-            className="text-red-400 hover:text-red-200 underline"
-          >
-            ออกจากระบบ
-          </button>
-        </div>
+        <button
+          onClick={handleLogout}
+          className="text-red-400 hover:text-red-200 text-sm mt-10"
+        >
+          🔒 ออกจากระบบ
+        </button>
       </aside>
 
       {/* Main content */}
@@ -138,6 +117,40 @@ export default function ChecklistDashboard() {
           ))}
         </div>
       </main>
+
+      {/* Profile Popup */}
+      {showProfilePopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[320px] shadow-lg relative">
+            <button
+              onClick={() => setShowProfilePopup(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+            >
+              ✖️
+            </button>
+            <h3 className="text-lg font-semibold mb-4">โปรไฟล์ผู้ใช้งาน</h3>
+            <div className="flex flex-col items-center space-y-4">
+              {avatarUrl && (
+                <img
+                  src={avatarUrl}
+                  alt="Avatar"
+                  className="w-20 h-20 rounded-full border"
+                />
+              )}
+              <div className="text-center">
+                <div className="font-medium">{fullName || "ไม่ระบุชื่อ"}</div>
+                <div className="text-sm text-gray-500">{userEmail}</div>
+              </div>
+              <button
+                className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded hover:bg-blue-700"
+                onClick={() => alert("Coming soon: Edit profile")}
+              >
+                แก้ไขโปรไฟล์
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
