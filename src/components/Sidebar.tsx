@@ -1,12 +1,22 @@
+"use client"; // เผื่อใช้ใน App Router แต่ถ้าใช้ Pages Router ข้ามได้
+
+import dynamic from "next/dynamic";
 import { useUserProfile } from "../contexts/UserProfileContext";
 import { supabase } from "../utils/supabaseClient";
 import Image from "next/image";
 import Link from "next/link";
 
+// ✅ ป้องกัน SSR: ไม่ให้ render component นี้บน server
+if (typeof window === "undefined") {
+  // สำคัญ: ไม่โหลด component นี้บน server
+  // ทำให้ Next.js ไม่พังตอน prerender
+  // หรือ export default () => null ก็ได้
+  throw new Error("Sidebar should not render on server");
+}
+
 export default function Sidebar() {
   const context = useUserProfile();
 
-  // ป้องกันกรณี context == null
   if (!context || context.loading || !context.profile) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
