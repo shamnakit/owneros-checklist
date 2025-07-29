@@ -1,4 +1,4 @@
-// ChecklistPage.tsx (เพิ่มระบบสรุป Progress % ความคืบหน้า)
+// ChecklistPage.tsx (แก้ 4 ปัญหา: logout, user info, checkbox bug, แนบไฟล์)
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabaseClient';
@@ -13,6 +13,7 @@ interface ChecklistItem {
 
 export default function ChecklistPage() {
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [warnings, setWarnings] = useState<Record<string, boolean>>({});
   const [newItemName, setNewItemName] = useState<string>('');
@@ -24,11 +25,17 @@ export default function ChecklistPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
       setUserId(user.id);
+      setUserEmail(user.email || null);
+
       const { data } = await supabase.from('checklists').select('*').eq('user_id', user.id);
       if (data) {
-        setItems(data);
+        const sanitized = data.map((item) => ({
+          ...item,
+          checked: !!item.checked, // fallback กัน null
+        }));
+        setItems(sanitized);
         const warn: Record<string, boolean> = {};
-        data.forEach((item) => {
+        sanitized.forEach((item) => {
           warn[item.id] = item.checked && !item.file_path;
         });
         setWarnings(warn);
@@ -56,7 +63,9 @@ export default function ChecklistPage() {
     const ext = file.name.split('.').pop();
     const filename = `${userId}/${item.name}-${uuidv4()}.${ext}`;
 
-    const { error } = await supabase.storage.from('checklist-files').upload(filename, file);
+    const { error } = await supabase.storage.from('checklist-files').upload(filename, file, {
+      upsert: true,
+    });
     if (error) return alert('Upload failed: ' + error.message);
 
     await supabase.from('checklists').update({ file_path: filename }).eq('id', item.id);
@@ -90,7 +99,7 @@ export default function ChecklistPage() {
       .select()
       .single();
     if (error) return alert('เพิ่ม Checklist ไม่สำเร็จ: ' + error.message);
-    setItems([...items, data]);
+    setItems([...items, { ...data, checked: false }]);
     setNewItemName('');
   };
 
@@ -98,8 +107,18 @@ export default function ChecklistPage() {
   const done = items.filter((item) => item.checked).length;
   const progress = total === 0 ? 0 : Math.round((done / total) * 100);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/login';
+  };
+
   return (
     <div className="p-6 max-w-2xl mx-auto">
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-sm text-slate-600">👤 {userEmail}</div>
+        <button onClick={handleLogout} className="text-red-600 text-sm underline">ออกจากระบบ</button>
+      </div>
+
       <h1 className="text-2xl font-bold mb-2">Checklist ระบบองค์กร</h1>
       <p className="text-slate-600 mb-6">ความคืบหน้า: <strong>{progress}%</strong> ({done}/{total})</p>
 
@@ -124,7 +143,7 @@ export default function ChecklistPage() {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={item.checked}
+              checked={!!item.checked}
               onChange={() => updateCheck(item)}
               className="accent-green-600"
             />
