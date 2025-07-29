@@ -4,7 +4,7 @@ import "@/styles/globals.css";
 import { useRouter } from "next/router";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
 
-export default function MyApp({ Component, pageProps }) {
+function MyApp({ Component, pageProps }) {
   const router = useRouter();
   const hideSidebar = router.pathname === "/checklist/login";
   const useLayout = router.pathname.startsWith("/checklist") && !hideSidebar;
@@ -19,6 +19,8 @@ export default function MyApp({ Component, pageProps }) {
     </UserProfileProvider>
   );
 }
+
+export default MyApp;
 
 // ✅ Sidebar.tsx (แก้ลิงก์ให้คลิกได้จริง)
 import { useUserProfile } from "@/contexts/UserProfileContext";
