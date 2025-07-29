@@ -1,7 +1,7 @@
 // ChecklistPage.tsx (เพิ่มระบบสรุป Progress % ความคืบหน้า)
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from '@/utils/supabaseClient';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChecklistItem {
