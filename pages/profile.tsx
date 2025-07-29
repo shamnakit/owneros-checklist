@@ -11,7 +11,6 @@ export default function ProfilePage() {
   const [companyLogoUrl, setCompanyLogoUrl] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const router = useRouter();
 
@@ -59,30 +58,34 @@ export default function ProfilePage() {
     }
   };
 
-  const uploadFile = async (e, type: "logo" | "avatar") => {
+  const uploadLogo = async (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
 
-    const fileExt = file.name.split(".").pop();
-    const filePath = `${user.id}/${type}.${fileExt}`;
-    const bucket = "company-logos"; // ใช้ bucket เดียวกัน
+    if (file.size > 2 * 1024 * 1024) {
+      alert("ขนาดไฟล์ต้องไม่เกิน 2MB");
+      return;
+    }
 
-    type === "logo" ? setUploadingLogo(true) : setUploadingAvatar(true);
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${user.id}/logo.${fileExt}`;
+    const bucket = "company-logos";
+
+    setUploadingLogo(true);
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
       .upload(filePath, file, { upsert: true });
 
     if (uploadError) {
-      alert("อัปโหลดไฟล์ไม่สำเร็จ");
-      type === "logo" ? setUploadingLogo(false) : setUploadingAvatar(false);
+      alert("อัปโหลดโลโก้ไม่สำเร็จ");
+      setUploadingLogo(false);
       return;
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    type === "logo" ? setCompanyLogoUrl(data.publicUrl) : setAvatarUrl(data.publicUrl);
-
-    type === "logo" ? setUploadingLogo(false) : setUploadingAvatar(false);
+    setCompanyLogoUrl(data.publicUrl);
+    setUploadingLogo(false);
   };
 
   return (
@@ -126,28 +129,42 @@ export default function ProfilePage() {
       {/* Company Logo */}
       <label className="block text-sm font-medium text-gray-700">โลโก้บริษัท</label>
       {companyLogoUrl && (
-        <Image src={companyLogoUrl} alt="Logo" width={120} height={120} className="mt-2" />
+        <Image
+          src={companyLogoUrl}
+          alt="Logo"
+          width={120}
+          height={120}
+          className="mt-2"
+        />
       )}
       <input
         type="file"
         accept="image/*"
         className="mt-2 mb-4"
-        onChange={(e) => uploadFile(e, "logo")}
+        onChange={uploadLogo}
         disabled={uploadingLogo}
       />
 
-      {/* Avatar */}
-      <label className="block text-sm font-medium text-gray-700">รูปผู้ใช้ (Avatar)</label>
-      {avatarUrl && (
-        <Image src={avatarUrl} alt="Avatar" width={100} height={100} className="mt-2 rounded-full" />
-      )}
-      <input
-        type="file"
-        accept="image/*"
-        className="mt-2 mb-6"
-        onChange={(e) => uploadFile(e, "avatar")}
-        disabled={uploadingAvatar}
-      />
+      {/* Avatar Selection */}
+      <label className="block text-sm font-medium text-gray-700 mb-2">รูปผู้ใช้ (Avatar)</label>
+      <div className="flex gap-4 mb-6">
+        <button
+          className={`border rounded p-2 ${
+            avatarUrl.includes("male.png") ? "ring-2 ring-blue-500" : ""
+          }`}
+          onClick={() => setAvatarUrl("/avatars/male.png")}
+        >
+          <Image src="/avatars/male.png" alt="ชาย" width={60} height={60} />
+        </button>
+        <button
+          className={`border rounded p-2 ${
+            avatarUrl.includes("female.png") ? "ring-2 ring-pink-500" : ""
+          }`}
+          onClick={() => setAvatarUrl("/avatars/female.png")}
+        >
+          <Image src="/avatars/female.png" alt="หญิง" width={60} height={60} />
+        </button>
+      </div>
 
       <button
         onClick={updateProfile}
