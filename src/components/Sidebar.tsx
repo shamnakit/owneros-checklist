@@ -4,15 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function Sidebar() {
-  const { profile, loading } = useUserProfile();
+  const context = useUserProfile();
 
-  if (loading || !profile) {
+  // ป้องกันกรณี context == null
+  if (!context || context.loading || !context.profile) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
         <p>กำลังโหลดข้อมูล...</p>
       </div>
     );
   }
+
+  const { profile } = context;
 
   return (
     <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
@@ -65,31 +68,30 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation */}
-<nav className="mt-6">
-  <ul className="space-y-2">
-    <li>
-      <Link href="/checklist" className="hover:underline block">
-        ✔ Checklist
-      </Link>
-    </li>
-    <li>
-      <Link href="/checklist/summary" className="hover:underline block">
-        📊 Summary
-      </Link>
-    </li>
-    <li>
-      <Link href="/checklist/settings" className="hover:underline block">
-        ⚙ Settings
-      </Link>
-    </li>
-    <li>
-      <Link href="/checklist/change-password" className="hover:underline block text-yellow-400">
-        🔐 เปลี่ยนรหัสผ่าน
-      </Link>
-    </li>
-  </ul>
-</nav>
-
+        <nav className="mt-6">
+          <ul className="space-y-2">
+            <li>
+              <Link href="/checklist" className="hover:underline block">
+                ✔ Checklist
+              </Link>
+            </li>
+            <li>
+              <Link href="/checklist/summary" className="hover:underline block">
+                📊 Summary
+              </Link>
+            </li>
+            <li>
+              <Link href="/checklist/settings" className="hover:underline block">
+                ⚙ Settings
+              </Link>
+            </li>
+            <li>
+              <Link href="/checklist/change-password" className="hover:underline block text-yellow-400">
+                🔐 เปลี่ยนรหัสผ่าน
+              </Link>
+            </li>
+          </ul>
+        </nav>
       </div>
 
       {/* Logout */}
