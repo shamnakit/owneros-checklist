@@ -1,7 +1,8 @@
 import React from "react";
 import Link from "next/link";
-import { useUser } from '@/hooks/useUser';
 import Image from "next/image";
+import { useUser } from "@/hooks/useUser";
+import { supabase } from "@/utils/supabaseClient";
 
 const sections = [
   { id: 1, title: "กลยุทธ์องค์กร", path: "/checklist/group1" },
@@ -15,54 +16,75 @@ const sections = [
 export default function ChecklistDashboard() {
   const { profile } = useUser();
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-800 text-white p-6 space-y-4">
-        <div className="flex items-center space-x-3 mb-6">
-          {profile?.company_logo_url && (
-            <Image
-              src={profile.company_logo_url}
-              alt="Logo"
-              width={40}
-              height={40}
-              className="rounded"
-            />
-          )}
-          <div>
-            <div className="font-bold text-lg">{profile?.company_name || 'OwnerOS'}</div>
-            <Link href="/profile" className="text-sm text-blue-300 hover:underline">
-              แก้ไขโปรไฟล์
-            </Link>
+      <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col justify-between">
+        <div>
+          {/* Company Profile */}
+          <div className="flex items-center space-x-3 mb-6">
+            {profile?.company_logo_url && (
+              <Image
+                src={profile.company_logo_url}
+                alt="Logo"
+                width={40}
+                height={40}
+                className="rounded bg-white p-1"
+              />
+            )}
+            <div>
+              <div className="font-bold text-lg">
+                {profile?.company_name || "OwnerOS"}
+              </div>
+              <Link href="/profile" className="text-sm text-blue-300 hover:underline">
+                แก้ไขโปรไฟล์
+              </Link>
+            </div>
           </div>
+
+          {/* Menu */}
+          <nav className="space-y-3">
+            <Link href="/checklist">
+              <div className="flex items-center space-x-2 hover:text-blue-400">
+                <span>📋</span>
+                <span>Checklist</span>
+              </div>
+            </Link>
+            <Link href="/summary">
+              <div className="flex items-center space-x-2 hover:text-blue-400">
+                <span>📊</span>
+                <span>Summary</span>
+              </div>
+            </Link>
+            <Link href="/settings">
+              <div className="flex items-center space-x-2 hover:text-blue-400">
+                <span>⚙️</span>
+                <span>Settings</span>
+              </div>
+            </Link>
+          </nav>
         </div>
 
-        <nav className="space-y-3">
-          <Link href="/checklist">
-            <div className="flex items-center space-x-2 hover:text-blue-400">
-              <span>📋</span>
-              <span>Checklist</span>
-            </div>
-          </Link>
-          <Link href="/summary">
-            <div className="flex items-center space-x-2 hover:text-blue-400">
-              <span>📊</span>
-              <span>Summary</span>
-            </div>
-          </Link>
-          <Link href="/settings">
-            <div className="flex items-center space-x-2 hover:text-blue-400">
-              <span>⚙️</span>
-              <span>Settings</span>
-            </div>
-          </Link>
-        </nav>
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="w-full text-sm mt-6 bg-red-600 px-4 py-2 rounded text-white hover:bg-red-700"
+        >
+          ออกจากระบบ
+        </button>
       </aside>
 
       {/* Main content */}
       <main className="flex-1 bg-slate-50 p-10">
         <h2 className="text-2xl font-bold text-slate-800">Checklist ระบบองค์กร</h2>
-        <p className="text-slate-500 mt-1 mb-6">เอกสารสำคัญในการวางระบบบริษัท</p>
+        <p className="text-slate-500 mt-1 mb-6">
+          เอกสารสำคัญในการวางระบบบริษัท
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sections.map((section) => (

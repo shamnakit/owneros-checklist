@@ -6,6 +6,7 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [companyName, setCompanyName] = useState('');
   const [companyLogoUrl, setCompanyLogoUrl] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -13,15 +14,16 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles')
-          .select('company_name, company_logo_url')
+          .select('company_name, company_logo_url, avatar_url')
           .eq('id', user.id)
           .single();
 
         if (data) {
           setCompanyName(data.company_name || '');
           setCompanyLogoUrl(data.company_logo_url || '');
+          setAvatarUrl(data.avatar_url || '');
         }
       }
     };
@@ -29,22 +31,24 @@ export default function ProfilePage() {
   }, []);
 
   const updateProfile = async () => {
+    if (!user) return;
     await supabase.from('profiles').upsert({
       id: user.id,
       company_name: companyName,
-      company_logo_url: companyLogoUrl
+      company_logo_url: companyLogoUrl,
+      avatar_url: avatarUrl
     });
     alert('อัปเดตสำเร็จ');
   };
 
-  const uploadLogo = async (e) => {
+  const uploadImage = async (e, type) => {
     try {
       setUploading(true);
-      const file = e.target.files[0];
+      const file = e.target.files?.[0];
       if (!file || !user) return;
 
       const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/logo.${fileExt}`;
+      const filePath = `${user.id}/${type}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('company-logos')
@@ -52,13 +56,12 @@ export default function ProfilePage() {
 
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from('company-logos')
-        .getPublicUrl(filePath);
+      const { data } = supabase.storage.from('company-logos').getPublicUrl(filePath);
 
-      setCompanyLogoUrl(data.publicUrl);
+      if (type === 'logo') setCompanyLogoUrl(data.publicUrl);
+      if (type === 'avatar') setAvatarUrl(data.publicUrl);
     } catch (error) {
-      alert('อัปโหลดโลโก้ไม่สำเร็จ');
+      alert('อัปโหลดไม่สำเร็จ');
     } finally {
       setUploading(false);
     }
@@ -86,7 +89,21 @@ export default function ProfilePage() {
         type="file"
         accept="image/*"
         className="mt-2"
-        onChange={uploadLogo}
+        onChange={(e) => uploadImage(e, 'logo')}
+        disabled={uploading}
+      />
+
+      <label className="block mt-6 text-sm font-medium text-gray-700">Avatar ผู้ใช้</label>
+      {avatarUrl && (
+        <div className="mt-2">
+          <Image src={avatarUrl} alt="User Avatar" width={100} height={100} className="rounded-full" />
+        </div>
+      )}
+      <input
+        type="file"
+        accept="image/*"
+        className="mt-2"
+        onChange={(e) => uploadImage(e, 'avatar')}
         disabled={uploading}
       />
 
