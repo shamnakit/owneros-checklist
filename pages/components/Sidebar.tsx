@@ -4,14 +4,22 @@ import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 
 export default function Sidebar() {
-  const { profile } = useUserProfile();
+  const { profile, loading } = useUserProfile();
+
+  if (loading || !profile) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        <p>กำลังโหลดข้อมูล...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
       <div>
         {/* Avatar */}
         <div className="flex justify-center mt-4">
-          {profile?.avatar_url ? (
+          {profile.avatar_url ? (
             <Image
               src={profile.avatar_url}
               alt="User Avatar"
@@ -28,10 +36,10 @@ export default function Sidebar() {
 
         {/* Full Name */}
         <div className="text-center mt-2 text-lg font-semibold">
-          {profile?.full_name || "ชื่อผู้ใช้"}
+          {profile.full_name || "ชื่อผู้ใช้"}
         </div>
 
-        {/* Edit Profile Link */}
+        {/* Edit Profile */}
         <div className="text-center mb-4">
           <Link href="/checklist/profile">
             <span className="text-blue-400 text-xs hover:underline">
@@ -40,22 +48,22 @@ export default function Sidebar() {
           </Link>
         </div>
 
-        {/* Company Logo */}
-        {profile?.company_logo_url && (
-          <div className="flex justify-center mb-2">
-            <Image
-              src={profile.company_logo_url}
-              alt="Company Logo"
-              width={100}
-              height={100}
-              className="rounded"
-            />
+        {/* Company Logo & Name */}
+        <div className="text-center mb-4">
+          {profile.company_logo_url && (
+            <div className="flex justify-center mb-2">
+              <Image
+                src={profile.company_logo_url}
+                alt="Company Logo"
+                width={100}
+                height={100}
+                className="rounded"
+              />
+            </div>
+          )}
+          <div className="text-sm">
+            {profile.company_name || "ชื่อบริษัท"}
           </div>
-        )}
-
-        {/* Company Name */}
-        <div className="text-center text-sm">
-          {profile?.company_name || "ชื่อบริษัท"}
         </div>
 
         {/* Navigation */}
@@ -63,17 +71,17 @@ export default function Sidebar() {
           <ul className="space-y-2">
             <li>
               <Link href="/checklist">
-                <span className="hover:underline">Checklist</span>
+                <span className="hover:underline">✔ Checklist</span>
               </Link>
             </li>
             <li>
               <Link href="/checklist/summary">
-                <span className="hover:underline">Summary</span>
+                <span className="hover:underline">📊 Summary</span>
               </Link>
             </li>
             <li>
               <Link href="/checklist/settings">
-                <span className="hover:underline">Settings</span>
+                <span className="hover:underline">⚙ Settings</span>
               </Link>
             </li>
           </ul>
@@ -86,7 +94,7 @@ export default function Sidebar() {
           await supabase.auth.signOut();
           window.location.href = "/checklist/login";
         }}
-        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm"
+        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm mt-6"
       >
         ออกจากระบบ
       </button>
