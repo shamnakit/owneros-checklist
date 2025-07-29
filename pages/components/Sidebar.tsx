@@ -3,9 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 
-
 export default function Sidebar() {
-  const { profile, loading } = useUserProfile();
+  const { profile } = useUserProfile();
 
   return (
     <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
@@ -27,19 +26,36 @@ export default function Sidebar() {
           )}
         </div>
 
-        {/* Company & User Info */}
-        <div className="text-center mt-2">
-          <div className="font-semibold text-lg">
-            {profile?.company_name || "ชื่อบริษัท"}
-          </div>
-          <div className="text-sm">
-            {profile?.full_name || "ชื่อผู้ใช้"}
-          </div>
+        {/* Full Name */}
+        <div className="text-center mt-2 text-lg font-semibold">
+          {profile?.full_name || "ชื่อผู้ใช้"}
+        </div>
+
+        {/* Edit Profile Link */}
+        <div className="text-center mb-4">
           <Link href="/checklist/profile">
             <span className="text-blue-400 text-xs hover:underline">
               แก้ไขโปรไฟล์
             </span>
           </Link>
+        </div>
+
+        {/* Company Logo */}
+        {profile?.company_logo_url && (
+          <div className="flex justify-center mb-2">
+            <Image
+              src={profile.company_logo_url}
+              alt="Company Logo"
+              width={100}
+              height={100}
+              className="rounded"
+            />
+          </div>
+        )}
+
+        {/* Company Name */}
+        <div className="text-center text-sm">
+          {profile?.company_name || "ชื่อบริษัท"}
         </div>
 
         {/* Navigation */}
