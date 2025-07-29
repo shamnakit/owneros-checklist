@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/utils/supabaseClient";
 
 const sections = [
   { id: 1, title: "กลยุทธ์องค์กร", path: "/checklist/group1" },
@@ -11,25 +12,53 @@ const sections = [
 ];
 
 export default function ChecklistDashboard() {
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserEmail(user?.email || null);
+    };
+    loadUser();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-800 text-white p-6 space-y-4">
-        <h1 className="text-2xl font-bold mb-6">OwnerOS</h1>
-        <nav className="space-y-3">
-          <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
-            <span>📋</span>
-            <span>Checklist</span>
-          </a>
-          <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
-            <span>📊</span>
-            <span>Summary</span>
-          </a>
-          <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
-            <span>⚙️</span>
-            <span>Settings</span>
-          </a>
-        </nav>
+      <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col justify-between">
+        <div>
+          <h1 className="text-2xl font-bold mb-6">OwnerOS</h1>
+          <nav className="space-y-3">
+            <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
+              <span>📋</span>
+              <span>Checklist</span>
+            </a>
+            <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
+              <span>📊</span>
+              <span>Summary</span>
+            </a>
+            <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
+              <span>⚙️</span>
+              <span>Settings</span>
+            </a>
+          </nav>
+        </div>
+
+        {/* Footer: Email + Logout */}
+        <div className="text-sm text-slate-300 space-y-2 mt-6">
+          {userEmail && <div>👤 {userEmail}</div>}
+          <button
+            onClick={handleLogout}
+            className="text-red-400 hover:text-red-200 underline"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}

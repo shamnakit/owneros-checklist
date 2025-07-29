@@ -1,4 +1,4 @@
-// ChecklistPage.tsx (แก้ 4 ปัญหา: logout, user info, checkbox bug, แนบไฟล์)
+// ChecklistPage.tsx (ย้ายปุ่ม Logout ออกจากหน้า checklist)
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabaseClient';
@@ -107,18 +107,8 @@ export default function ChecklistPage() {
   const done = items.filter((item) => item.checked).length;
   const progress = total === 0 ? 0 : Math.round((done / total) * 100);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/login';
-  };
-
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-sm text-slate-600">👤 {userEmail}</div>
-        <button onClick={handleLogout} className="text-red-600 text-sm underline">ออกจากระบบ</button>
-      </div>
-
       <h1 className="text-2xl font-bold mb-2">Checklist ระบบองค์กร</h1>
       <p className="text-slate-600 mb-6">ความคืบหน้า: <strong>{progress}%</strong> ({done}/{total})</p>
 
