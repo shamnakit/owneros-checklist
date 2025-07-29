@@ -41,10 +41,8 @@ export default function Sidebar() {
 
         {/* Edit Profile */}
         <div className="text-center mb-4">
-          <Link href="/checklist/profile">
-            <span className="text-blue-400 text-xs hover:underline">
-              แก้ไขโปรไฟล์
-            </span>
+          <Link href="/checklist/profile" className="text-blue-400 text-xs hover:underline">
+            แก้ไขโปรไฟล์
           </Link>
         </div>
 
@@ -70,18 +68,18 @@ export default function Sidebar() {
         <nav className="mt-6">
           <ul className="space-y-2">
             <li>
-              <Link href="/checklist">
-                <span className="hover:underline">✔ Checklist</span>
+              <Link href="/checklist" className="hover:underline block">
+                ✔ Checklist
               </Link>
             </li>
             <li>
-              <Link href="/checklist/summary">
-                <span className="hover:underline">📊 Summary</span>
+              <Link href="/checklist/summary" className="hover:underline block">
+                📊 Summary
               </Link>
             </li>
             <li>
-              <Link href="/checklist/settings">
-                <span className="hover:underline">⚙ Settings</span>
+              <Link href="/checklist/settings" className="hover:underline block">
+                ⚙ Settings
               </Link>
             </li>
           </ul>
