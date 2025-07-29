@@ -1,3 +1,5 @@
+// ChecklistDashboard.tsx (เพิ่มแสดงโปรไฟล์ด้านบนสุดของ Sidebar)
+
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
@@ -32,6 +34,16 @@ export default function ChecklistDashboard() {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col justify-between">
         <div>
+          {/* Profile */}
+          <div className="mb-6 text-sm text-slate-300">
+            {userEmail && (
+              <div className="flex items-center gap-2 text-white font-medium">
+                <span>👤</span>
+                <span>{userEmail}</span>
+              </div>
+            )}
+          </div>
+
           <h1 className="text-2xl font-bold mb-6">OwnerOS</h1>
           <nav className="space-y-3">
             <a href="#" className="flex items-center space-x-2 hover:text-blue-400">
@@ -49,9 +61,8 @@ export default function ChecklistDashboard() {
           </nav>
         </div>
 
-        {/* Footer: Email + Logout */}
+        {/* Footer: Logout */}
         <div className="text-sm text-slate-300 space-y-2 mt-6">
-          {userEmail && <div>👤 {userEmail}</div>}
           <button
             onClick={handleLogout}
             className="text-red-400 hover:text-red-200 underline"
