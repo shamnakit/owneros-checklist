@@ -1,31 +1,19 @@
-"use client"; // เผื่อใช้ใน App Router แต่ถ้าใช้ Pages Router ข้ามได้
-
-import dynamic from "next/dynamic";
-import { useUserProfile } from "../contexts/UserProfileContext";
-import { supabase } from "../utils/supabaseClient";
+// src/components/Sidebar.tsx
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import Image from "next/image";
 import Link from "next/link";
-
-// ✅ ป้องกัน SSR: ไม่ให้ render component นี้บน server
-if (typeof window === "undefined") {
-  // สำคัญ: ไม่โหลด component นี้บน server
-  // ทำให้ Next.js ไม่พังตอน prerender
-  // หรือ export default () => null ก็ได้
-  throw new Error("Sidebar should not render on server");
-}
+import { supabase } from "@/utils/supabaseClient";
 
 export default function Sidebar() {
-  const context = useUserProfile();
+  const { profile, loading } = useUserProfile();
 
-  if (!context || context.loading || !context.profile) {
+  if (loading || !profile) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
         <p>กำลังโหลดข้อมูล...</p>
       </div>
     );
   }
-
-  const { profile } = context;
 
   return (
     <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
@@ -93,11 +81,6 @@ export default function Sidebar() {
             <li>
               <Link href="/checklist/settings" className="hover:underline block">
                 ⚙ Settings
-              </Link>
-            </li>
-            <li>
-              <Link href="/checklist/change-password" className="hover:underline block text-yellow-400">
-                🔐 เปลี่ยนรหัสผ่าน
               </Link>
             </li>
           </ul>

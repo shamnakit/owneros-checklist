@@ -1,5 +1,8 @@
-import ChecklistDashboard from './ChecklistDashboard';
+import dynamic from "next/dynamic";
 
-export default function DashboardPage() {
-  return <ChecklistDashboard />;
+// ✅ dynamic import เพื่อปิด SSR
+const DashboardPage = dynamic(() => import("@/components/DashboardPage"), { ssr: false });
+
+export default function Dashboard() {
+  return <DashboardPage />;
 }

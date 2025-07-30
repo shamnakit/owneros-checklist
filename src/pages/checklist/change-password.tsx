@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/router";
 
@@ -7,6 +7,16 @@ export default function ChangePasswordPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        router.push("/checklist/login");
+      }
+    };
+    checkSession();
+  }, []);
 
   const handleChangePassword = async () => {
     setLoading(true);
@@ -37,7 +47,11 @@ export default function ChangePasswordPage() {
       >
         {loading ? "กำลังเปลี่ยน..." : "เปลี่ยนรหัสผ่าน"}
       </button>
-      {message && <p className="mt-4 text-center">{message}</p>}
+      {message && (
+        <p className={`mt-4 text-center ${message.startsWith("✅") ? "text-green-600" : "text-red-600"}`}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }

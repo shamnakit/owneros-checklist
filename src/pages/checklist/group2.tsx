@@ -1,11 +1,6 @@
 import dynamic from "next/dynamic";
+const Group2Page = dynamic(() => import("@/components/checklist/Group2Page"), { ssr: false });
 
-// ✅ ปิด SSR เพื่อหลีกเลี่ยง useUserProfile error
-const Group2Checklist = dynamic(
-  () => import("@/components/checklist/Group2Page"),
-  { ssr: false }
-);
-
-export default function Group2Page() {
-  return <Group2Checklist />;
+export default function Group2() {
+  return <Group2Page />;
 }
