@@ -91,7 +91,7 @@ export default function Sidebar() {
       <button
         onClick={async () => {
           await supabase.auth.signOut();
-          window.location.href = "/checklist/login";
+          window.location.href = "/login";
         }}
         className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm mt-6"
       >

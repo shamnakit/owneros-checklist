@@ -9,7 +9,7 @@ const MainLayout = dynamic(() => import("@/layouts/MainLayout"), { ssr: false })
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
-  const hideSidebar = router.pathname === "/checklist/login";
+  const hideSidebar = router.pathname === "/login";
   const useLayout = router.pathname.startsWith("/checklist") && !hideSidebar;
 
   const Layout = useLayout
