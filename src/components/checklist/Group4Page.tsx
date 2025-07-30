@@ -1,4 +1,4 @@
-// pages/checklist/Group4Page.tsx 
+// src/components/checklist/Group4Page.tsx
 import React from "react";
 import Link from "next/link";
 
@@ -25,7 +25,6 @@ export default function Group4Page() {
         </li>
       </ul>
 
-      {/* ปุ่มกลับหน้าหลัก */}
       <div className="absolute bottom-6 right-6">
         <Link
           href="/dashboard"
