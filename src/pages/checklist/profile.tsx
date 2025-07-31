@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import MainLayout from "@/layouts/MainLayout";
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
@@ -94,90 +93,85 @@ export default function ProfilePage() {
     setUploadingLogo(false);
   };
 
-  if (loading)
-    return (
-      <MainLayout>
-        <p className="text-center mt-10">กำลังโหลด...</p>
-      </MainLayout>
-    );
+  if (loading) {
+    return <p className="text-center mt-10">กำลังโหลด...</p>;
+  }
 
   return (
-    <MainLayout>
-      <div className="max-w-xl mx-auto py-10 px-4">
-        <h1 className="text-2xl font-bold mb-6">โปรไฟล์บริษัท</h1>
+    <div className="max-w-xl mx-auto py-10 px-4">
+      <h1 className="text-2xl font-bold mb-6">โปรไฟล์บริษัท</h1>
 
+      <button
+        onClick={() => router.back()}
+        className="mb-6 text-sm text-blue-600 hover:underline"
+      >
+        ← ย้อนกลับ
+      </button>
+
+      <label className="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
+      <input
+        type="text"
+        className="mt-1 mb-4 block w-full border rounded-md p-2"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+      />
+
+      <label className="block text-sm font-medium text-gray-700">ตำแหน่ง</label>
+      <input
+        type="text"
+        className="mt-1 mb-4 block w-full border rounded-md p-2"
+        value={role}
+        onChange={(e) => setRole(e.target.value)}
+      />
+
+      <label className="block text-sm font-medium text-gray-700">ชื่อบริษัท</label>
+      <input
+        type="text"
+        className="mt-1 mb-4 block w-full border rounded-md p-2"
+        value={companyName}
+        onChange={(e) => setCompanyName(e.target.value)}
+      />
+
+      <label className="block text-sm font-medium text-gray-700">โลโก้บริษัท</label>
+      {companyLogoUrl && (
+        <Image src={companyLogoUrl} alt="Logo" width={120} height={120} className="mt-2" />
+      )}
+      <input
+        type="file"
+        accept="image/*"
+        className="mt-2 mb-4"
+        onChange={uploadLogo}
+        disabled={uploadingLogo}
+      />
+
+      <label className="block text-sm font-medium text-gray-700 mb-2">รูปผู้ใช้ (Avatar)</label>
+      <div className="flex gap-4 mb-6">
         <button
-          onClick={() => router.back()}
-          className="mb-6 text-sm text-blue-600 hover:underline"
+          type="button"
+          className={`border rounded p-2 ${
+            avatarUrl.includes("male.png") ? "ring-2 ring-blue-500" : ""
+          }`}
+          onClick={() => setAvatarUrl("/avatars/male.png")}
         >
-          ← ย้อนกลับ
+          <Image src="/avatars/male.png" alt="ชาย" width={60} height={60} />
         </button>
-
-        <label className="block text-sm font-medium text-gray-700">ชื่อผู้ใช้</label>
-        <input
-          type="text"
-          className="mt-1 mb-4 block w-full border rounded-md p-2"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-        />
-
-        <label className="block text-sm font-medium text-gray-700">ตำแหน่ง</label>
-        <input
-          type="text"
-          className="mt-1 mb-4 block w-full border rounded-md p-2"
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        />
-
-        <label className="block text-sm font-medium text-gray-700">ชื่อบริษัท</label>
-        <input
-          type="text"
-          className="mt-1 mb-4 block w-full border rounded-md p-2"
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-        />
-
-        <label className="block text-sm font-medium text-gray-700">โลโก้บริษัท</label>
-        {companyLogoUrl && (
-          <Image src={companyLogoUrl} alt="Logo" width={120} height={120} className="mt-2" />
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          className="mt-2 mb-4"
-          onChange={uploadLogo}
-          disabled={uploadingLogo}
-        />
-
-        <label className="block text-sm font-medium text-gray-700 mb-2">รูปผู้ใช้ (Avatar)</label>
-        <div className="flex gap-4 mb-6">
-          <button
-            type="button"
-            className={`border rounded p-2 ${
-              avatarUrl.includes("male.png") ? "ring-2 ring-blue-500" : ""
-            }`}
-            onClick={() => setAvatarUrl("/avatars/male.png")}
-          >
-            <Image src="/avatars/male.png" alt="ชาย" width={60} height={60} />
-          </button>
-          <button
-            type="button"
-            className={`border rounded p-2 ${
-              avatarUrl.includes("female.png") ? "ring-2 ring-pink-500" : ""
-            }`}
-            onClick={() => setAvatarUrl("/avatars/female.png")}
-          >
-            <Image src="/avatars/female.png" alt="หญิง" width={60} height={60} />
-          </button>
-        </div>
-
         <button
-          onClick={updateProfile}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          type="button"
+          className={`border rounded p-2 ${
+            avatarUrl.includes("female.png") ? "ring-2 ring-pink-500" : ""
+          }`}
+          onClick={() => setAvatarUrl("/avatars/female.png")}
         >
-          บันทึกโปรไฟล์
+          <Image src="/avatars/female.png" alt="หญิง" width={60} height={60} />
         </button>
       </div>
-    </MainLayout>
+
+      <button
+        onClick={updateProfile}
+        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      >
+        บันทึกโปรไฟล์
+      </button>
+    </div>
   );
 }
