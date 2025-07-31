@@ -1,23 +1,27 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 
+// ✅ กำหนด type สำหรับ profile
 type Profile = {
   id: string;
   full_name?: string;
   avatar_url?: string;
   company_logo_url?: string;
   company_name?: string;
-  // เพิ่ม field ที่ใช้จริงในโปรเจกต์
+  position?: string; // ✅ เพิ่มตำแหน่งของผู้ใช้
 };
 
+// ✅ กำหนดรูปแบบ context
 type UserProfileContextType = {
   profile: Profile | null;
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   loading: boolean;
 };
 
+// ✅ สร้าง context
 const UserProfileContext = createContext<UserProfileContextType | null>(null);
 
+// ✅ Provider สำหรับใช้ครอบแอป
 export const UserProfileProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,6 +53,7 @@ export const UserProfileProvider = ({ children }: { children: React.ReactNode })
   );
 };
 
+// ✅ hook สำหรับเรียกใช้งาน context
 export const useUserProfile = () => {
   const context = useContext(UserProfileContext);
   if (!context) {
