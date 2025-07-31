@@ -77,7 +77,7 @@ export default function Sidebar() {
               <span>Summary</span>
             </div>
           </Link>
-          <Link href="/settings">
+          <Link href="/checklist/settings">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>⚙️</span>
               <span>Settings</span>
