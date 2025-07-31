@@ -65,12 +65,12 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="space-y-3">
-          <Link href="/checklistPage">
-            <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
-              <span>📋</span>
-              <span>Checklist</span>
-            </div>
-          </Link>
+          <Link href="/checklist">
+  <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
+    <span>📋</span>
+    <span>Checklist</span>
+  </div>
+</Link>
           <Link href="/summary">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>📊</span>
