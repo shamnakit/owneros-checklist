@@ -4,21 +4,22 @@ import { useRouter } from "next/router";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import dynamic from "next/dynamic";
 
-// ✅ ปิด SSR ของ MainLayout เพื่อหลีกเลี่ยงปัญหา profile ยังโหลดไม่ทันตอน prerender
+// ปิด SSR ของ MainLayout เพื่อหลีกเลี่ยงปัญหาโหลด profile ไม่ทัน
 const MainLayout = dynamic(() => import("@/layouts/MainLayout"), { ssr: false });
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
 
-  // ✅ หน้าที่ไม่ต้องการแสดง Sidebar
-  const hideSidebar = router.pathname === "/login";
+  // ✅ หน้าที่ไม่ต้องมี Sidebar
+  const NO_SIDEBAR_PATHS = ["/login"];
 
-  // ✅ หน้าที่ต้องการแสดง Layout พร้อม Sidebar
-  const showSidebarPaths = ["/dashboard", "/checklist"];
+  // ✅ หน้าที่ควรมี Sidebar (ครอบ layout)
+  const LAYOUT_PATHS = ["/dashboard", "/checklist", "/summary", "/settings"];
+
+  const hideSidebar = NO_SIDEBAR_PATHS.includes(router.pathname);
   const useLayout =
-    showSidebarPaths.some((path) => router.pathname.startsWith(path)) && !hideSidebar;
+    LAYOUT_PATHS.some((path) => router.pathname.startsWith(path)) && !hideSidebar;
 
-  // ✅ เลือก Layout ตามเงื่อนไข
   const Layout = useLayout
     ? ({ children }) => <MainLayout>{children}</MainLayout>
     : ({ children }) => <>{children}</>;
