@@ -1,77 +1,63 @@
-import React from "react";
-import Link from "next/link";
+// src/components/Sidebar.tsx
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import Image from "next/image";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import Link from "next/link";
 import { supabase } from "@/utils/supabaseClient";
 
 export default function Sidebar() {
-  const context = useUserProfile();
+  const { profile, loading } = useUserProfile();
 
-  if (!context || context.loading || !context.profile) {
+  if (loading || !profile) {
     return (
-      <div className="w-64 bg-slate-800 text-white flex items-center justify-center">
-        <p>กำลังโหลด...</p>
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
+        <p>กำลังโหลดข้อมูล...</p>
       </div>
     );
   }
 
-  const { profile } = context;
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  };
-
   return (
-    <aside className="w-64 bg-slate-800 text-white p-6 flex flex-col justify-between">
+    <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
       <div>
-        {/* Avatar + Profile */}
-        <div className="flex flex-col items-center mb-6">
+        {/* Avatar & Profile Info */}
+        <div className="flex flex-col items-center mt-4 mb-6">
           {profile.avatar_url ? (
             <Image
               src={profile.avatar_url}
               alt="User Avatar"
-              width={72}
-              height={72}
-              className="rounded-full border-2 border-white mb-2"
+              width={80}
+              height={80}
+              className="rounded-full border"
             />
           ) : (
-            <div className="w-[72px] h-[72px] rounded-full bg-gray-600 mb-2 flex items-center justify-center text-xl">
+            <div className="w-20 h-20 rounded-full bg-gray-700 flex items-center justify-center text-2xl">
               👤
             </div>
           )}
-
-          <div className="text-center">
-            <div className="text-lg font-bold">{profile.company_name || "OwnerOS"}</div>
-            <Link href="/profile" className="text-sm text-blue-300 hover:underline">
+          <div className="text-center mt-2">
+            <div className="text-lg font-semibold">{profile.full_name || "ชื่อผู้ใช้"}</div>
+            <div className="text-sm text-gray-400">{profile.position || "ตำแหน่ง"}</div>
+            <div className="text-sm text-gray-300 mt-1">{profile.company_name || "ชื่อบริษัท"}</div>
+            <Link href="/checklist/profile" className="text-blue-400 text-xs hover:underline block mt-1">
               แก้ไขโปรไฟล์
             </Link>
-            <div className="text-sm mt-1">{profile.phone_number || ""}</div>
           </div>
         </div>
 
-        {/* Company Logo */}
-        {profile.company_logo_url && (
-          <div className="flex justify-center mb-6">
-            <Image
-              src={profile.company_logo_url}
-              alt="Company Logo"
-              width={48}
-              height={48}
-              className="bg-white p-1 rounded"
-            />
-          </div>
-        )}
-
         {/* Navigation */}
         <nav className="space-y-3">
+          <Link href="/dashboard">
+            <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
+              <span>🏠</span>
+              <span>Dashboard</span>
+            </div>
+          </Link>
           <Link href="/checklist">
-  <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
-    <span>📋</span>
-    <span>Checklist</span>
-  </div>
-</Link>
-          <Link href="/summary">
+            <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
+              <span>📋</span>
+              <span>Checklist</span>
+            </div>
+          </Link>
+          <Link href="/checklist/summary">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>📊</span>
               <span>Summary</span>
@@ -88,11 +74,14 @@ export default function Sidebar() {
 
       {/* Logout */}
       <button
-        onClick={handleLogout}
-        className="w-full text-sm mt-6 bg-red-600 px-4 py-2 rounded text-white hover:bg-red-700"
+        onClick={async () => {
+          await supabase.auth.signOut();
+          window.location.href = "/login";
+        }}
+        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm mt-6"
       >
         ออกจากระบบ
       </button>
-    </aside>
+    </div>
   );
 }
