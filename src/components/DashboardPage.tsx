@@ -1,3 +1,4 @@
+// src/pages/dashboard.tsx
 import React from "react";
 import Link from "next/link";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -7,7 +8,7 @@ import { useRadarScore } from "@/hooks/useRadarScore";
 
 export default function DashboardPage() {
   const { profile, loading } = useUserProfile();
-  const { data: radarData, loading: radarLoading } = useRadarScore(profile?.user_id); // ✅ ถูกต้อง
+  const { data: radarData, loading: radarLoading } = useRadarScore(profile?.user_id);
 
   if (loading || !profile) {
     return <div className="min-h-screen flex items-center justify-center text-gray-500">กำลังโหลดข้อมูล...</div>;

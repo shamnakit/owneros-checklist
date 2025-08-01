@@ -1,3 +1,4 @@
+// hooks/useRadarScore.ts
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 
@@ -23,7 +24,6 @@ export function useRadarScore(userId?: string) {
       if (!error && rows) {
         setData(rows as RadarData[]);
       }
-
       setLoading(false);
     };
 
