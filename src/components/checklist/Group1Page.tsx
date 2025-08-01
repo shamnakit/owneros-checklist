@@ -24,14 +24,17 @@ export default function Group1Page() {
       return;
     }
 
+    console.log("👤 profile.id = ", profile.id); // ✅ DEBUG
+
     const fetchChecklist = async () => {
       const { data, error } = await supabase
         .from("checklists")
         .select("id, name, description, is_done, file_path")
         .eq("group_name", "กลยุทธ์องค์กร")
-        .eq("user_id", profile.id); // ✅ ใช้ profile.id
+        .eq("user_id", profile.id);
 
-      console.log("✅ Checklist fetched:", { data, error });
+      console.log("✅ Checklist fetched:", data); // ✅ DEBUG
+      if (error) console.error("❌ Error fetching checklist:", error);
 
       if (!error && data) {
         setItems(data);
