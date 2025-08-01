@@ -29,7 +29,7 @@ export default function Group1Page() {
     const fetchChecklist = async () => {
       const { data, error } = await supabase
         .from("checklists")
-        .select("id, name, description, is_done, file_path")
+        .select("id, name, is_done, file_path")
         .eq("group_name", "กลยุทธ์องค์กร")
         .eq("user_id", profile.id);
 
@@ -97,11 +97,7 @@ export default function Group1Page() {
             >
               <div className="flex-1">
                 <p className="font-medium text-gray-800">{item.name}</p>
-                <p className="text-sm text-gray-500">
-                  {"description" in item && item.description
-                    ? item.description
-                    : "ไม่มีคำอธิบาย"}
-                </p>
+                <p className="text-sm text-gray-500">"ไม่มีคำอธิบาย"</p>
               </div>
 
               <div className="flex items-center gap-3">
