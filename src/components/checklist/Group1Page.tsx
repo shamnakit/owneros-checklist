@@ -21,6 +21,8 @@ export default function Group1Page() {
         .select("id, name, description, completed, file_url")
         .eq("category", "กลยุทธ์องค์กร");
 
+        console.log("Checklist fetched:", { data, error }); // ✅ เพิ่มตรงนี้
+
       if (!error && data) {
         setItems(data);
       }
