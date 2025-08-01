@@ -33,8 +33,11 @@ export default function Group1Page() {
         .eq("group_name", "กลยุทธ์องค์กร")
         .eq("user_id", profile.id);
 
-      console.log("✅ Checklist fetched:", data); // ✅ DEBUG
-      if (error) console.error("❌ Error fetching checklist:", error);
+      console.log("✅ Checklist fetched:", data, "Type:", typeof data, "Length:", data?.length);
+
+      if (error) {
+        console.error("❌ Error fetching checklist:", error);
+      }
 
       if (!error && data) {
         setItems(data);
@@ -83,6 +86,8 @@ export default function Group1Page() {
 
       {loading ? (
         <p>กำลังโหลด...</p>
+      ) : items.length === 0 ? (
+        <p className="text-red-500">ไม่มี checklist แสดง</p> // ✅ Fallback กรณี array ว่าง
       ) : (
         <ul className="space-y-4">
           {items.map((item) => (
@@ -93,7 +98,9 @@ export default function Group1Page() {
               <div className="flex-1">
                 <p className="font-medium text-gray-800">{item.name}</p>
                 <p className="text-sm text-gray-500">
-                  {item.description || "ไม่มีคำอธิบาย"}
+                  {"description" in item && item.description
+                    ? item.description
+                    : "ไม่มีคำอธิบาย"}
                 </p>
               </div>
 
