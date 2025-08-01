@@ -14,45 +14,64 @@ export default function Group1Page() {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const { profile } = useUserProfile();
 
-  const { profile } = useUserProfile(); // ✅ ต้องมี profile.user_id
-
+  // ✅ โหลด checklist
   useEffect(() => {
-    if (!profile?.user_id) return;
+    if (!profile?.user_id) {
+      console.warn("⛔ ไม่มี profile.user_id ขณะพยายามโหลด checklist");
+      return;
+    }
 
     const fetchChecklist = async () => {
+      console.log("📥 เริ่มโหลด checklist สำหรับ user_id:", profile.user_id);
+
       const { data, error } = await supabase
         .from("checklists")
         .select("id, name, description, is_done, file_path")
         .eq("group_name", "กลยุทธ์องค์กร")
-        .eq("user_id", profile.user_id); // ✅ สำคัญ
+        .eq("user_id", profile.user_id);
 
-      console.log("Checklist fetched:", { data, error });
-
-      if (!error && data) {
+      if (error) {
+        console.error("❌ โหลด checklist ล้มเหลว:", error);
+      } else {
+        console.log("✅ โหลด checklist สำเร็จ:", data);
         setItems(data);
       }
+
       setLoading(false);
     };
 
     fetchChecklist();
   }, [profile?.user_id]);
 
+  // ✅ อัปเดตสถานะ checkbox
   const toggleCheckbox = async (id: string, checked: boolean) => {
     await supabase.from("checklists").update({ is_done: checked }).eq("id", id);
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, is_done: checked } : item)));
   };
 
+  // ✅ อัปโหลดไฟล์
   const uploadFile = async (id: string, file: File) => {
+    if (!profile?.user_id) return;
+
     setUploadingId(id);
-    const filePath = `${profile.user_id}/${id}/${file.name}`; // ✅ ใช้ user_id เป็น root path
+    const filePath = `${profile.user_id}/${id}/${file.name}`;
 
-    const { error: uploadError } = await supabase.storage.from("checklist-files").upload(filePath, file, {
-      upsert: true,
-    });
+    console.log(`📤 เริ่มอัปโหลดไฟล์ "${file.name}" ไปยัง path:`, filePath);
 
-    if (!uploadError) {
+    const { error: uploadError } = await supabase.storage
+      .from("checklist-files")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error("❌ Upload ผิดพลาด:", uploadError);
+    } else {
+      console.log("✅ Upload สำเร็จ:", filePath);
+
       const { data: urlData } = supabase.storage.from("checklist-files").getPublicUrl(filePath);
+      console.log("🌐 Public URL:", urlData?.publicUrl);
+
       await supabase.from("checklists").update({ file_path: filePath }).eq("id", id);
 
       setItems((prev) =>
@@ -72,7 +91,10 @@ export default function Group1Page() {
       ) : (
         <ul className="space-y-4">
           {items.map((item) => (
-            <li key={item.id} className="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <li
+              key={item.id}
+              className="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row md:items-center justify-between gap-4"
+            >
               <div className="flex-1">
                 <p className="font-medium text-gray-800">{item.name}</p>
                 <p className="text-sm text-gray-500">{item.description || "ไม่มีคำอธิบาย"}</p>
