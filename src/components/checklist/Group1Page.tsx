@@ -3,7 +3,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ChecklistItem {
-  id: number;
+  id: string;
   name: string;
   description?: string;
   is_done: boolean;
@@ -13,17 +13,18 @@ interface ChecklistItem {
 export default function Group1Page() {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   const { profile, loading: profileLoading } = useUserProfile();
 
   useEffect(() => {
-    const fetchChecklist = async () => {
-      if (!profile?.user_id) {
-        console.warn("ยังไม่มี profile.user_id ขณะพยายามโหลด checklist");
-        return;
-      }
+    if (profileLoading) return;
+    if (!profile?.user_id) {
+      console.warn("ยังไม่มี profile.user_id ขณะพยายามโหลด checklist");
+      return;
+    }
 
+    const fetchChecklist = async () => {
       const { data, error } = await supabase
         .from("checklists")
         .select("id, name, description, is_done, file_path")
@@ -35,21 +36,20 @@ export default function Group1Page() {
       if (!error && data) {
         setItems(data);
       }
-
       setLoading(false);
     };
 
     fetchChecklist();
-  }, [profile?.user_id]);
+  }, [profileLoading, profile?.user_id]);
 
-  const toggleCheckbox = async (id: number, checked: boolean) => {
+  const toggleCheckbox = async (id: string, checked: boolean) => {
     await supabase.from("checklists").update({ is_done: checked }).eq("id", id);
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, is_done: checked } : item))
     );
   };
 
-  const uploadFile = async (id: number, file: File) => {
+  const uploadFile = async (id: string, file: File) => {
     if (!profile?.user_id) return;
 
     setUploadingId(id);
@@ -57,20 +57,17 @@ export default function Group1Page() {
 
     const { error: uploadError } = await supabase.storage
       .from("checklist-files")
-      .upload(filePath, file, {
-        upsert: true,
-      });
+      .upload(filePath, file, { upsert: true });
 
     if (!uploadError) {
-      await supabase
-        .from("checklists")
-        .update({ file_path: filePath })
-        .eq("id", id);
+      const { data: urlData } = supabase.storage
+        .from("checklist-files")
+        .getPublicUrl(filePath);
+
+      await supabase.from("checklists").update({ file_path: filePath }).eq("id", id);
 
       setItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, file_path: filePath } : item
-        )
+        prev.map((item) => (item.id === id ? { ...item, file_path: filePath } : item))
       );
     }
 
@@ -81,7 +78,7 @@ export default function Group1Page() {
     <div className="p-6">
       <h1 className="text-xl font-bold mb-4">Checklist หมวด 1: กลยุทธ์องค์กร</h1>
 
-      {loading || profileLoading ? (
+      {loading ? (
         <p>กำลังโหลด...</p>
       ) : (
         <ul className="space-y-4">
