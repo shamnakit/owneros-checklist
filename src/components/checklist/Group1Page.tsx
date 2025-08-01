@@ -19,8 +19,8 @@ export default function Group1Page() {
 
   useEffect(() => {
     if (profileLoading) return;
-    if (!profile?.user_id) {
-      console.warn("ยังไม่มี profile.user_id ขณะพยายามโหลด checklist");
+    if (!profile?.id) {
+      console.warn("ยังไม่มี profile.id ขณะพยายามโหลด checklist");
       return;
     }
 
@@ -29,9 +29,9 @@ export default function Group1Page() {
         .from("checklists")
         .select("id, name, description, is_done, file_path")
         .eq("group_name", "กลยุทธ์องค์กร")
-        .eq("user_id", profile.user_id);
+        .eq("user_id", profile.id); // ✅ ใช้ profile.id
 
-      console.log("Checklist fetched:", { data, error });
+      console.log("✅ Checklist fetched:", { data, error });
 
       if (!error && data) {
         setItems(data);
@@ -40,7 +40,7 @@ export default function Group1Page() {
     };
 
     fetchChecklist();
-  }, [profileLoading, profile?.user_id]);
+  }, [profileLoading, profile?.id]);
 
   const toggleCheckbox = async (id: string, checked: boolean) => {
     await supabase.from("checklists").update({ is_done: checked }).eq("id", id);
@@ -50,20 +50,16 @@ export default function Group1Page() {
   };
 
   const uploadFile = async (id: string, file: File) => {
-    if (!profile?.user_id) return;
+    if (!profile?.id) return;
 
     setUploadingId(id);
-    const filePath = `${profile.user_id}/${id}/${file.name}`;
+    const filePath = `${profile.id}/${id}/${file.name}`;
 
     const { error: uploadError } = await supabase.storage
       .from("checklist-files")
       .upload(filePath, file, { upsert: true });
 
     if (!uploadError) {
-      const { data: urlData } = supabase.storage
-        .from("checklist-files")
-        .getPublicUrl(filePath);
-
       await supabase.from("checklists").update({ file_path: filePath }).eq("id", id);
 
       setItems((prev) =>
@@ -73,6 +69,10 @@ export default function Group1Page() {
 
     setUploadingId(null);
   };
+
+  if (profileLoading || !profile?.id) {
+    return <div className="p-6 text-gray-500">กำลังโหลดโปรไฟล์...</div>;
+  }
 
   return (
     <div className="p-6">
