@@ -1,6 +1,5 @@
-// ✅ React + Tailwind UI mockup สำหรับหน้า Checklist หมวด 1 (ทันสมัยแบบ SaaS)
-// ✅ รองรับแนบไฟล์หรือพิมพ์ข้อความ (อย่างใดอย่างหนึ่ง), แยก "ทำแล้ว" และ "ยังไม่ทำ"
-// ✅ เพิ่ม dropdown เลือกปี + clone checklist ใหม่เมื่อเปลี่ยนปี + mockup เชื่อมต่อ Supabase พร้อม user_id
+// ✅ Group1Page.tsx แบบ UI 3 คอลัมน์: ซ้าย = สถานะ, กลาง = หัวข้อ + textarea, ขวา = แนบไฟล์
+// ✅ เชื่อมต่อ Supabase พร้อมรองรับ user_id, year_version, updated_at
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -41,7 +40,6 @@ export default function Group1Page() {
       }
 
       if (data.length === 0) {
-        // ไม่มี checklist ปีนี้ → clone จากปีก่อน
         const { data: oldData } = await supabase
           .from("checklists")
           .select("name")
@@ -109,9 +107,6 @@ export default function Group1Page() {
     );
   };
 
-  const doneItems = items.filter(isComplete);
-  const pendingItems = items.filter((item) => !isComplete(item));
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -122,85 +117,55 @@ export default function Group1Page() {
           onChange={(e) => setYear(Number(e.target.value))}
         >
           {yearOptions.map((y) => (
-            <option key={y} value={y}>
-              ปี {y}
-            </option>
+            <option key={y} value={y}>ปี {y}</option>
           ))}
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* ⏳ ยังไม่ทำ */}
-        <div>
-          <h2 className="text-lg font-semibold text-yellow-600 mb-3">
-            ⏳ ยังไม่ทำ
-          </h2>
-          <div className="space-y-4">
-            {pendingItems.map((item) => (
-              <div
-                key={item.id}
-                className="bg-yellow-50 p-4 rounded-xl border border-yellow-200"
-              >
-                <p className="font-medium text-gray-800 mb-2">{item.name}</p>
+      <div className="space-y-4">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            className="bg-white rounded-xl border flex flex-col md:flex-row md:items-start p-4 md:gap-6 shadow-sm"
+          >
+            {/* ซ้าย: สถานะ */}
+            <div className="w-full md:w-1/6 text-sm font-medium text-center md:text-left">
+              {isComplete(item) ? (
+                <span className="text-green-600">✅ ทำแล้ว</span>
+              ) : (
+                <span className="text-yellow-600">⏳ ยังไม่ทำ</span>
+              )}
+            </div>
 
-                <textarea
-                  placeholder="พิมพ์คำอธิบาย เช่น SWOT ที่คุณวิเคราะห์..."
-                  className="w-full border rounded-md p-2 text-sm resize-none"
-                  rows={4}
-                  value={item.input_text || ""}
-                  onChange={(e) => handleInputChange(item.id, e.target.value)}
+            {/* กลาง: หัวข้อ + textarea */}
+            <div className="w-full md:w-4/6">
+              <p className="font-semibold text-gray-800 mb-2">{item.name}</p>
+              <textarea
+                placeholder="เพิ่มคำอธิบาย"
+                className="w-full border rounded-md p-2 text-sm"
+                rows={2}
+                value={item.input_text || ""}
+                onChange={(e) => handleInputChange(item.id, e.target.value)}
+              />
+            </div>
+
+            {/* ขวา: แนบไฟล์ */}
+            <div className="w-full md:w-1/6 flex md:justify-end items-center mt-3 md:mt-0">
+              <label className="text-sm cursor-pointer text-blue-600 flex items-center gap-1">
+                📎 แนบไฟล์
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleFileUpload(item.id, e.target.files[0]);
+                    }
+                  }}
                 />
-
-                <div className="mt-2 flex items-center gap-3">
-                  <input
-                    type="file"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        handleFileUpload(item.id, e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <span className="text-sm text-gray-500">
-                    {item.input_text?.length || 0}/100 ตัวอักษร
-                  </span>
-                </div>
-              </div>
-            ))}
+              </label>
+            </div>
           </div>
-        </div>
-
-        {/* ✅ ทำแล้ว */}
-        <div>
-          <h2 className="text-lg font-semibold text-green-600 mb-3">
-            ✅ ทำแล้ว
-          </h2>
-          <div className="space-y-4">
-            {doneItems.map((item) => (
-              <div
-                key={item.id}
-                className="bg-green-50 p-4 rounded-xl border border-green-200"
-              >
-                <p className="font-medium text-gray-800 mb-1">{item.name}</p>
-
-                {item.file_path ? (
-                  <p className="text-sm text-green-700">
-                    📎 แนบไฟล์แล้ว: <code>{item.file_path}</code>
-                  </p>
-                ) : (
-                  <p className="text-sm text-green-700 whitespace-pre-wrap">
-                    ✏️ {item.input_text}
-                  </p>
-                )}
-
-                {item.updated_at && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    อัปเดตล่าสุด: {new Date(item.updated_at).toLocaleString("th-TH")}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
