@@ -26,6 +26,9 @@ export default function Group1Page() {
   useEffect(() => {
     if (!profile?.id) return;
 
+    console.log("🧠 profile.id =", profile.id);
+  console.log("📅 year =", year);
+
     const fetchOrCreateChecklist = async () => {
       const { data, error } = await supabase
         .from("checklists")
@@ -69,8 +72,12 @@ export default function Group1Page() {
       }
     };
 
+
+
     fetchOrCreateChecklist();
   }, [year, profile?.id]);
+
+
 
   const handleInputChange = (id: string, value: string) => {
     const updated_at = new Date().toISOString();
