@@ -1,15 +1,25 @@
+// ✅ Group1Page.tsx แบบใหม่ใช้ checklist_templates และ checklists_v2
+// ✅ UI 3 คอลัมน์: สถานะ | หัวข้อ + textarea | แนบไฟล์
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ChecklistItem {
   id: string;
-  name: string;
-  file_path?: string;
-  input_text?: string;
-  updated_at?: string;
+  template_id: string;
+  user_id: string;
   year_version: number;
-  user_id?: string;
+  input_text?: string;
+  file_path?: string;
+  updated_at?: string;
+  template?: TemplateItem; // join result
+}
+
+interface TemplateItem {
+  id: string;
+  name: string;
+  group_name: string;
 }
 
 const currentYear = new Date().getFullYear();
@@ -24,73 +34,58 @@ export default function Group1Page() {
     if (!profile?.id) return;
 
     const fetchOrCreateChecklist = async () => {
-      console.log("🧠 profile.id =", profile.id);
-      console.log("📅 year =", year);
-
+      // ดึง checklist_v2 พร้อม join ชื่อ template
       const { data, error } = await supabase
-        .from("checklists")
-        .select("id, name, file_path, input_text, updated_at, year_version, user_id")
-        .eq("group_name", "กลยุทธ์องค์กร")
+        .from("checklists_v2")
+        .select("*, template:template_id (id, name, group_name)")
         .eq("year_version", year)
         .eq("user_id", profile.id);
 
       if (error) {
-        console.error("❌ Error fetching checklist:", error);
+        console.error("❌ Error fetching checklist_v2:", error);
         return;
       }
 
       if (data.length === 0) {
-        console.log("📦 No checklist found for this year. Trying to clone from past year...");
-        let sourceYear = year - 1;
-        let found = false;
+        // clone จาก template เฉพาะ group "กลยุทธ์องค์กร"
+        const { data: templates } = await supabase
+          .from("checklist_templates")
+          .select("id")
+          .eq("group_name", "กลยุทธ์องค์กร");
 
-        while (sourceYear >= 2020 && !found) {
-          const { data: oldData } = await supabase
-            .from("checklists")
-            .select("name")
-            .eq("group_name", "กลยุทธ์องค์กร")
-            .eq("year_version", sourceYear)
-            .eq("user_id", profile.id);
-
-          if (oldData && oldData.length > 0) {
-            const newItems = oldData.map((item) => ({
-              name: item.name,
-              group_name: "กลยุทธ์องค์กร",
-              year_version: year,
-              file_path: null,
-              input_text: null,
-              user_id: profile.id,
-            }));
-
-            const { error: upsertError } = await supabase
-              .from("checklists")
-              .upsert(newItems, {
-                onConflict: "user_id,name,year_version",
-                ignoreDuplicates: true,
-              });
-
-            if (upsertError) {
-              console.error("❌ Error upserting checklist:", upsertError);
-            } else {
-              console.log("✅ Upsert success, fetching fresh data...");
-              const { data: newData } = await supabase
-                .from("checklists")
-                .select("id, name, file_path, input_text, updated_at, year_version, user_id")
-                .eq("group_name", "กลยุทธ์องค์กร")
-                .eq("year_version", year)
-                .eq("user_id", profile.id);
-
-              setItems(newData || []);
-              found = true;
-            }
-          } else {
-            sourceYear -= 1;
-          }
+        if (!templates?.length) {
+          console.warn("⚠️ ไม่พบ template สำหรับกลยุทธ์องค์กร");
+          return;
         }
 
-        if (!found) {
-          console.warn("❌ ไม่พบ checklist ปีใดก่อนหน้าเลย ไม่สามารถ clone ได้");
+        const newChecklists = templates.map((t) => ({
+          template_id: t.id,
+          user_id: profile.id,
+          year_version: year,
+          input_text: null,
+          file_path: null,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("checklists_v2")
+          .upsert(newChecklists, {
+            onConflict: "user_id,template_id,year_version",
+            ignoreDuplicates: true,
+          });
+
+        if (insertError) {
+          console.error("❌ Error inserting checklist_v2:", insertError);
+          return;
         }
+
+        // ✅ re-fetch
+        const { data: newData } = await supabase
+          .from("checklists_v2")
+          .select("*, template:template_id (id, name, group_name)")
+          .eq("year_version", year)
+          .eq("user_id", profile.id);
+
+        setItems(newData || []);
       } else {
         setItems(data);
       }
@@ -107,7 +102,7 @@ export default function Group1Page() {
       )
     );
     supabase
-      .from("checklists")
+      .from("checklists_v2")
       .update({ input_text: value, updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
@@ -122,14 +117,16 @@ export default function Group1Page() {
       )
     );
     supabase
-      .from("checklists")
+      .from("checklists_v2")
       .update({ file_path: fakePath, updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
   };
 
   const isComplete = (item: ChecklistItem) => {
-    return !!item.file_path || (item.input_text?.trim().length || 0) >= 100;
+    return (
+      !!item.file_path || (item.input_text?.trim().length || 0) >= 100
+    );
   };
 
   return (
@@ -142,9 +139,7 @@ export default function Group1Page() {
           onChange={(e) => setYear(Number(e.target.value))}
         >
           {yearOptions.map((y) => (
-            <option key={y} value={y}>
-              ปี {y}
-            </option>
+            <option key={y} value={y}>ปี {y}</option>
           ))}
         </select>
       </div>
@@ -166,7 +161,9 @@ export default function Group1Page() {
 
             {/* กลาง: หัวข้อ + textarea */}
             <div className="w-full md:w-4/6">
-              <p className="font-semibold text-gray-800 mb-2">{item.name}</p>
+              <p className="font-semibold text-gray-800 mb-2">
+                {item.template?.name || "(ไม่มีชื่อ)"}
+              </p>
               <textarea
                 placeholder="เพิ่มคำอธิบาย"
                 className="w-full border rounded-md p-2 text-sm"
