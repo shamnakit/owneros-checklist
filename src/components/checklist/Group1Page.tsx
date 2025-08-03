@@ -27,7 +27,7 @@ export default function Group1Page() {
     if (!profile?.id) return;
 
     console.log("🧠 profile.id =", profile.id);
-  console.log("📅 year =", year);
+    console.log("📅 year =", year);
 
     const fetchOrCreateChecklist = async () => {
       const { data, error } = await supabase
@@ -43,41 +43,49 @@ export default function Group1Page() {
       }
 
       if (data.length === 0) {
-        const { data: oldData } = await supabase
-          .from("checklists")
-          .select("name")
-          .eq("group_name", "กลยุทธ์องค์กร")
-          .eq("year_version", year - 1)
-          .eq("user_id", profile.id);
-
-        if (oldData?.length) {
-          const newItems = oldData.map((item) => ({
-            name: item.name,
-            group_name: "กลยุทธ์องค์กร",
-            year_version: year,
-            file_path: null,
-            input_text: null,
-            user_id: profile.id,
-          }));
-
-          const { data: inserted } = await supabase
+        console.log("📦 No checklist found for this year. Trying to clone from past year...");
+        let sourceYear = year - 1;
+        let found = false;
+        while (sourceYear >= 2020 && !found) {
+          const { data: oldData } = await supabase
             .from("checklists")
-            .insert(newItems)
-            .select();
+            .select("name")
+            .eq("group_name", "กลยุทธ์องค์กร")
+            .eq("year_version", sourceYear)
+            .eq("user_id", profile.id);
 
-          setItems(inserted || []);
+          if (oldData && oldData.length > 0) {
+            const newItems = oldData.map((item) => ({
+              name: item.name,
+              group_name: "กลยุทธ์องค์กร",
+              year_version: year,
+              file_path: null,
+              input_text: null,
+              user_id: profile.id,
+            }));
+
+            const { data: inserted } = await supabase
+              .from("checklists")
+              .insert(newItems)
+              .select();
+
+            setItems(inserted || []);
+            found = true;
+          } else {
+            sourceYear -= 1;
+          }
+        }
+
+        if (!found) {
+          console.warn("❌ ไม่พบ checklist ปีใดก่อนหน้าเลย ไม่สามารถ clone ได้");
         }
       } else {
         setItems(data);
       }
     };
 
-
-
     fetchOrCreateChecklist();
   }, [year, profile?.id]);
-
-
 
   const handleInputChange = (id: string, value: string) => {
     const updated_at = new Date().toISOString();
