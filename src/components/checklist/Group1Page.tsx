@@ -1,5 +1,7 @@
-// ✅ Group1Page.tsx แบบใหม่ใช้ checklist_templates และ checklists_v2
-// ✅ UI 3 คอลัมน์: สถานะ | หัวข้อ + textarea | แนบไฟล์ + ปุ่ม Save
+// ✅ Group1Page.tsx เวอร์ชันอัปเดต: รองรับ
+// 1. ตัวนับอักษร + แสดงต้องกรอกอย่างน้อย 100 ตัว
+// 2. แนบไฟล์ขึ้น Supabase Storage จริง
+// 3. จำกัดชนิดไฟล์แนบเป็น PDF, DOC(X), JPG, PNG
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -13,8 +15,8 @@ interface ChecklistItem {
   input_text?: string;
   file_path?: string;
   updated_at?: string;
-  template?: TemplateItem; // join result
-  _temp_text?: string; // local state
+  template?: TemplateItem;
+  _temp_text?: string;
   _saving?: boolean;
 }
 
@@ -116,17 +118,30 @@ export default function Group1Page() {
     if (error) console.error("❌ Save error:", error);
   };
 
-  const handleFileUpload = (id: string, file: File) => {
-    const fakePath = `/uploads/${file.name}`;
+  const handleFileUpload = async (id: string, file: File) => {
+    const filePath = `${profile.id}/${year}/${file.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("checklist-files")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error("❌ Upload error:", uploadError);
+      return;
+    }
+
+    const publicUrl = supabase.storage
+      .from("checklist-files")
+      .getPublicUrl(filePath).data.publicUrl;
+
     const updated_at = new Date().toISOString();
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, file_path: fakePath, updated_at } : item
+        item.id === id ? { ...item, file_path: publicUrl, updated_at } : item
       )
     );
     supabase
       .from("checklists_v2")
-      .update({ file_path: fakePath, updated_at })
+      .update({ file_path: publicUrl, updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
   };
@@ -175,12 +190,16 @@ export default function Group1Page() {
               <textarea
                 placeholder="เพิ่มคำอธิบาย"
                 className="w-full border rounded-md p-2 text-sm"
-                rows={2}
+                rows={3}
                 value={item._temp_text || ""}
                 onChange={(e) => setItems((prev) =>
                   prev.map((i) => i.id === item.id ? { ...i, _temp_text: e.target.value } : i)
                 )}
               />
+              <div className="text-xs text-gray-500 mt-1 flex justify-between">
+                <span>กรอกอย่างน้อย 100 ตัวอักษร</span>
+                <span>{item._temp_text?.length || 0}/100</span>
+              </div>
               <button
                 onClick={() => handleSaveText(item.id)}
                 disabled={item._saving}
@@ -196,6 +215,7 @@ export default function Group1Page() {
                 📎 แนบไฟล์
                 <input
                   type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   className="hidden"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
