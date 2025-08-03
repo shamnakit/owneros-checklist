@@ -1,5 +1,5 @@
 // ✅ Group1Page.tsx แบบใหม่ใช้ checklist_templates และ checklists_v2
-// ✅ UI 3 คอลัมน์: สถานะ | หัวข้อ + textarea | แนบไฟล์
+// ✅ UI 3 คอลัมน์: สถานะ | หัวข้อ + textarea | แนบไฟล์ + ปุ่ม Save
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -14,6 +14,8 @@ interface ChecklistItem {
   file_path?: string;
   updated_at?: string;
   template?: TemplateItem; // join result
+  _temp_text?: string; // local state
+  _saving?: boolean;
 }
 
 interface TemplateItem {
@@ -34,7 +36,6 @@ export default function Group1Page() {
     if (!profile?.id) return;
 
     const fetchOrCreateChecklist = async () => {
-      // ดึง checklist_v2 พร้อม join ชื่อ template
       const { data, error } = await supabase
         .from("checklists_v2")
         .select("*, template:template_id (id, name, group_name)")
@@ -47,7 +48,6 @@ export default function Group1Page() {
       }
 
       if (data.length === 0) {
-        // clone จาก template เฉพาะ group "กลยุทธ์องค์กร"
         const { data: templates } = await supabase
           .from("checklist_templates")
           .select("id")
@@ -78,34 +78,42 @@ export default function Group1Page() {
           return;
         }
 
-        // ✅ re-fetch
         const { data: newData } = await supabase
           .from("checklists_v2")
           .select("*, template:template_id (id, name, group_name)")
           .eq("year_version", year)
           .eq("user_id", profile.id);
 
-        setItems(newData || []);
+        setItems(newData?.map((i) => ({ ...i, _temp_text: i.input_text || "" })) || []);
       } else {
-        setItems(data);
+        setItems(data.map((i) => ({ ...i, _temp_text: i.input_text || "" })));
       }
     };
 
     fetchOrCreateChecklist();
   }, [year, profile?.id]);
 
-  const handleInputChange = (id: string, value: string) => {
-    const updated_at = new Date().toISOString();
+  const handleSaveText = async (id: string) => {
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, input_text: value, updated_at } : item
+        item.id === id ? { ...item, _saving: true } : item
       )
     );
-    supabase
+    const item = items.find((i) => i.id === id);
+    const updated_at = new Date().toISOString();
+    const { error } = await supabase
       .from("checklists_v2")
-      .update({ input_text: value, updated_at })
+      .update({ input_text: item?._temp_text || "", updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
+
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, input_text: item._temp_text, _saving: false } : item
+      )
+    );
+
+    if (error) console.error("❌ Save error:", error);
   };
 
   const handleFileUpload = (id: string, file: File) => {
@@ -159,7 +167,7 @@ export default function Group1Page() {
               )}
             </div>
 
-            {/* กลาง: หัวข้อ + textarea */}
+            {/* กลาง: หัวข้อ + textarea + save */}
             <div className="w-full md:w-4/6">
               <p className="font-semibold text-gray-800 mb-2">
                 {item.template?.name || "(ไม่มีชื่อ)"}
@@ -168,13 +176,22 @@ export default function Group1Page() {
                 placeholder="เพิ่มคำอธิบาย"
                 className="w-full border rounded-md p-2 text-sm"
                 rows={2}
-                value={item.input_text || ""}
-                onChange={(e) => handleInputChange(item.id, e.target.value)}
+                value={item._temp_text || ""}
+                onChange={(e) => setItems((prev) =>
+                  prev.map((i) => i.id === item.id ? { ...i, _temp_text: e.target.value } : i)
+                )}
               />
+              <button
+                onClick={() => handleSaveText(item.id)}
+                disabled={item._saving}
+                className="mt-2 text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                💾 {item._saving ? "Saving..." : "Save"}
+              </button>
             </div>
 
             {/* ขวา: แนบไฟล์ */}
-            <div className="w-full md:w-1/6 flex md:justify-end items-center mt-3 md:mt-0">
+            <div className="w-full md:w-1/6 flex flex-col md:items-end gap-1 mt-3 md:mt-0">
               <label className="text-sm cursor-pointer text-blue-600 flex items-center gap-1">
                 📎 แนบไฟล์
                 <input
@@ -187,6 +204,11 @@ export default function Group1Page() {
                   }}
                 />
               </label>
+              {item.file_path && (
+                <p className="text-xs text-gray-600 truncate w-full text-right">
+                  📄 {item.file_path.split("/").pop()}
+                </p>
+              )}
             </div>
           </div>
         ))}
