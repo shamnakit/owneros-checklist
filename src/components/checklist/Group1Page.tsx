@@ -1,29 +1,15 @@
-// ✅ Group1Page.tsx เวอร์ชันอัปเดต: รองรับ
-// 1. ตัวนับอักษร + แสดงต้องกรอกอย่างน้อย 100 ตัว
-// 2. แนบไฟล์ขึ้น Supabase Storage จริง
-// 3. จำกัดชนิดไฟล์แนบเป็น PDF, DOC(X), JPG, PNG
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ChecklistItem {
   id: string;
-  template_id: string;
-  user_id: string;
-  year_version: number;
-  input_text?: string;
-  file_path?: string;
-  updated_at?: string;
-  template?: TemplateItem;
-  _temp_text?: string;
-  _saving?: boolean;
-}
-
-interface TemplateItem {
-  id: string;
   name: string;
-  group_name: string;
+  file_path?: string;
+  input_text?: string;
+  updated_at?: string;
+  year_version: number;
+  user_id?: string;
 }
 
 const currentYear = new Date().getFullYear();
@@ -40,116 +26,119 @@ export default function Group1Page() {
     const fetchOrCreateChecklist = async () => {
       const { data, error } = await supabase
         .from("checklists_v2")
-        .select("*, template:template_id (id, name, group_name)")
+        .select("*")
+        .eq("group_name", "กลยุทธ์องค์กร")
         .eq("year_version", year)
         .eq("user_id", profile.id);
 
       if (error) {
-        console.error("❌ Error fetching checklist_v2:", error);
+        console.error("❌ Error fetching checklist:", error);
         return;
       }
 
       if (data.length === 0) {
-        const { data: templates } = await supabase
-          .from("checklist_templates")
-          .select("id")
-          .eq("group_name", "กลยุทธ์องค์กร");
+        console.warn("📦 No checklist found for this year. Trying to clone from past year...");
+        let sourceYear = year - 1;
+        let found = false;
 
-        if (!templates?.length) {
-          console.warn("⚠️ ไม่พบ template สำหรับกลยุทธ์องค์กร");
-          return;
+        while (sourceYear >= 2020 && !found) {
+          const { data: oldData } = await supabase
+            .from("checklists_v2")
+            .select("name")
+            .eq("group_name", "กลยุทธ์องค์กร")
+            .eq("year_version", sourceYear)
+            .eq("user_id", profile.id);
+
+          if (oldData && oldData.length > 0) {
+            const newItems = oldData.map((item) => ({
+              name: item.name,
+              group_name: "กลยุทธ์องค์กร",
+              year_version: year,
+              file_path: null,
+              input_text: null,
+              user_id: profile.id,
+            }));
+
+            const { data: upserted, error: upsertError } = await supabase
+              .from("checklists_v2")
+              .upsert(newItems, {
+                onConflict: "user_id,name,year_version",
+              })
+              .select();
+
+            if (upsertError) {
+              console.error("❌ Error upserting checklist:", upsertError);
+              return;
+            }
+
+            setItems(upserted || []);
+            found = true;
+          } else {
+            sourceYear -= 1;
+          }
         }
 
-        const newChecklists = templates.map((t) => ({
-          template_id: t.id,
-          user_id: profile.id,
-          year_version: year,
-          input_text: null,
-          file_path: null,
-        }));
-
-        const { error: insertError } = await supabase
-          .from("checklists_v2")
-          .upsert(newChecklists, {
-            onConflict: "user_id,template_id,year_version",
-            ignoreDuplicates: true,
-          });
-
-        if (insertError) {
-          console.error("❌ Error inserting checklist_v2:", insertError);
-          return;
+        if (!found) {
+          console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
         }
-
-        const { data: newData } = await supabase
-          .from("checklists_v2")
-          .select("*, template:template_id (id, name, group_name)")
-          .eq("year_version", year)
-          .eq("user_id", profile.id);
-
-        setItems(newData?.map((i) => ({ ...i, _temp_text: i.input_text || "" })) || []);
       } else {
-        setItems(data.map((i) => ({ ...i, _temp_text: i.input_text || "" })));
+        setItems(data);
       }
     };
 
     fetchOrCreateChecklist();
   }, [year, profile?.id]);
 
-  const handleSaveText = async (id: string) => {
+  const handleInputChange = (id: string, value: string) => {
+    const updated_at = new Date().toISOString();
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, _saving: true } : item
+        item.id === id ? { ...item, input_text: value, updated_at } : item
       )
     );
-    const item = items.find((i) => i.id === id);
-    const updated_at = new Date().toISOString();
-    const { error } = await supabase
+    supabase
       .from("checklists_v2")
-      .update({ input_text: item?._temp_text || "", updated_at })
+      .update({ input_text: value, updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
-
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, input_text: item._temp_text, _saving: false } : item
-      )
-    );
-
-    if (error) console.error("❌ Save error:", error);
   };
 
   const handleFileUpload = async (id: string, file: File) => {
     const filePath = `${profile.id}/${year}/${file.name}`;
     const { error: uploadError } = await supabase.storage
       .from("checklist-files")
-      .upload(filePath, file, { upsert: true });
+      .upload(filePath, file, {
+        upsert: true,
+        contentType: file.type,
+      });
 
     if (uploadError) {
       console.error("❌ Upload error:", uploadError);
       return;
     }
 
-    const publicUrl = supabase.storage
+    const { data: publicUrlData } = supabase.storage
       .from("checklist-files")
-      .getPublicUrl(filePath).data.publicUrl;
+      .getPublicUrl(filePath);
 
+    const fileUrl = publicUrlData?.publicUrl || "";
     const updated_at = new Date().toISOString();
+
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, file_path: publicUrl, updated_at } : item
+        item.id === id ? { ...item, file_path: fileUrl, updated_at } : item
       )
     );
-    supabase
+
+    await supabase
       .from("checklists_v2")
-      .update({ file_path: publicUrl, updated_at })
+      .update({ file_path: fileUrl, updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
   };
 
   const isComplete = (item: ChecklistItem) => {
-    return (
-      !!item.file_path || (item.input_text?.trim().length || 0) >= 100
-    );
+    return !!item.file_path || (item.input_text?.trim().length || 0) >= 100;
   };
 
   return (
@@ -182,34 +171,19 @@ export default function Group1Page() {
               )}
             </div>
 
-            {/* กลาง: หัวข้อ + textarea + save */}
+            {/* กลาง: หัวข้อ + textarea */}
             <div className="w-full md:w-4/6">
-              <p className="font-semibold text-gray-800 mb-2">
-                {item.template?.name || "(ไม่มีชื่อ)"}
-              </p>
+              <p className="font-semibold text-gray-800 mb-2">{item.name}</p>
               <textarea
-                placeholder="เพิ่มคำอธิบาย"
+                placeholder="เพิ่มคำอธิบาย (อย่างน้อย 100 ตัวอักษร)"
                 className="w-full border rounded-md p-2 text-sm"
                 rows={3}
-                value={item._temp_text || ""}
-                onChange={(e) => setItems((prev) =>
-                  prev.map((i) => i.id === item.id ? { ...i, _temp_text: e.target.value } : i)
-                )}
+                value={item.input_text || ""}
+                onChange={(e) => handleInputChange(item.id, e.target.value)}
               />
-              <div className="text-xs text-gray-500 mt-1 flex justify-between">
-                <span>กรอกอย่างน้อย 100 ตัวอักษร</span>
-                <span>{item._temp_text?.length || 0}/100</span>
-              </div>
-              <button
-                onClick={() => handleSaveText(item.id)}
-                disabled={item._saving}
-                className="mt-2 text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                💾 {item._saving ? "Saving..." : "Save"}
-              </button>
             </div>
 
-            {/* ขวา: แนบไฟล์ */}
+            {/* ขวา: แนบไฟล์ + แสดงชื่อ + ลิงก์ดูไฟล์ */}
             <div className="w-full md:w-1/6 flex flex-col md:items-end gap-1 mt-3 md:mt-0">
               <label className="text-sm cursor-pointer text-blue-600 flex items-center gap-1">
                 📎 แนบไฟล์
@@ -225,9 +199,19 @@ export default function Group1Page() {
                 />
               </label>
               {item.file_path && (
-                <p className="text-xs text-gray-600 truncate w-full text-right">
-                  📄 {item.file_path.split("/").pop()}
-                </p>
+                <div className="text-xs text-right space-y-1">
+                  <p className="text-gray-600 truncate max-w-full">
+                    📄 {item.file_path.split("/").pop()}
+                  </p>
+                  <a
+                    href={item.file_path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline"
+                  >
+                    🔍 ดูไฟล์
+                  </a>
+                </div>
               )}
             </div>
           </div>
