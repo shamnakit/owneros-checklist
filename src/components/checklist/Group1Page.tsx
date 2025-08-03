@@ -46,6 +46,7 @@ export default function Group1Page() {
         console.log("📦 No checklist found for this year. Trying to clone from past year...");
         let sourceYear = year - 1;
         let found = false;
+
         while (sourceYear >= 2020 && !found) {
           const { data: oldData } = await supabase
             .from("checklists")
@@ -64,10 +65,16 @@ export default function Group1Page() {
               user_id: profile.id,
             }));
 
-            const { data: inserted } = await supabase
-              .from("checklists")
-              .insert(newItems)
-              .select();
+            const { data: inserted, error: upsertError } = await supabase
+  .from("checklists")
+  .upsert(newItems, {
+    onConflict: "user_id,name,year_version", // ✅ แก้ตรงนี้
+  })
+  .select();
+
+if (upsertError) {
+  console.error("❌ Error upserting checklist:", upsertError);
+}
 
             setItems(inserted || []);
             found = true;
