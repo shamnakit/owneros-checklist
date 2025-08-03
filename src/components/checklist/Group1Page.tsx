@@ -1,6 +1,3 @@
-// ✅ Group1Page.tsx แบบ UI 3 คอลัมน์: ซ้าย = สถานะ, กลาง = หัวข้อ + textarea, ขวา = แนบไฟล์
-// ✅ เชื่อมต่อ Supabase พร้อมรองรับ user_id, year_version, updated_at
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -26,10 +23,10 @@ export default function Group1Page() {
   useEffect(() => {
     if (!profile?.id) return;
 
-    console.log("🧠 profile.id =", profile.id);
-    console.log("📅 year =", year);
-
     const fetchOrCreateChecklist = async () => {
+      console.log("🧠 profile.id =", profile.id);
+      console.log("📅 year =", year);
+
       const { data, error } = await supabase
         .from("checklists")
         .select("id, name, file_path, input_text, updated_at, year_version, user_id")
@@ -65,19 +62,27 @@ export default function Group1Page() {
               user_id: profile.id,
             }));
 
-            const { data: inserted, error: upsertError } = await supabase
-  .from("checklists")
-  .upsert(newItems, {
-    onConflict: "user_id,name,year_version", // ✅ แก้ตรงนี้
-  })
-  .select();
+            const { error: upsertError } = await supabase
+              .from("checklists")
+              .upsert(newItems, {
+                onConflict: "user_id,name,year_version",
+                ignoreDuplicates: true,
+              });
 
-if (upsertError) {
-  console.error("❌ Error upserting checklist:", upsertError);
-}
+            if (upsertError) {
+              console.error("❌ Error upserting checklist:", upsertError);
+            } else {
+              console.log("✅ Upsert success, fetching fresh data...");
+              const { data: newData } = await supabase
+                .from("checklists")
+                .select("id, name, file_path, input_text, updated_at, year_version, user_id")
+                .eq("group_name", "กลยุทธ์องค์กร")
+                .eq("year_version", year)
+                .eq("user_id", profile.id);
 
-            setItems(inserted || []);
-            found = true;
+              setItems(newData || []);
+              found = true;
+            }
           } else {
             sourceYear -= 1;
           }
@@ -124,9 +129,7 @@ if (upsertError) {
   };
 
   const isComplete = (item: ChecklistItem) => {
-    return (
-      !!item.file_path || (item.input_text?.trim().length || 0) >= 100
-    );
+    return !!item.file_path || (item.input_text?.trim().length || 0) >= 100;
   };
 
   return (
@@ -139,7 +142,9 @@ if (upsertError) {
           onChange={(e) => setYear(Number(e.target.value))}
         >
           {yearOptions.map((y) => (
-            <option key={y} value={y}>ปี {y}</option>
+            <option key={y} value={y}>
+              ปี {y}
+            </option>
           ))}
         </select>
       </div>
