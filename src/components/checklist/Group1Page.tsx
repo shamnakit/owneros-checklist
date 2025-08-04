@@ -23,7 +23,7 @@ export default function Group1Page() {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [editing, setEditing] = useState<Record<string, string>>({});
 
-  // Sync editing state whenever items change
+  // Sync editing state
   useEffect(() => {
     const map: Record<string, string> = {};
     items.forEach((item) => {
@@ -36,7 +36,7 @@ export default function Group1Page() {
     if (!profile?.id) return;
 
     const fetchOrCreateChecklist = async () => {
-      // 1. Try fetch existing items
+      // 1) ลอง fetch ของเดิม
       const { data, error } = await supabase
         .from("checklists_v2")
         .select(`
@@ -60,12 +60,14 @@ export default function Group1Page() {
         return;
       }
 
+      console.debug(`► fetched ${data?.length ?? 0} items for year ${year}`, data);
+
       if (data && data.length > 0) {
         setItems(data);
         return;
       }
 
-      // 2. No data for this year: insert from templates
+      // 2) ถ้าไม่มี ให้สร้างจาก template
       const { data: templateData, error: templateError } = await supabase
         .from("checklist_templates")
         .select("id, name, group_name, index_number")
@@ -76,6 +78,8 @@ export default function Group1Page() {
         console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
         return;
       }
+
+      console.debug("► creating new items from templates:", templateData);
 
       const newItems = templateData.map((t) => ({
         template_id: t.id,
@@ -92,10 +96,10 @@ export default function Group1Page() {
         .insert(newItems);
 
       if (insertError) {
-        console.warn("❌ Insert error, fetching existing items:", insertError);
+        console.warn("❌ Insert error, will fetch again:", insertError);
       }
 
-      // 3. Fetch again after insert
+      // 3) ดึงใหม่อีกรอบ
       const { data: finalData, error: finalError } = await supabase
         .from("checklists_v2")
         .select(`
@@ -119,6 +123,7 @@ export default function Group1Page() {
         return;
       }
 
+      console.debug(`► final fetch ${finalData?.length ?? 0} items:`, finalData);
       setItems(finalData || []);
     };
 
@@ -181,7 +186,9 @@ export default function Group1Page() {
           onChange={(e) => setYear(Number(e.target.value))}
         >
           {yearOptions.map((y) => (
-            <option key={y} value={y}>ปี {y}</option>
+            <option key={y} value={y}>
+              ปี {y}
+            </option>
           ))}
         </select>
       </div>
@@ -214,7 +221,9 @@ export default function Group1Page() {
               <button
                 className="px-4 py-1 bg-blue-600 text-white rounded-md text-sm"
                 onClick={() => saveInput(item.id)}
-              >บันทึก</button>
+              >
+                บันทึก
+              </button>
             </div>
 
             <div className="w-full md:w-1/6 flex flex-col items-end gap-2 mt-3 md:mt-0">
@@ -224,14 +233,19 @@ export default function Group1Page() {
                   type="file"
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                   className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handleFileUpload(item.id, e.target.files[0])}
+                  onChange={(e) =>
+                    e.target.files?.[0] &&
+                    handleFileUpload(item.id, e.target.files[0])
+                  }
                 />
               </label>
               {item.file_path && (
                 <button
                   className="px-2 py-1 bg-gray-200 rounded-md text-xs"
-                  onClick={() => window.open(item.file_path, '_blank')}
-                >ดูไฟล์แนบ</button>
+                  onClick={() => window.open(item.file_path, "_blank")}
+                >
+                  ดูไฟล์แนบ
+                </button>
               )}
             </div>
           </div>
