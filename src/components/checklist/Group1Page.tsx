@@ -1,6 +1,4 @@
-// ✅ Group1Page.tsx – ใช้ checklist_templates เป็นแหล่งตั้งต้น
-// ✅ ไม่ซ้ำ ID เดิม, ไม่ดึงจากปีเก่าลงมาโดยตรงอีกต่อไป
-
+// ✅ Group1Page.tsx (เวอร์ชันแก้ครบ)
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -13,6 +11,7 @@ interface ChecklistItem {
   updated_at?: string;
   year_version: number;
   user_id?: string;
+  group_name: string;
 }
 
 const currentYear = new Date().getFullYear();
@@ -22,6 +21,7 @@ export default function Group1Page() {
   const { profile } = useUserProfile();
   const [year, setYear] = useState<number>(currentYear);
   const [items, setItems] = useState<ChecklistItem[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -39,21 +39,20 @@ export default function Group1Page() {
         return;
       }
 
-      if (data.length === 0) {
-        console.warn("📦 No checklist found. Creating from template...");
-
+      if (!data || data.length === 0) {
+        // Clone จาก checklist_templates
         const { data: templates, error: templateError } = await supabase
           .from("checklist_templates")
           .select("name")
           .eq("group_name", "กลยุทธ์องค์กร");
 
-        if (templateError || !templates || templates.length === 0) {
-          console.error("❌ Template not found:", templateError);
+        if (templateError || !templates) {
+          console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
           return;
         }
 
-        const newItems = templates.map((item) => ({
-          name: item.name,
+        const newItems = templates.map((t) => ({
+          name: t.name,
           group_name: "กลยุทธ์องค์กร",
           year_version: year,
           file_path: null,
@@ -67,8 +66,7 @@ export default function Group1Page() {
           .select();
 
         if (insertError) {
-          console.error("❌ Error inserting new checklist:", insertError);
-          return;
+          console.error("❌ Insert error:", insertError);
         }
 
         setItems(inserted || []);
@@ -80,18 +78,33 @@ export default function Group1Page() {
     fetchOrCreateChecklist();
   }, [year, profile?.id]);
 
-  const handleInputChange = async (id: string, value: string) => {
-    const updated_at = new Date().toISOString();
+  const handleInputChange = (id: string, value: string) => {
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, input_text: value, updated_at } : item
+        item.id === id ? { ...item, input_text: value } : item
       )
     );
+  };
+
+  const handleSave = async (id: string) => {
+    setSavingId(id);
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    const updated_at = new Date().toISOString();
+
     await supabase
       .from("checklists_v2")
-      .update({ input_text: value, updated_at })
+      .update({ input_text: item.input_text, updated_at })
       .eq("id", id)
       .eq("user_id", profile.id);
+
+    setItems((prev) =>
+      prev.map((i) =>
+        i.id === id ? { ...i, updated_at } : i
+      )
+    );
+    setSavingId(null);
   };
 
   const handleFileUpload = async (id: string, file: File) => {
@@ -153,7 +166,6 @@ export default function Group1Page() {
             key={item.id}
             className="bg-white rounded-xl border flex flex-col md:flex-row md:items-start p-4 md:gap-6 shadow-sm"
           >
-            {/* ซ้าย: สถานะ */}
             <div className="w-full md:w-1/6 text-sm font-medium text-center md:text-left">
               {isComplete(item) ? (
                 <span className="text-green-600">✅ ทำแล้ว</span>
@@ -162,7 +174,6 @@ export default function Group1Page() {
               )}
             </div>
 
-            {/* กลาง: หัวข้อ + textarea */}
             <div className="w-full md:w-4/6">
               <p className="font-semibold text-gray-800 mb-2">{item.name}</p>
               <textarea
@@ -172,9 +183,15 @@ export default function Group1Page() {
                 value={item.input_text || ""}
                 onChange={(e) => handleInputChange(item.id, e.target.value)}
               />
+              <button
+                onClick={() => handleSave(item.id)}
+                disabled={savingId === item.id}
+                className="mt-2 text-sm text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded"
+              >
+                💾 {savingId === item.id ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
             </div>
 
-            {/* ขวา: แนบไฟล์ + แสดงชื่อ + ลิงก์ดูไฟล์ */}
             <div className="w-full md:w-1/6 flex flex-col md:items-end gap-1 mt-3 md:mt-0">
               <label className="text-sm cursor-pointer text-blue-600 flex items-center gap-1">
                 📎 แนบไฟล์
