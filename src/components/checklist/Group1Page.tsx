@@ -1,18 +1,19 @@
-// ✅ Group1Page.tsx แบบสมบูรณ์ รองรับปีที่แยกอิสระ ใช้ checklist_templates เป็น source
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ChecklistItem {
   id: string;
+  template_id: string;
   name: string;
   file_path?: string;
   input_text?: string;
   updated_at?: string;
   year_version: number;
   user_id?: string;
-  index_number: number;
+  checklist_templates: {
+    index_number: number;
+  }[];
 }
 
 const currentYear = new Date().getFullYear();
@@ -27,13 +28,16 @@ export default function Group1Page() {
     if (!profile?.id) return;
 
     const fetchOrCreateChecklist = async () => {
+      // Fetch existing items with join to templates for ordering
       const { data, error } = await supabase
         .from("checklists_v2")
-        .select("*")
+        .select(
+          `id, template_id, name, file_path, input_text, updated_at, year_version, user_id, checklist_templates ( index_number )`
+        )
         .eq("group_name", "กลยุทธ์องค์กร")
         .eq("year_version", year)
         .eq("user_id", profile.id)
-        .order("index_number", { ascending: true });
+        .order("index_number", { foreignTable: "checklist_templates", ascending: true });
 
       if (error) {
         console.error("❌ Error fetching checklist:", error);
@@ -41,31 +45,34 @@ export default function Group1Page() {
       }
 
       if (!data || data.length === 0) {
+        // No items for this year, create from templates
         const { data: templateData, error: templateError } = await supabase
           .from("checklist_templates")
-          .select("name, index_number")
+          .select("id, name, group_name, index_number")
           .eq("group_name", "กลยุทธ์องค์กร")
           .order("index_number", { ascending: true });
 
-        if (templateError || !templateData || templateData.length === 0) {
+        if (templateError || !templateData?.length) {
           console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
           return;
         }
 
-        const newItems = templateData.map((template) => ({
-          name: template.name,
-          group_name: "กลยุทธ์องค์กร",
+        const newItems = templateData.map((t) => ({
+          template_id: t.id,
+          name: t.name,
+          group_name: t.group_name,
           year_version: year,
           file_path: null,
           input_text: null,
           user_id: profile.id,
-          index_number: template.index_number,
         }));
 
         const { data: inserted, error: insertError } = await supabase
           .from("checklists_v2")
           .insert(newItems)
-          .select();
+          .select(
+            `id, template_id, name, file_path, input_text, updated_at, year_version, user_id, checklist_templates ( index_number )`
+          );
 
         if (insertError) {
           console.error("❌ Error inserting new checklist:", insertError);
@@ -165,7 +172,9 @@ export default function Group1Page() {
 
             {/* กลาง: หัวข้อ + textarea */}
             <div className="w-full md:w-4/6">
-              <p className="font-semibold text-gray-800 mb-2">{item.name}</p>
+              <p className="font-semibold text-gray-800 mb-2">
+                {item.name}
+              </p>
               <textarea
                 placeholder="เพิ่มคำอธิบาย (อย่างน้อย 100 ตัวอักษร)"
                 className="w-full border rounded-md p-2 text-sm"
