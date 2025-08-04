@@ -1,12 +1,9 @@
-// ✅ โครงสร้างใหม่: Group1Page.tsx (sync จาก checklist_templates)
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface ChecklistItem {
   id: string;
-  template_id: string;
   name: string;
   file_path?: string;
   input_text?: string;
@@ -25,88 +22,118 @@ export default function Group1Page() {
 
   useEffect(() => {
     if (!profile?.id) return;
-    const group = "กลยุทธ์องค์กร";
 
-    const fetchChecklist = async () => {
-      const { data: existing, error: fetchError } = await supabase
+    const fetchOrCreateChecklist = async () => {
+      const { data, error } = await supabase
         .from("checklists_v2")
-        .select("*, checklist_templates(name)")
-        .eq("group_name", group)
+        .select("*")
+        .eq("group_name", "กลยุทธ์องค์กร")
         .eq("year_version", year)
         .eq("user_id", profile.id);
 
-      if (fetchError) {
-        console.error("❌ Error fetching checklist:", fetchError);
+      if (error) {
+        console.error("❌ Error fetching checklist:", error);
         return;
       }
 
-      if (existing.length > 0) {
-        setItems(
-          existing.map((c) => ({ ...c, name: c.checklist_templates?.name || "" }))
-        );
-        return;
+      if (data.length === 0) {
+        console.warn("📦 No checklist found for this year. Trying to clone from template...");
+
+        const { data: template } = await supabase
+          .from("checklist_templates")
+          .select("name")
+          .eq("group_name", "กลยุทธ์องค์กร");
+
+        if (template && template.length > 0) {
+          const newItems = template.map((item) => ({
+            name: item.name,
+            group_name: "กลยุทธ์องค์กร",
+            year_version: year,
+            file_path: null,
+            input_text: null,
+            user_id: profile.id,
+          }));
+
+          const { data: inserted, error: insertError } = await supabase
+            .from("checklists_v2")
+            .insert(newItems)
+            .select();
+
+          if (insertError) {
+            console.error("❌ Error inserting checklist:", insertError);
+            return;
+          }
+
+          setItems(inserted || []);
+        } else {
+          console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
+        }
+      } else {
+        setItems(data);
       }
-
-      // ✅ ยังไม่มี → ดึง template แล้วสร้างใหม่
-      const { data: templates } = await supabase
-        .from("checklist_templates")
-        .select("id, name")
-        .eq("group_name", group);
-
-      if (!templates || templates.length === 0) {
-        console.warn("⚠️ ไม่พบ template ใน checklist_templates");
-        return;
-      }
-
-      const newItems = templates.map((t) => ({
-        template_id: t.id,
-        name: t.name,
-        group_name: group,
-        year_version: year,
-        user_id: profile.id,
-        input_text: null,
-        file_path: null,
-      }));
-
-      const { data: inserted } = await supabase
-        .from("checklists_v2")
-        .insert(newItems)
-        .select("*, checklist_templates(name)");
-
-      setItems(
-        inserted.map((c) => ({ ...c, name: c.checklist_templates?.name || "" }))
-      );
     };
 
-    fetchChecklist();
+    fetchOrCreateChecklist();
   }, [year, profile?.id]);
 
   const handleInputChange = (id: string, value: string) => {
-    const updated_at = new Date().toISOString();
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, input_text: value, updated_at } : item
+        item.id === id ? { ...item, input_text: value } : item
       )
     );
-    supabase.from("checklists_v2").update({ input_text: value, updated_at }).eq("id", id);
+  };
+
+  const handleSave = async (id: string) => {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+
+    const updated_at = new Date().toISOString();
+    const { error } = await supabase
+      .from("checklists_v2")
+      .update({ input_text: item.input_text, updated_at })
+      .eq("id", id)
+      .eq("user_id", profile.id);
+
+    if (!error) {
+      console.log("✅ Saved");
+    } else {
+      console.error("❌ Save failed", error);
+    }
   };
 
   const handleFileUpload = async (id: string, file: File) => {
     const filePath = `${profile.id}/${year}/${file.name}`;
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from("checklist-files")
-      .upload(filePath, file, { upsert: true });
-    if (error) return console.error("Upload failed", error);
+      .upload(filePath, file, {
+        upsert: true,
+        contentType: file.type,
+      });
 
-    const { data: publicUrl } = supabase.storage.from("checklist-files").getPublicUrl(filePath);
+    if (uploadError) {
+      console.error("❌ Upload error:", uploadError);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("checklist-files")
+      .getPublicUrl(filePath);
+
+    const fileUrl = publicUrlData?.publicUrl || "";
     const updated_at = new Date().toISOString();
 
     setItems((prev) =>
       prev.map((item) =>
-        item.id === id ? { ...item, file_path: publicUrl.publicUrl, updated_at } : item
+        item.id === id ? { ...item, file_path: fileUrl, updated_at } : item
       )
     );
-    await supabase.from("checklists_v2").update({ file_path: publicUrl.publicUrl, updated_at }).eq("id", id);
+
+    await supabase
+      .from("checklists_v2")
+      .update({ file_path: fileUrl, updated_at })
+      .eq("id", id)
+      .eq("user_id", profile.id);
   };
 
   const isComplete = (item: ChecklistItem) => {
@@ -151,6 +178,12 @@ export default function Group1Page() {
                 value={item.input_text || ""}
                 onChange={(e) => handleInputChange(item.id, e.target.value)}
               />
+              <button
+                onClick={() => handleSave(item.id)}
+                className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                💾 บันทึก
+              </button>
             </div>
 
             <div className="w-full md:w-1/6 flex flex-col md:items-end gap-1 mt-3 md:mt-0">
