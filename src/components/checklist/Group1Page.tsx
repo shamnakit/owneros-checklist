@@ -23,18 +23,23 @@ export default function Group1Page() {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [editing, setEditing] = useState<Record<string, string>>({});
 
+  // Sync editing state whenever items change
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    items.forEach((item) => {
+      map[item.id] = item.input_text || "";
+    });
+    setEditing(map);
+  }, [items]);
+
   useEffect(() => {
     if (!profile?.id) return;
 
     const fetchOrCreateChecklist = async () => {
-      // Clear previous items immediately on year change
-      setItems([]);
-
       // 1. Try fetch existing items
       const { data, error } = await supabase
         .from("checklists_v2")
-        .select(
-          `
+        .select(`
           id,
           template_id,
           name,
@@ -44,8 +49,7 @@ export default function Group1Page() {
           year_version,
           user_id,
           checklist_templates ( index_number )
-        `
-        )
+        `)
         .eq("group_name", "กลยุทธ์องค์กร")
         .eq("year_version", year)
         .eq("user_id", profile.id)
@@ -61,7 +65,7 @@ export default function Group1Page() {
         return;
       }
 
-      // 2. No data for this year: attempt to create from templates
+      // 2. No data for this year: insert from templates
       const { data: templateData, error: templateError } = await supabase
         .from("checklist_templates")
         .select("id, name, group_name, index_number")
@@ -88,15 +92,13 @@ export default function Group1Page() {
         .insert(newItems);
 
       if (insertError) {
-        // likely unique constraint due to template_id/user_id: fallback to fetch
         console.warn("❌ Insert error, fetching existing items:", insertError);
       }
 
-      // 3. Fetch after insert or on insert error
+      // 3. Fetch again after insert
       const { data: finalData, error: finalError } = await supabase
         .from("checklists_v2")
-        .select(
-          `
+        .select(`
           id,
           template_id,
           name,
@@ -106,8 +108,7 @@ export default function Group1Page() {
           year_version,
           user_id,
           checklist_templates ( index_number )
-        `
-        )
+        `)
         .eq("group_name", "กลยุทธ์องค์กร")
         .eq("year_version", year)
         .eq("user_id", profile.id)
@@ -205,7 +206,7 @@ export default function Group1Page() {
                 placeholder="เพิ่มคำอธิบาย (อย่างน้อย 100 ตัวอักษร)"
                 className="w-full border rounded-md p-2 text-sm"
                 rows={3}
-                value={editing[item.id] ?? item.input_text ?? ""}
+                value={editing[item.id] ?? ""}
                 onChange={(e) =>
                   setEditing((prev) => ({ ...prev, [item.id]: e.target.value }))
                 }
