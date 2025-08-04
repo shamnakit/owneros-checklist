@@ -11,9 +11,7 @@ interface ChecklistItem {
   updated_at?: string;
   year_version: number;
   user_id?: string;
-  checklist_templates: {
-    index_number: number;
-  }[];
+  checklist_templates: { index_number: number }[];
 }
 
 const currentYear = new Date().getFullYear();
@@ -29,9 +27,14 @@ export default function Group1Page() {
     if (!profile?.id) return;
 
     const fetchOrCreateChecklist = async () => {
+      // Clear previous items immediately on year change
+      setItems([]);
+
+      // 1. Try fetch existing items
       const { data, error } = await supabase
         .from("checklists_v2")
-        .select(`
+        .select(
+          `
           id,
           template_id,
           name,
@@ -40,10 +43,9 @@ export default function Group1Page() {
           updated_at,
           year_version,
           user_id,
-          checklist_templates (
-            index_number
-          )
-        `)
+          checklist_templates ( index_number )
+        `
+        )
         .eq("group_name", "กลยุทธ์องค์กร")
         .eq("year_version", year)
         .eq("user_id", profile.id)
@@ -54,54 +56,69 @@ export default function Group1Page() {
         return;
       }
 
-      if (!data || data.length === 0) {
-        const { data: templateData, error: templateError } = await supabase
-          .from("checklist_templates")
-          .select("id, name, group_name, index_number")
-          .eq("group_name", "กลยุทธ์องค์กร")
-          .order("index_number", { ascending: true });
-
-        if (templateError || !templateData?.length) {
-          console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
-          return;
-        }
-
-        const newItems = templateData.map((t) => ({
-          template_id: t.id,
-          name: t.name,
-          group_name: t.group_name,
-          year_version: year,
-          file_path: null,
-          input_text: null,
-          user_id: profile.id,
-        }));
-
-        const { data: inserted, error: insertError } = await supabase
-          .from("checklists_v2")
-          .insert(newItems)
-          .select(`
-            id,
-            template_id,
-            name,
-            file_path,
-            input_text,
-            updated_at,
-            year_version,
-            user_id,
-            checklist_templates (
-              index_number
-            )
-          `);
-
-        if (insertError) {
-          console.error("❌ Error inserting new checklist:", insertError);
-          return;
-        }
-
-        setItems(inserted || []);
-      } else {
+      if (data && data.length > 0) {
         setItems(data);
+        return;
       }
+
+      // 2. No data for this year: attempt to create from templates
+      const { data: templateData, error: templateError } = await supabase
+        .from("checklist_templates")
+        .select("id, name, group_name, index_number")
+        .eq("group_name", "กลยุทธ์องค์กร")
+        .order("index_number", { ascending: true });
+
+      if (templateError || !templateData?.length) {
+        console.warn("❌ ไม่พบ template สำหรับกลยุทธ์องค์กร");
+        return;
+      }
+
+      const newItems = templateData.map((t) => ({
+        template_id: t.id,
+        name: t.name,
+        group_name: t.group_name,
+        year_version: year,
+        file_path: null,
+        input_text: null,
+        user_id: profile.id,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("checklists_v2")
+        .insert(newItems);
+
+      if (insertError) {
+        // likely unique constraint due to template_id/user_id: fallback to fetch
+        console.warn("❌ Insert error, fetching existing items:", insertError);
+      }
+
+      // 3. Fetch after insert or on insert error
+      const { data: finalData, error: finalError } = await supabase
+        .from("checklists_v2")
+        .select(
+          `
+          id,
+          template_id,
+          name,
+          file_path,
+          input_text,
+          updated_at,
+          year_version,
+          user_id,
+          checklist_templates ( index_number )
+        `
+        )
+        .eq("group_name", "กลยุทธ์องค์กร")
+        .eq("year_version", year)
+        .eq("user_id", profile.id)
+        .order("index_number", { foreignTable: "checklist_templates", ascending: true });
+
+      if (finalError) {
+        console.error("❌ Error fetching after insert:", finalError);
+        return;
+      }
+
+      setItems(finalData || []);
     };
 
     fetchOrCreateChecklist();
@@ -196,9 +213,7 @@ export default function Group1Page() {
               <button
                 className="px-4 py-1 bg-blue-600 text-white rounded-md text-sm"
                 onClick={() => saveInput(item.id)}
-              >
-                บันทึก
-              </button>
+              >บันทึก</button>
             </div>
 
             <div className="w-full md:w-1/6 flex flex-col items-end gap-2 mt-3 md:mt-0">
@@ -215,9 +230,7 @@ export default function Group1Page() {
                 <button
                   className="px-2 py-1 bg-gray-200 rounded-md text-xs"
                   onClick={() => window.open(item.file_path, '_blank')}
-                >
-                  ดูไฟล์แนบ
-                </button>
+                >ดูไฟล์แนบ</button>
               )}
             </div>
           </div>
