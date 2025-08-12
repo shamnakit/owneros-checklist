@@ -1,63 +1,63 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 
-// ✅ กำหนด type สำหรับ profile
-type Profile = {
-  id: string;
-  full_name?: string;
-  avatar_url?: string;
-  company_logo_url?: string;
-  company_name?: string;
-  position?: string; // ✅ เพิ่มตำแหน่งของผู้ใช้
-};
+ export type Profile = {
+   id: string;
+   company_name: string | null;
+   company_logo_url: string | null;
+   company_logo_key: string | null;
+   full_name?: string | null;  // ✅ เพิ่มเป็น optional
+   role?: string | null;       // ✅ เพิ่มเป็น optional
+ };
 
-// ✅ กำหนดรูปแบบ context
-type UserProfileContextType = {
+type Ctx = {
   profile: Profile | null;
-  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   loading: boolean;
+  refresh: () => Promise<void>;
 };
 
-// ✅ สร้าง context
-const UserProfileContext = createContext<UserProfileContextType | null>(null);
+export const UserProfileContext = createContext<Ctx>({
+  profile: null,
+  loading: true,
+  refresh: async () => {},
+});
 
-// ✅ Provider สำหรับใช้ครอบแอป
-export const UserProfileProvider = ({ children }: { children: React.ReactNode }) => {
+export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
       const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
-
-      if (user) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        setProfile(data);
+      const uid = auth?.user?.id;
+      if (!uid) {
+        setProfile(null);
+        return;
       }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")               // ✅ ดึงทุกคอลัมน์ (จะมีหรือไม่มีก็ไม่พัง)
+        .eq("id", uid)
+        .maybeSingle();
 
+      if (error) {
+        console.warn("load profile error:", error);
+        setProfile(null);
+      } else {
+        setProfile((data as Profile) ?? null);
+      }
+    } finally {
       setLoading(false);
-    };
-
-    load();
+    }
   }, []);
 
-  return (
-    <UserProfileContext.Provider value={{ profile, setProfile, loading }}>
-      {children}
-    </UserProfileContext.Provider>
-  );
-};
+  useEffect(() => {
+    load();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, _session) => load());
+    return () => sub.subscription.unsubscribe();
+  }, [load]);
 
-// ✅ hook สำหรับเรียกใช้งาน context
-export const useUserProfile = () => {
-  const context = useContext(UserProfileContext);
-  if (!context) {
-    throw new Error("useUserProfile must be used within a UserProfileProvider");
-  }
-  return context;
+  const value = useMemo(() => ({ profile, loading, refresh: load }), [profile, loading, load]);
+  return <UserProfileContext.Provider value={value}>{children}</UserProfileContext.Provider>;
 };

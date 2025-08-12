@@ -1,4 +1,3 @@
-// src/pages/checklist/settings.tsx
 import { useState, useEffect } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/utils/supabaseClient";
@@ -30,31 +29,44 @@ export default function SettingsPage() {
     }
   }, [profile]);
 
-  // ✅ แก้เป็น upsert เพื่อกันเคสที่ยังไม่มี row ใน profiles (จะไม่ 400)
+  // ✅ แบบสองจังหวะ: มี row ไหม? ถ้ามี → update, ถ้าไม่มี → insert
   const handleSave = async () => {
     setUpdating(true);
     try {
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !authData?.user?.id) {
-        alert("ยังไม่ล็อกอิน หรือหา user.id ไม่เจอ");
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) {
+        alert("ยังไม่ล็อกอิน");
         return;
       }
 
       const payload = {
-        id: authData.user.id,                 // PK ของ profiles
         company_name: companyName || null,
         company_logo_url: companyLogoUrl || null,
-        updated_at: new Date().toISOString(), // ถ้าตารางมีคอลัมน์นี้
+        updated_at: new Date().toISOString(),
       };
 
-      const { data, error } = await supabase
+      const { data: existing, error: selErr } = await supabase
         .from("profiles")
-        .upsert(payload, { onConflict: "id" })
-        .select()
-        .single();
+        .select("id")
+        .eq("id", uid)
+        .maybeSingle();
+
+      if (selErr) {
+        console.error("อ่านโปรไฟล์ไม่ได้:", selErr);
+        alert("อ่านโปรไฟล์ไม่สำเร็จ");
+        return;
+      }
+
+      let error;
+      if (existing?.id) {
+        ({ error } = await supabase.from("profiles").update(payload).eq("id", uid));
+      } else {
+        ({ error } = await supabase.from("profiles").insert({ id: uid, ...payload }));
+      }
 
       if (error) {
-        console.error("Upsert profile ผิดพลาด:", error);
+        console.error("บันทึกโปรไฟล์ไม่สำเร็จ:", error);
         alert("บันทึกไม่สำเร็จ: " + error.message);
         return;
       }
@@ -67,16 +79,16 @@ export default function SettingsPage() {
   };
 
   const handleLogoUpload = async (file: File) => {
-    // อัปโหลดโลโก้ → อัปเดต profiles.company_logo_url + company_logo_key
     setUploading(true);
     try {
-      const { data: authData, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !authData?.user?.id) {
-        alert("ยังไม่ล็อกอิน หรือหา user.id ไม่เจอ");
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) {
+        alert("ยังไม่ล็อกอิน");
         return;
       }
-      const uid = authData.user.id;
 
+      // ตรวจสอบไฟล์
       if (!file.type.startsWith("image/")) {
         alert("อนุญาตเฉพาะไฟล์ภาพเท่านั้น");
         return;
@@ -87,8 +99,8 @@ export default function SettingsPage() {
         return;
       }
 
+      // อัปโหลดโลโก้
       const key = `${uid}/logo/${Date.now()}-${slugify(file.name)}`;
-
       const { error: upErr } = await supabase.storage
         .from("public-assets")
         .upload(key, file, { upsert: true, contentType: file.type });
@@ -97,33 +109,42 @@ export default function SettingsPage() {
         return;
       }
 
-      const { data: pub } = supabase.storage
-        .from("public-assets")
-        .getPublicUrl(key);
+      const { data: pub } = supabase.storage.from("public-assets").getPublicUrl(key);
       const url = pub?.publicUrl || "";
 
-      // อัปเดตโปรไฟล์ (ใช้ upsert เผื่อยังไม่มี row)
-      const { error: updErr } = await supabase
+      // เช็คว่ามี row หรือยัง
+      const { data: existing, error: selErr } = await supabase
         .from("profiles")
-        .upsert(
-          {
-            id: uid,
-            company_logo_url: url,
-            company_logo_key: key,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "id" }
-        );
-      if (updErr) {
-        alert("บันทึกโลโก้ไม่สำเร็จ: " + updErr.message);
+        .select("id, company_logo_key")
+        .eq("id", uid)
+        .maybeSingle();
+      if (selErr) {
+        console.error("อ่านโปรไฟล์ไม่ได้:", selErr);
+        alert("อ่านโปรไฟล์ไม่สำเร็จ");
+        return;
+      }
+
+      // อัปเดตหรือสร้าง row
+      let error;
+      if (existing?.id) {
+        ({ error } = await supabase
+          .from("profiles")
+          .update({ company_logo_url: url, company_logo_key: key, updated_at: new Date().toISOString() })
+          .eq("id", uid));
+      } else {
+        ({ error } = await supabase
+          .from("profiles")
+          .insert({ id: uid, company_logo_url: url, company_logo_key: key, updated_at: new Date().toISOString() }));
+      }
+      if (error) {
+        alert("บันทึกโลโก้ไม่สำเร็จ: " + error.message);
         return;
       }
 
       // ลบไฟล์เก่า (ถ้ามี)
-      if (profile?.company_logo_key) {
-        const { error: sErr } = await supabase.storage
-          .from("public-assets")
-          .remove([profile.company_logo_key]);
+      const oldKey = existing?.company_logo_key || profile?.company_logo_key;
+      if (oldKey) {
+        const { error: sErr } = await supabase.storage.from("public-assets").remove([oldKey]);
         if (sErr) console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
       }
 
@@ -136,32 +157,46 @@ export default function SettingsPage() {
   };
 
   const handleLogoDelete = async () => {
-    const { data: authData, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !authData?.user?.id) {
-      alert("ยังไม่ล็อกอิน หรือหา user.id ไม่เจอ");
-      return;
-    }
-    const uid = authData.user.id;
-
     setUploading(true);
     try {
-      // ล้างค่าในโปรไฟล์ (ใช้ upsert เผื่อยังไม่มี row)
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid) {
+        alert("ยังไม่ล็อกอิน");
+        return;
+      }
+
+      // เช็คว่ามี row ไหม
+      const { data: existing, error: selErr } = await supabase
+        .from("profiles")
+        .select("id, company_logo_key")
+        .eq("id", uid)
+        .maybeSingle();
+      if (selErr) {
+        console.error("อ่านโปรไฟล์ไม่ได้:", selErr);
+        alert("อ่านโปรไฟล์ไม่สำเร็จ");
+        return;
+      }
+      if (!existing?.id) {
+        // ไม่มี row อยู่แล้ว → แค่ล้าง state
+        setCompanyLogoUrl("");
+        await refresh();
+        return;
+      }
+
+      // ล้างค่าบนโปรไฟล์
       const { error: updErr } = await supabase
         .from("profiles")
-        .upsert(
-          { id: uid, company_logo_url: null, company_logo_key: null, updated_at: new Date().toISOString() },
-          { onConflict: "id" }
-        );
+        .update({ company_logo_url: null, company_logo_key: null, updated_at: new Date().toISOString() })
+        .eq("id", uid);
       if (updErr) {
         alert("อัปเดตโปรไฟล์ไม่สำเร็จ: " + updErr.message);
         return;
       }
 
-      // ลบไฟล์ใน bucket ถ้ามี key
-      if (profile?.company_logo_key) {
-        const { error: sErr } = await supabase.storage
-          .from("public-assets")
-          .remove([profile.company_logo_key]);
+      // ลบไฟล์ (ถ้ามี)
+      if (existing.company_logo_key) {
+        const { error: sErr } = await supabase.storage.from("public-assets").remove([existing.company_logo_key]);
         if (sErr) console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
       }
 
@@ -177,7 +212,6 @@ export default function SettingsPage() {
     return <div className="p-10 text-gray-600">กำลังโหลดข้อมูล...</div>;
   }
 
-  // ถ้ายังไม่มี profile (เช่นยังไม่เคยถูกสร้าง) ให้แสดง UI ปกติและใช้ upsert ตอนบันทึก
   return (
     <div className="max-w-2xl mx-auto py-10">
       <h1 className="text-2xl font-bold text-slate-800 mb-6">⚙️ ตั้งค่าระบบ</h1>
@@ -256,7 +290,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ปุ่มบันทึก v2 */}
+        {/* ปุ่มบันทึก */}
         <div>
           <button
             onClick={handleSave}
