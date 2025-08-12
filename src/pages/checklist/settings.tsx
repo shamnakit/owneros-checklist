@@ -30,55 +30,65 @@ export default function SettingsPage() {
     }
   }, [profile]);
 
+  // ✅ แก้เป็น upsert เพื่อกันเคสที่ยังไม่มี row ใน profiles (จะไม่ 400)
   const handleSave = async () => {
-    if (!profile) return;
     setUpdating(true);
+    try {
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !authData?.user?.id) {
+        alert("ยังไม่ล็อกอิน หรือหา user.id ไม่เจอ");
+        return;
+      }
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+      const payload = {
+        id: authData.user.id,                 // PK ของ profiles
         company_name: companyName || null,
         company_logo_url: companyLogoUrl || null,
-        // company_logo_key ไม่แตะ ถ้าเป็น URL ภายนอก
-      })
-      .eq("id", profile.id);
+        updated_at: new Date().toISOString(), // ถ้าตารางมีคอลัมน์นี้
+      };
 
-    setUpdating(false);
+      const { data, error } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" })
+        .select()
+        .single();
 
-    if (error) {
-      alert("บันทึกไม่สำเร็จ: " + error.message);
-    } else {
+      if (error) {
+        console.error("Upsert profile ผิดพลาด:", error);
+        alert("บันทึกไม่สำเร็จ: " + error.message);
+        return;
+      }
+
       await refresh();
       alert("บันทึกสำเร็จ");
+    } finally {
+      setUpdating(false);
     }
   };
 
   const handleLogoUpload = async (file: File) => {
-    if (!profile) return;
-
-    // ตรวจสอบชนิด/ขนาดไฟล์
-    if (!file.type.startsWith("image/")) {
-      alert("อนุญาตเฉพาะไฟล์ภาพเท่านั้น");
-      return;
-    }
-    const maxSizeMB = 5;
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      alert(`ไฟล์ใหญ่เกินไป (จำกัด ${maxSizeMB}MB)`);
-      return;
-    }
-
+    // อัปโหลดโลโก้ → อัปเดต profiles.company_logo_url + company_logo_key
     setUploading(true);
     try {
-      // ใช้ auth.uid() เป็น prefix
-      const { data: u } = await supabase.auth.getUser();
-      const uid = u.user?.id;
-      if (!uid) {
-        alert("ไม่พบ session ผู้ใช้");
+      const { data: authData, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !authData?.user?.id) {
+        alert("ยังไม่ล็อกอิน หรือหา user.id ไม่เจอ");
+        return;
+      }
+      const uid = authData.user.id;
+
+      if (!file.type.startsWith("image/")) {
+        alert("อนุญาตเฉพาะไฟล์ภาพเท่านั้น");
+        return;
+      }
+      const maxSizeMB = 5;
+      if (file.size > maxSizeMB * 1024 * 1024) {
+        alert(`ไฟล์ใหญ่เกินไป (จำกัด ${maxSizeMB}MB)`);
         return;
       }
 
       const key = `${uid}/logo/${Date.now()}-${slugify(file.name)}`;
-      // อัปโหลดเข้า bucket public-assets
+
       const { error: upErr } = await supabase.storage
         .from("public-assets")
         .upload(key, file, { upsert: true, contentType: file.type });
@@ -87,28 +97,34 @@ export default function SettingsPage() {
         return;
       }
 
-      // ได้ URL สาธารณะ
       const { data: pub } = supabase.storage
         .from("public-assets")
         .getPublicUrl(key);
       const url = pub?.publicUrl || "";
 
-      // อัปเดตโปรไฟล์ให้ชี้โลโก้ใหม่
+      // อัปเดตโปรไฟล์ (ใช้ upsert เผื่อยังไม่มี row)
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({
-          company_logo_url: url,
-          company_logo_key: key,
-        })
-        .eq("id", profile.id);
+        .upsert(
+          {
+            id: uid,
+            company_logo_url: url,
+            company_logo_key: key,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
       if (updErr) {
         alert("บันทึกโลโก้ไม่สำเร็จ: " + updErr.message);
         return;
       }
 
-      // ลบไฟล์เก่า (ถ้ามีและเป็นของเรา)
-      if (profile.company_logo_key) {
-        await supabase.storage.from("public-assets").remove([profile.company_logo_key]);
+      // ลบไฟล์เก่า (ถ้ามี)
+      if (profile?.company_logo_key) {
+        const { error: sErr } = await supabase.storage
+          .from("public-assets")
+          .remove([profile.company_logo_key]);
+        if (sErr) console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
       }
 
       setCompanyLogoUrl(url);
@@ -120,37 +136,33 @@ export default function SettingsPage() {
   };
 
   const handleLogoDelete = async () => {
-    if (!profile) return;
+    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !authData?.user?.id) {
+      alert("ยังไม่ล็อกอิน หรือหา user.id ไม่เจอ");
+      return;
+    }
+    const uid = authData.user.id;
+
     setUploading(true);
     try {
-      // ลบไฟล์ใน bucket ถ้ามี key
-      if (profile.company_logo_key) {
-        const { error: delErr } = await supabase
-          .from("profiles")
-          .update({ company_logo_url: null, company_logo_key: null })
-          .eq("id", profile.id);
-        if (delErr) {
-          alert("อัปเดตโปรไฟล์ไม่สำเร็จ: " + delErr.message);
-          return;
-        }
+      // ล้างค่าในโปรไฟล์ (ใช้ upsert เผื่อยังไม่มี row)
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .upsert(
+          { id: uid, company_logo_url: null, company_logo_key: null, updated_at: new Date().toISOString() },
+          { onConflict: "id" }
+        );
+      if (updErr) {
+        alert("อัปเดตโปรไฟล์ไม่สำเร็จ: " + updErr.message);
+        return;
+      }
 
+      // ลบไฟล์ใน bucket ถ้ามี key
+      if (profile?.company_logo_key) {
         const { error: sErr } = await supabase.storage
           .from("public-assets")
           .remove([profile.company_logo_key]);
-        if (sErr) {
-          // ไม่ถึงกับต้อง fail ทั้ง flow — แจ้งเตือนเฉยๆ
-          console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
-        }
-      } else {
-        // ไม่มี key → แค่ล้าง URL
-        const { error: updErr } = await supabase
-          .from("profiles")
-          .update({ company_logo_url: null })
-          .eq("id", profile.id);
-        if (updErr) {
-          alert("อัปเดตโปรไฟล์ไม่สำเร็จ: " + updErr.message);
-          return;
-        }
+        if (sErr) console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
       }
 
       setCompanyLogoUrl("");
@@ -161,10 +173,11 @@ export default function SettingsPage() {
     }
   };
 
-  if (loading || !profile) {
+  if (loading) {
     return <div className="p-10 text-gray-600">กำลังโหลดข้อมูล...</div>;
   }
 
+  // ถ้ายังไม่มี profile (เช่นยังไม่เคยถูกสร้าง) ให้แสดง UI ปกติและใช้ upsert ตอนบันทึก
   return (
     <div className="max-w-2xl mx-auto py-10">
       <h1 className="text-2xl font-bold text-slate-800 mb-6">⚙️ ตั้งค่าระบบ</h1>
@@ -182,7 +195,7 @@ export default function SettingsPage() {
           />
         </div>
 
-        {/* โลโก้บริษัท (อัปโหลด & URL สำรอง) */}
+        {/* โลโก้บริษัท (อัปโหลด & URL ทางเลือก) */}
         <div className="space-y-3">
           <label className="block font-semibold text-sm">โลโก้บริษัท</label>
 
