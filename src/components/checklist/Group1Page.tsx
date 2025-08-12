@@ -1,5 +1,10 @@
 // src/components/checklist/Group1Page.tsx
-// ✅ เพิ่มลอจิก file_key: อัปโหลดทดแทน/ลบไฟล์ได้จริง
+// ✅ Core-ready (MVP)
+// - ปีแยกจริง / seed จาก checklist_templates ต่อปี (onConflict กันซ้ำ)
+// - ชื่อหัวข้อจาก template + ลำดับตาม index_number
+// - ปุ่ม "บันทึก", "ดูไฟล์แนบ", "เปลี่ยนไฟล์", "ลบไฟล์"
+// - จัดการไฟล์ด้วย file_key และใช้ auth.uid() เป็น prefix เสมอ
+// - ตัด generics ของ supabase ออก เพื่อเลี่ยง ts(2589)
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
@@ -24,7 +29,7 @@ type ChecklistRow = {
   year_version: number;
   input_text: string | null;
   file_path: string | null;
-  file_key: string | null;          // 👈 เพิ่ม
+  file_key: string | null;     // 👈 ใช้จัดการไฟล์ใน bucket
   updated_at: string | null;
   user_id: UUID;
 };
@@ -50,7 +55,7 @@ export default function Group1Page() {
   const [editing, setEditing] = useState<Record<UUID, string>>({});
   const [loading, setLoading] = useState(false);
 
-  // โหลด template
+  // โหลด template ของกลุ่มนี้
   useEffect(() => {
     let active = true;
     (async () => {
@@ -59,6 +64,7 @@ export default function Group1Page() {
         .select("id,name,index_number,group_name")
         .eq("group_name", GROUP_NAME)
         .order("index_number", { ascending: true });
+
       if (error) {
         console.error("❌ โหลด template ไม่ได้:", error);
         return;
@@ -105,7 +111,7 @@ export default function Group1Page() {
           user_id: profile.id,
           template_id: t.id,
           group_name: GROUP_NAME,
-          name: t.name,
+          name: t.name, // เก็บสำรองไว้; UI จะใช้ชื่อจาก template เสมอ
           year_version: year,
           input_text: null as string | null,
           file_path: null as string | null,
@@ -175,6 +181,7 @@ export default function Group1Page() {
       .eq("id", id)
       .eq("user_id", profile!.id);
     if (error) {
+      alert(`บันทึกข้อความไม่สำเร็จ: ${error.message}`);
       console.error("❌ Save error:", error);
       return;
     }
@@ -185,69 +192,78 @@ export default function Group1Page() {
     );
   };
 
-  // อัปโหลดไฟล์ใหม่ (ทดแทนของเดิมอย่างปลอดภัย)
+  // อัปโหลด/เปลี่ยนไฟล์ (ใช้ auth.uid() เป็น prefix ของ key)
   const handleFileUpload = async (row: ViewItem, file: File) => {
-    if (!profile?.id) return;
-    const ts = Date.now();
-    const safe = slugify(file.name);
-    const newKey = `${profile.id}/${year}/${row.template_id}-${ts}-${safe}`;
-
-    // 1) อัปโหลดไฟล์ใหม่ก่อน
-    const { error: uploadErr } = await supabase.storage
-      .from("checklist-files")
-      .upload(newKey, file, { upsert: true, contentType: file.type });
-    if (uploadErr) {
-      console.error("❌ Upload error:", uploadErr);
-      return;
-    }
-
-    // 2) ได้ URL ใหม่
-    const { data: pub } = supabase.storage
-      .from("checklist-files")
-      .getPublicUrl(newKey);
-    const newUrl = (pub?.publicUrl as string) || "";
-
-    // 3) อัปเดต DB ให้ชี้ไปไฟล์ใหม่
-    const updated_at = new Date().toISOString();
-    const { error: updErr } = await supabase
-      .from("checklists_v2")
-      .update({ file_path: newUrl, file_key: newKey, updated_at })
-      .eq("id", row.id)
-      .eq("user_id", profile.id);
-    if (updErr) {
-      console.error("❌ Update file_path error:", updErr);
-      return;
-    }
-
-    // 4) ลบไฟล์เก่า (ถ้ามี) — หลังจากอัปเดต DB สำเร็จแล้วเท่านั้น
-    if (row.file_key) {
-      const { error: delErr } = await supabase.storage
-        .from("checklist-files")
-        .remove([row.file_key]);
-      if (delErr) {
-        console.warn("⚠️ ลบไฟล์เก่าไม่ได้ แต่ไม่กระทบการใช้งาน:", delErr);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
+        alert("ไม่พบ session ผู้ใช้");
+        return;
       }
-    }
 
-    // 5) Sync state
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === row.id
-          ? { ...it, file_path: newUrl, file_key: newKey, updated_at }
-          : it
-      )
-    );
+      const ts = Date.now();
+      const safe = slugify(file.name);
+      const newKey = `${uid}/${year}/${row.template_id}-${ts}-${safe}`; // 👈 prefix = auth.uid()
+
+      const { error: uploadErr } = await supabase.storage
+        .from("checklist-files")
+        .upload(newKey, file, { upsert: true, contentType: file.type });
+      if (uploadErr) {
+        alert(`อัปโหลดไฟล์ไม่สำเร็จ: ${uploadErr.message}`);
+        console.error(uploadErr);
+        return;
+      }
+
+      const { data: pub } = supabase.storage
+        .from("checklist-files")
+        .getPublicUrl(newKey);
+      const newUrl = (pub?.publicUrl as string) || "";
+
+      const updated_at = new Date().toISOString();
+      const { error: updErr } = await supabase
+        .from("checklists_v2")
+        .update({ file_path: newUrl, file_key: newKey, updated_at })
+        .eq("id", row.id)
+        .eq("user_id", profile!.id);
+      if (updErr) {
+        alert(`บันทึกไฟล์ในฐานข้อมูลไม่สำเร็จ: ${updErr.message}`);
+        console.error(updErr);
+        return;
+      }
+
+      // ลบไฟล์เก่าหลังชี้ DB ไปตัวใหม่แล้ว
+      if (row.file_key) {
+        const { error: delErr } = await supabase.storage
+          .from("checklist-files")
+          .remove([row.file_key]);
+        if (delErr) {
+          console.warn("⚠️ ลบไฟล์เก่าไม่ได้ (ไม่กระทบการใช้งาน):", delErr);
+        }
+      }
+
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === row.id
+            ? { ...it, file_path: newUrl, file_key: newKey, updated_at }
+            : it
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("เกิดข้อผิดพลาดระหว่างอัปโหลดไฟล์");
+    }
   };
 
-  // ลบไฟล์ (เคลียร์ทั้ง bucket และ DB)
+  // ลบไฟล์ (ลบใน bucket และเคลียร์ใน DB)
   const handleFileDelete = async (row: ViewItem) => {
-    if (!profile?.id || !row.file_key) return;
-
+    if (!row.file_key) return;
     const { error: delErr } = await supabase.storage
       .from("checklist-files")
       .remove([row.file_key]);
     if (delErr) {
-      console.error("❌ ลบไฟล์จากสตอเรจไม่ได้:", delErr);
+      alert(`ลบไฟล์จากสตอเรจไม่ได้: ${delErr.message}`);
+      console.error(delErr);
       return;
     }
 
@@ -256,9 +272,10 @@ export default function Group1Page() {
       .from("checklists_v2")
       .update({ file_path: null, file_key: null, updated_at })
       .eq("id", row.id)
-      .eq("user_id", profile.id);
+      .eq("user_id", profile!.id);
     if (updErr) {
-      console.error("❌ อัปเดต DB หลังลบไฟล์ไม่ได้:", updErr);
+      alert(`อัปเดตฐานข้อมูลไม่สำเร็จ: ${updErr.message}`);
+      console.error(updErr);
       return;
     }
 
@@ -274,6 +291,7 @@ export default function Group1Page() {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <h1 className="text-2xl font-bold">Checklist หมวด 1: {GROUP_NAME}</h1>
         <div className="flex items-center gap-2">
@@ -292,12 +310,20 @@ export default function Group1Page() {
 
       {loading && <div className="text-gray-500 text-sm">กำลังโหลดข้อมูล…</div>}
 
+      {/* Items */}
       <div className="space-y-4">
         {items.map((item) => (
-          <div key={item.id} className="bg-white rounded-xl border flex flex-col md:flex-row md:items-start p-4 md:gap-6 shadow-sm">
+          <div
+            key={item.id}
+            className="bg-white rounded-xl border flex flex-col md:flex-row md:items-start p-4 md:gap-6 shadow-sm"
+          >
             {/* ซ้าย: สถานะ */}
             <div className="w-full md:w-1/6 text-sm font-medium text-center md:text-left">
-              {isComplete(item) ? <span className="text-green-600">✅ ทำแล้ว</span> : <span className="text-yellow-600">⏳ ยังไม่ทำ</span>}
+              {isComplete(item) ? (
+                <span className="text-green-600">✅ ทำแล้ว</span>
+              ) : (
+                <span className="text-yellow-600">⏳ ยังไม่ทำ</span>
+              )}
               {item.updated_at && (
                 <div className="text-xs text-gray-500 mt-1">
                   อัปเดตล่าสุด: {new Date(item.updated_at).toLocaleString("th-TH")}
@@ -305,7 +331,7 @@ export default function Group1Page() {
               )}
             </div>
 
-            {/* กลาง: textarea + save */}
+            {/* กลาง: ชื่อหัวข้อ + textarea + ปุ่มบันทึก */}
             <div className="w-full md:w-4/6">
               <p className="font-semibold text-gray-800 mb-2">{item.display_name}</p>
               <textarea
@@ -336,7 +362,7 @@ export default function Group1Page() {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleFileUpload(item, f);
-                    e.currentTarget.value = "";
+                    e.currentTarget.value = ""; // reset ค่า input
                   }}
                 />
               </label>
