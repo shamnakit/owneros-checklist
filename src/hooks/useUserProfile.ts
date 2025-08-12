@@ -1,53 +1,85 @@
-import { useEffect, useState } from "react";
+// src/hooks/useUserProfile.ts
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/utils/supabaseClient";
 
-export const useUserProfile = () => {
-  const [profile, setProfile] = useState<any>(null);
+export type Profile = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  role?: string | null;
+  company_name?: string | null;
+  company_logo_url?: string | null;
+  company_logo_key?: string | null;   // 👈 เพิ่ม
+  created_at?: string;
+  updated_at?: string;
+};
+
+export function useUserProfile() {
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadProfile = async () => {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: u, error: uErr } = await supabase.auth.getUser();
+      if (uErr) throw uErr;
+      const user = u.user;
+      if (!user) { setProfile(null); setLoading(false); return; }
 
-    if (userError || !user?.id) {
-      console.warn("ไม่พบ user จาก Supabase Auth:", userError);
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
+      const uid = user.id;
 
-    const { data, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single();
+      // 1) พยายามโหลด (กัน 406)
+      let { data: p, error: pErr } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", uid)
+        .maybeSingle();
+      if (pErr) throw pErr;
 
-    if (profileError) {
-      console.error("โหลด profile ผิดพลาด:", profileError);
-    }
+      // 2) ยังไม่มี → upsert สร้าง แล้วโหลดใหม่
+      if (!p) {
+        const payload = {
+  id: uid,
+  email: user.email ?? null,
+  full_name: (user.user_metadata?.full_name || user.user_metadata?.name) ?? null,
+  avatar_url: user.user_metadata?.avatar_url ?? null,
+  company_name: user.user_metadata?.company_name ?? null,
+  company_logo_url: user.user_metadata?.company_logo_url ?? null, // 👈 เพิ่ม
+};
 
-    setProfile(data);
-    setLoading(false);
-  };
+        const { error: iErr } = await supabase
+          .from("profiles")
+          .upsert(payload, { onConflict: "id", ignoreDuplicates: false });
+        if (iErr) throw iErr;
 
-  useEffect(() => {
-    loadProfile(); // initial load
-
-    // ✅ เมื่อ session เปลี่ยน เช่น login สำเร็จ
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          await loadProfile();
-        }
+        const { data: p2, error: p2Err } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", uid)
+          .single();
+        if (p2Err) throw p2Err;
+        p = p2;
       }
-    );
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+      setProfile(p as Profile);
+    } catch (e: any) {
+      setError(e?.message ?? "โหลดโปรไฟล์ไม่สำเร็จ");
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { profile, loading };
-};
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // รีเฟรชเมื่อ auth state เปลี่ยน
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange(() => { refresh(); });
+    return () => { sub?.subscription?.unsubscribe(); };
+  }, [refresh]);
+
+  return { profile, loading, error, refresh };
+}
