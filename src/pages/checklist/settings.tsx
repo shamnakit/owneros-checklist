@@ -256,7 +256,7 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ปุ่มบันทึก */}
+        {/* ปุ่มบันทึก v2 */}
         <div>
           <button
             onClick={handleSave}
