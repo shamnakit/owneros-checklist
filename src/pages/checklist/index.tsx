@@ -1,141 +1,139 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import FileAttachment from "@/components/checklist/FileAttachment";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 
-type Attachment = {
-  id: string;
-  path: string;           // ตัวอย่าง: "checklists/USER/ITEM/uuid-ts-name.png"
-  stored_name: string;    // ตัวอย่าง: "uuid-ts-name.png"
-  original_name?: string; // เช่น "male.png"
-  bucket?: string;        // เช่น "attachments"
+type ChecklistRow = Record<string, any>;
+
+// ปรับให้ตรงสคีมาจริงของคุณ
+const TB = {
+  name: "checklists",  // ← ชื่อตาราง เช่น "checklists" หรือ "checklist_items"
+  userCol: "owner_id", // ← คอลัมน์ผู้ใช้ เช่น "owner_id" หรือ "user_id" (uuid)
+  yearCol: "year",     // ← คอลัมน์ปี (integer)
 };
 
-type ChecklistItem = {
-  id: string;
-  title: string;
-  note?: string | null;
-  attachment?: Attachment | null;
-};
+function toIntOrNull(v: any): number | null {
+  if (v === "" || v === null || v === undefined) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function loadChecklistSafe(yearInput?: any) {
+  // ต้องมี user ก่อน
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth?.user?.id;
+  if (!uid) return { rows: [] as ChecklistRow[], error: null as any };
+
+  // ปีต้องเป็นตัวเลขเท่านั้น
+  const year = toIntOrNull(yearInput);
+
+  // ใช้ any เพื่อตัดปัญหา generic ลึก (แก้ TS: excessively deep)
+  const sb: any = supabase;
+
+  let query: any = sb.from(TB.name as string).select("*").eq(TB.userCol as string, uid);
+  if (year !== null) query = query.eq(TB.yearCol as string, year);
+
+  const { data, error } = await query; // ไม่ order เพื่อกันคอลัมน์ id/created_at ไม่ตรงสคีมา
+  if (error) {
+    console.error("CHECKLIST LOAD ERROR:", {
+      code: error.code,
+      message: error.message,
+      details: (error as any).details,
+      hint: (error as any).hint,
+      tb: TB,
+      uid,
+      yearInput,
+      parsedYear: year,
+    });
+    return { rows: [] as ChecklistRow[], error };
+  }
+  return { rows: (data as ChecklistRow[]) ?? [], error: null };
+}
 
 export default function ChecklistPage() {
-  const [items, setItems] = useState<ChecklistItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { loading: profileLoading } = useUserProfile();
 
-  // โหลดรายการ checklist + แนบไฟล์ (ปรับชื่อ table/column ให้ตรงของจริง)
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from("checklists_v2")
-        .select(`
-          id, title, note,
-          attachment:checklist_attachments(
-            id, path, stored_name, original_name, bucket
-          )
-        `)
-        .order("id", { ascending: true });
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [year, setYear] = useState<number | "">(currentYear);
+  const [rows, setRows] = useState<ChecklistRow[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errMsg, setErrMsg] = useState<string>("");
 
+  const reload = async (y: number | "") => {
+    setLoading(true);
+    setErrMsg("");
+    try {
+      const { rows, error } = await loadChecklistSafe(y === "" ? null : y);
       if (error) {
-        console.error("โหลด checklist ผิดพลาด:", error);
-        setItems([]);
+        setErrMsg(error.message || "โหลด checklist ผิดพลาด");
+        setRows([]);
       } else {
-        setItems(
-          (data || []).map((row: any) => ({
-            id: row.id,
-            title: row.title,
-            note: row.note,
-            attachment: row.attachment?.[0] ?? row.attachment ?? null, // เผื่อ join แบบ array
-          }))
-        );
+        setRows(rows);
       }
+    } finally {
       setLoading(false);
-    };
-    load();
-  }, []);
-
-  // สร้าง public URL จาก path/bucket
-  const getPublicUrl = (att?: Attachment | null) => {
-    if (!att?.path) return "";
-    const bucket = att.bucket || "attachments"; // ตรงกับของโปรเจกต์คุณ
-    const { data } = supabase.storage.from(bucket).getPublicUrl(att.path);
-    return data?.publicUrl || "";
+    }
   };
 
-  // ลบไฟล์แนบ (ตัวอย่าง)
-  const handleDelete = async (att?: Attachment | null) => {
-    if (!att?.path) return;
-    const bucket = att.bucket || "attachments";
-
-    // 1) ลบไฟล์ใน Storage
-    const { error: storageErr } = await supabase.storage
-      .from(bucket)
-      .remove([att.path]);
-
-    if (storageErr) {
-      alert("ลบไฟล์ใน Storage ล้มเหลว");
-      console.error(storageErr);
-      return;
+  useEffect(() => {
+    if (!profileLoading) {
+      // โปรไฟล์โหลดเสร็จแล้วค่อยยิง (profile อาจเป็น fallback ได้)
+      reload(year);
     }
-
-    // 2) ลบข้อมูลเมทาดาท้าในตารางแนบไฟล์
-    const { error: dbErr } = await supabase
-      .from("checklist_attachments")
-      .delete()
-      .eq("id", att.id);
-
-    if (dbErr) {
-      console.error(dbErr);
-    }
-
-    // 3) refresh list
-    setItems((prev) =>
-      prev.map((it) =>
-        it.attachment?.id === att.id ? { ...it, attachment: null } : it
-      )
-    );
-  };
-
-  if (loading) return <div className="p-6">กำลังโหลด…</div>;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileLoading]);
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Checklist หมวด 1: กลยุทธ์องค์กร</h1>
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">📋 Checklist</h1>
 
-      {items.map((it) => {
-        const url = getPublicUrl(it.attachment || undefined);
-        return (
-          <div key={it.id} className="rounded border p-4 bg-white">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">{it.title}</h2>
-            </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-600">ปี:</label>
+          <input
+            type="number"
+            className="border rounded px-3 py-1 w-28"
+            value={year}
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              if (v === "") {
+                setYear("");
+                return;
+              }
+              const n = Number(v);
+              if (Number.isFinite(n)) setYear(n as any);
+            }}
+            onBlur={() => reload(year)}
+          />
+          <button
+            className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200"
+            onClick={() => reload(year)}
+          >
+            โหลดใหม่
+          </button>
+        </div>
+      </div>
 
-            <div className="mt-3">
-              <textarea
-                defaultValue={it.note || ""}
-                className="w-full min-h-[96px] rounded border p-2"
-              />
+      {loading ? (
+        <div className="text-gray-500">กำลังโหลดข้อมูล…</div>
+      ) : errMsg ? (
+        <div className="p-3 rounded bg-red-50 text-red-600">
+          โหลด checklist ผิดพลาด: {errMsg}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="rounded border p-4 text-gray-600">
+          ยังไม่มีรายการในปีนี้
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((r, idx) => (
+            <div key={(r as any).id ?? idx} className="rounded border p-4">
+              <pre className="text-xs bg-slate-50 p-2 rounded overflow-auto">
+                {JSON.stringify(r, null, 2)}
+              </pre>
             </div>
-
-            <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-              <span>ไฟล์แนบ:</span>
-              <FileAttachment
-                fileUrl={url}
-                filePathOrName={it.attachment?.stored_name || it.attachment?.path}
-                originalName={it.attachment?.original_name}
-                onDelete={
-                  it.attachment ? () => handleDelete(it.attachment!) : undefined
-                }
-              />
-            </div>
-
-            <div className="mt-4">
-              <button className="px-4 py-2 rounded bg-blue-600 text-white">
-                บันทึก
-              </button>
-            </div>
-          </div>
-        );
-      })}
+          ))}
+        </div>
+      )}
     </div>
   );
 }
