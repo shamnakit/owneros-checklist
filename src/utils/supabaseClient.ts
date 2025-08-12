@@ -12,12 +12,18 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
   global: {
     headers: {
-      Accept: "application/json", // 👈 กัน 406
+      Accept: "application/json",
+    },
+    // ⛑️ บังคับย้ำอีกชั้น: ถ้า header หาย จะเติมให้ทุกครั้ง
+    fetch: (url, options) => {
+      const h = new Headers(options?.headers || {});
+      if (!h.has("Accept")) h.set("Accept", "application/json");
+      return fetch(url, { ...options, headers: h });
     },
   },
 });
 
-// ✅ DEBUG ONLY: เรียก supabase ได้จาก Console (เฉพาะฝั่งเบราว์เซอร์)
+// DEBUG
 if (typeof window !== "undefined") {
   (window as any).supabase = supabase;
 }
