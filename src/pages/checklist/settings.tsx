@@ -1,3 +1,4 @@
+// src/pages/checklist/settings.tsx
 import { useState, useEffect } from "react";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { supabase } from "@/utils/supabaseClient";
@@ -29,7 +30,7 @@ export default function SettingsPage() {
     }
   }, [profile]);
 
-  // ✅ แบบสองจังหวะ: มี row ไหม? ถ้ามี → update, ถ้าไม่มี → insert
+  // ✅ สองจังหวะ: ถ้ามี row → update, ถ้าไม่มี → insert
   const handleSave = async () => {
     setUpdating(true);
     try {
@@ -50,7 +51,7 @@ export default function SettingsPage() {
         .from("profiles")
         .select("id")
         .eq("id", uid)
-        .maybeSingle();
+        .maybeSingle(); // ← ถ้าไม่มีแถว data = null
 
       if (selErr) {
         console.error("อ่านโปรไฟล์ไม่ได้:", selErr);
@@ -88,7 +89,7 @@ export default function SettingsPage() {
         return;
       }
 
-      // ตรวจสอบไฟล์
+      // ตรวจไฟล์
       if (!file.type.startsWith("image/")) {
         alert("อนุญาตเฉพาะไฟล์ภาพเท่านั้น");
         return;
@@ -99,7 +100,7 @@ export default function SettingsPage() {
         return;
       }
 
-      // อัปโหลดโลโก้
+      // อัปโหลดขึ้น Storage
       const key = `${uid}/logo/${Date.now()}-${slugify(file.name)}`;
       const { error: upErr } = await supabase.storage
         .from("public-assets")
@@ -109,10 +110,11 @@ export default function SettingsPage() {
         return;
       }
 
+      // ได้ URL สาธารณะ
       const { data: pub } = supabase.storage.from("public-assets").getPublicUrl(key);
       const url = pub?.publicUrl || "";
 
-      // เช็คว่ามี row หรือยัง
+      // อ่าน row เดิม (ถ้ามี)
       const { data: existing, error: selErr } = await supabase
         .from("profiles")
         .select("id, company_logo_key")
@@ -124,17 +126,26 @@ export default function SettingsPage() {
         return;
       }
 
-      // อัปเดตหรือสร้าง row
+      // บันทึกลง DB (update/insert)
       let error;
       if (existing?.id) {
         ({ error } = await supabase
           .from("profiles")
-          .update({ company_logo_url: url, company_logo_key: key, updated_at: new Date().toISOString() })
+          .update({
+            company_logo_url: url,
+            company_logo_key: key,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", uid));
       } else {
         ({ error } = await supabase
           .from("profiles")
-          .insert({ id: uid, company_logo_url: url, company_logo_key: key, updated_at: new Date().toISOString() }));
+          .insert({
+            id: uid,
+            company_logo_url: url,
+            company_logo_key: key,
+            updated_at: new Date().toISOString(),
+          }));
       }
       if (error) {
         alert("บันทึกโลโก้ไม่สำเร็จ: " + error.message);
@@ -166,7 +177,6 @@ export default function SettingsPage() {
         return;
       }
 
-      // เช็คว่ามี row ไหม
       const { data: existing, error: selErr } = await supabase
         .from("profiles")
         .select("id, company_logo_key")
@@ -178,25 +188,31 @@ export default function SettingsPage() {
         return;
       }
       if (!existing?.id) {
-        // ไม่มี row อยู่แล้ว → แค่ล้าง state
+        // ยังไม่มี row → แค่ล้าง state UI
         setCompanyLogoUrl("");
         await refresh();
         return;
       }
 
-      // ล้างค่าบนโปรไฟล์
+      // ล้างค่าใน DB
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({ company_logo_url: null, company_logo_key: null, updated_at: new Date().toISOString() })
+        .update({
+          company_logo_url: null,
+          company_logo_key: null,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", uid);
       if (updErr) {
         alert("อัปเดตโปรไฟล์ไม่สำเร็จ: " + updErr.message);
         return;
       }
 
-      // ลบไฟล์ (ถ้ามี)
+      // ลบไฟล์ใน Storage ถ้ามี
       if (existing.company_logo_key) {
-        const { error: sErr } = await supabase.storage.from("public-assets").remove([existing.company_logo_key]);
+        const { error: sErr } = await supabase.storage
+          .from("public-assets")
+          .remove([existing.company_logo_key]);
         if (sErr) console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
       }
 
