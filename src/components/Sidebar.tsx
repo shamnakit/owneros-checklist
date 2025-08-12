@@ -7,6 +7,7 @@ import { supabase } from "@/utils/supabaseClient";
 export default function Sidebar() {
   const { profile, loading } = useUserProfile();
 
+  // ถ้ายังโหลดอยู่ หรือยังไม่ล็อกอิน → โชว์ loading ชั่วคราว
   if (loading || !profile) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
@@ -15,7 +16,7 @@ export default function Sidebar() {
     );
   }
 
-  // เลือกแหล่งภาพ: avatar_url > company_logo_url > ไม่มี (fallback)
+  // เลือกภาพ: avatar_url > company_logo_url > ไม่มี (fallback)
   const avatarSrc = profile.avatar_url ?? profile.company_logo_url ?? null;
 
   return (
