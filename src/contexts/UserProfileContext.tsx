@@ -1,14 +1,29 @@
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useContext,
+} from "react";
 import { supabase } from "@/utils/supabaseClient";
 
- export type Profile = {
-   id: string;
-   company_name: string | null;
-   company_logo_url: string | null;
-   company_logo_key: string | null;
-   full_name?: string | null;  // ✅ เพิ่มเป็น optional
-   role?: string | null;       // ✅ เพิ่มเป็น optional
- };
+export type Profile = {
+  id: string;
+  company_name: string | null;
+  company_logo_url: string | null;
+  company_logo_key: string | null;
+
+  // ฟิลด์ที่ Sidebar/หน้าอื่นอาจใช้ — ทำเป็น optional ไว้ก่อน
+  full_name?: string | null;
+  position?: string | null;
+  role?: string | null;
+  avatar_url?: string | null;
+
+  // เผื่อมี timestamp ในตาราง
+  created_at?: string | null;
+  updated_at?: string | null;
+};
 
 type Ctx = {
   profile: Profile | null;
@@ -22,7 +37,9 @@ export const UserProfileContext = createContext<Ctx>({
   refresh: async () => {},
 });
 
-export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,9 +52,12 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setProfile(null);
         return;
       }
+
+      // ✅ ใช้ .maybeSingle() กัน 406 ถ้ายังไม่มีแถว
+      // ✅ select("*") เพื่อดึงทุกคอลัมน์ที่อาจมี (type เรารองรับแบบ optional)
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")               // ✅ ดึงทุกคอลัมน์ (จะมีหรือไม่มีก็ไม่พัง)
+        .select("*")
         .eq("id", uid)
         .maybeSingle();
 
@@ -54,10 +74,21 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   useEffect(() => {
     load();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, _session) => load());
+    const { data: sub } = supabase.auth.onAuthStateChange(() => load());
     return () => sub.subscription.unsubscribe();
   }, [load]);
 
-  const value = useMemo(() => ({ profile, loading, refresh: load }), [profile, loading, load]);
-  return <UserProfileContext.Provider value={value}>{children}</UserProfileContext.Provider>;
+  const value = useMemo(
+    () => ({ profile, loading, refresh: load }),
+    [profile, loading, load]
+  );
+
+  return (
+    <UserProfileContext.Provider value={value}>
+      {children}
+    </UserProfileContext.Provider>
+  );
 };
+
+// ✅ ให้ import ได้จากไฟล์นี้โดยตรง
+export const useUserProfile = () => useContext(UserProfileContext);

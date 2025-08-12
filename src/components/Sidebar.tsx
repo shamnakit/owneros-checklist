@@ -15,14 +15,17 @@ export default function Sidebar() {
     );
   }
 
+  // เลือกแหล่งภาพ: avatar_url > company_logo_url > ไม่มี (fallback)
+  const avatarSrc = profile.avatar_url ?? profile.company_logo_url ?? null;
+
   return (
     <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
       <div>
         {/* Avatar & Profile Info */}
         <div className="flex flex-col items-center mt-4 mb-6">
-          {profile.avatar_url ? (
+          {avatarSrc ? (
             <Image
-              src={profile.avatar_url}
+              src={avatarSrc}
               alt="User Avatar"
               width={80}
               height={80}
@@ -34,10 +37,19 @@ export default function Sidebar() {
             </div>
           )}
           <div className="text-center mt-2">
-            <div className="text-lg font-semibold">{profile.full_name || "ชื่อผู้ใช้"}</div>
-            <div className="text-sm text-gray-400">{profile.position || "ตำแหน่ง"}</div>
-            <div className="text-sm text-gray-300 mt-1">{profile.company_name || "ชื่อบริษัท"}</div>
-            <Link href="/checklist/profile" className="text-blue-400 text-xs hover:underline block mt-1">
+            <div className="text-lg font-semibold">
+              {profile.full_name || "ชื่อผู้ใช้"}
+            </div>
+            <div className="text-sm text-gray-400">
+              {profile.position || "ตำแหน่ง"}
+            </div>
+            <div className="text-sm text-gray-300 mt-1">
+              {profile.company_name || "ชื่อบริษัท"}
+            </div>
+            <Link
+              href="/checklist/profile"
+              className="text-blue-400 text-xs hover:underline block mt-1"
+            >
               แก้ไขโปรไฟล์
             </Link>
           </div>
@@ -45,25 +57,25 @@ export default function Sidebar() {
 
         {/* Navigation */}
         <nav className="space-y-3">
-          <Link href="/dashboard">
+          <Link href="/dashboard" className="block">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>🏠</span>
               <span>Dashboard</span>
             </div>
           </Link>
-          <Link href="/checklist">
+          <Link href="/checklist" className="block">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>📋</span>
               <span>Checklist</span>
             </div>
           </Link>
-          <Link href="/checklist/summary">
+          <Link href="/checklist/summary" className="block">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>📊</span>
               <span>Summary</span>
             </div>
           </Link>
-          <Link href="/checklist/settings">
+          <Link href="/checklist/settings" className="block">
             <div className="flex items-center space-x-2 hover:text-blue-400 cursor-pointer">
               <span>⚙️</span>
               <span>Settings</span>
