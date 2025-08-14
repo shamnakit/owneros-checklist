@@ -221,9 +221,7 @@ export default function ChecklistPage() {
               {it.description ? (
                 <div style={{ color: "#6b7280", marginTop: 6 }}>{it.description}</div>
               ) : null}
-              <div style={{ color: "#9ca3af", fontSize: 12, marginTop: 8 }}>
-                created: {new Date(it.created_at).toLocaleString()}
-              </div>
+              {/* ตัด created_at ออกตามทางเลือก A */}
             </div>
           ))}
         </div>

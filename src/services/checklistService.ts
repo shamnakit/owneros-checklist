@@ -5,9 +5,8 @@ export interface Checklist {
   id: string;
   title: string;
   description?: string | null;
-  user_id: string;      // ตรง RLS
-  created_at: string;
-  updated_at?: string | null;
+  user_id: string; // RLS: user_id = auth.uid()
+  // ไม่มี created_at / updated_at ใน schema ปัจจุบัน
 }
 
 async function getAuthUid() {
@@ -25,8 +24,8 @@ export async function getChecklists(): Promise<Checklist[]> {
   const { data, error } = await supabase
     .from("checklists")
     .select("*")
-    .eq("user_id", uid)
-    .order("created_at", { ascending: false });
+    .eq("user_id", uid);
+    // ไม่ sort ด้วย created_at เพราะไม่มีคอลัมน์นี้
 
   if (error) {
     console.error("โหลด checklists ผิดพลาด:", error);
@@ -60,11 +59,11 @@ export async function createChecklist(payload: {
 /** ปรับปรุง checklist ของตนเอง */
 export async function updateChecklist(
   id: string,
-  patch: Partial<Omit<Checklist, "id" | "user_id" | "created_at">>
+  patch: Partial<Omit<Checklist, "id" | "user_id">>
 ): Promise<Checklist> {
   const { data, error } = await supabase
     .from("checklists")
-    .update({ ...patch, updated_at: new Date().toISOString() })
+    .update({ ...patch }) // ไม่มี updated_at ให้ปรับ
     .eq("id", id)
     .select("*")
     .single();
