@@ -6,6 +6,7 @@ import React, {
   useState,
   useContext,
 } from "react";
+import { useRouter } from "next/router";
 import { supabase } from "@/utils/supabaseClient";
 
 export type Profile = {
@@ -14,7 +15,7 @@ export type Profile = {
   company_logo_url: string | null;
   company_logo_key: string | null;
 
-  // ฟิลด์ที่ UI อาจใช้ (optional)
+  // optional fields for UI
   full_name?: string | null;
   position?: string | null;
   role?: string | null;
@@ -28,17 +29,20 @@ type Ctx = {
   profile: Profile | null;
   loading: boolean;
   refresh: () => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 export const UserProfileContext = createContext<Ctx>({
   profile: null,
   loading: true,
   refresh: async () => {},
+  logout: async () => {},
 });
 
 export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +61,7 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         .from("profiles")
         .select("*")
         .eq("id", uid)
-        .maybeSingle(); // ถ้ายังไม่มีแถว → data = null (ไม่ 406)
+        .maybeSingle();
 
       if (error) {
         console.warn("load profile error:", error);
@@ -65,7 +69,6 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      // ✅ ถ้ายังไม่มีแถวใน DB ให้ปล่อย "โปรไฟล์ว่าง" (fallback) เพื่อให้ UI ทำงานต่อได้
       const fallback: Profile = {
         id: uid,
         company_name: null,
@@ -85,15 +88,44 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // ✅ ฟังสถานะ auth เพื่ออัปเดต UI และ redirect อัตโนมัติ
   useEffect(() => {
     load();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => load());
-    return () => sub.subscription.unsubscribe();
-  }, [load]);
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === "SIGNED_OUT") {
+        setProfile(null);
+        // กันหลงอยู่หน้าที่ต้อง auth
+        try {
+          await router.replace("/login");
+        } catch {}
+      }
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        await load();
+      }
+    });
+    return () => sub?.subscription?.unsubscribe?.();
+  }, [load, router]);
+
+  // ✅ ฟังก์ชัน logout รวมศูนย์
+  const logout = useCallback(async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("logout error:", error);
+      throw error;
+    }
+    setProfile(null);
+    try {
+      await router.replace("/login");
+    } catch {
+      if (typeof window !== "undefined") {
+        window.location.assign("/login");
+      }
+    }
+  }, [router]);
 
   const value = useMemo(
-    () => ({ profile, loading, refresh: load }),
-    [profile, loading, load]
+    () => ({ profile, loading, refresh: load, logout }),
+    [profile, loading, load, logout]
   );
 
   return (
@@ -103,5 +135,4 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-// ให้ไฟล์อื่น import hook นี้ได้โดยตรง
 export const useUserProfile = () => useContext(UserProfileContext);

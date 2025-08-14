@@ -1,13 +1,12 @@
-// src/components/Sidebar.tsx
+import { useState } from "react";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import Image from "next/image";
 import Link from "next/link";
-import { supabase } from "@/utils/supabaseClient";
 
 export default function Sidebar() {
-  const { profile, loading } = useUserProfile();
+  const { profile, loading, logout } = useUserProfile();
+  const [busy, setBusy] = useState(false);
 
-  // ถ้ายังโหลดอยู่ หรือยังไม่ล็อกอิน → โชว์ loading ชั่วคราว
   if (loading || !profile) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white w-64">
@@ -16,8 +15,19 @@ export default function Sidebar() {
     );
   }
 
-  // เลือกภาพ: avatar_url > company_logo_url > ไม่มี (fallback)
   const avatarSrc = profile.avatar_url ?? profile.company_logo_url ?? null;
+
+  const handleLogout = async () => {
+    try {
+      setBusy(true);
+      await logout();
+    } catch (e) {
+      alert("ออกจากระบบไม่สำเร็จ");
+      console.error(e);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="flex flex-col justify-between h-screen p-4 bg-gray-900 text-white w-64">
@@ -87,13 +97,14 @@ export default function Sidebar() {
 
       {/* Logout */}
       <button
-        onClick={async () => {
-          await supabase.auth.signOut();
-          window.location.href = "/login";
-        }}
-        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded text-sm mt-6"
+        type="button"
+        onClick={handleLogout}
+        disabled={busy}
+        className={`${
+          busy ? "opacity-70 cursor-not-allowed" : "hover:bg-red-700"
+        } bg-red-600 text-white px-4 py-2 rounded text-sm mt-6`}
       >
-        ออกจากระบบ
+        {busy ? "กำลังออก..." : "ออกจากระบบ"}
       </button>
     </div>
   );
