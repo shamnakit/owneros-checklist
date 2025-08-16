@@ -192,6 +192,19 @@ export default function Group1Page() {
     );
   };
 
+function prettyFileName(row: ViewItem) {
+  // ใช้ key ถ้ามี (แม่นกว่า), ถ้าไม่มีก็ fallback เป็นชื่อส่วนท้ายของ URL
+  const raw =
+    row.file_key?.split("/").pop() ||
+    row.file_path?.split("/").pop() ||
+    "";
+
+  // ตัดรูปแบบ "<uuid>-<timestamp>-" ออก เหลือชื่อไฟล์เดิม
+  // เช่น 0e105163-...-1755364554471-sanitary-systems-2.png -> sanitary-systems-2.png
+  return raw.replace(/^[0-9a-f-]+-\d+-/i, "");
+}
+
+
   // อัปโหลด/เปลี่ยนไฟล์ (ใช้ auth.uid() เป็น prefix ของ key)
   const handleFileUpload = async (row: ViewItem, file: File) => {
     try {
@@ -369,9 +382,10 @@ export default function Group1Page() {
 
               {item.file_path && (
                 <div className="text-xs text-right space-y-2">
-                  <div className="text-gray-600 truncate max-w-full">
-                    📄 {item.file_path.split("/").pop()}
-                  </div>
+                  <div className="text-gray-600 truncate max-w-[220px]" title={prettyFileName(item)}>
+  📄 {prettyFileName(item)}
+</div>
+
                   <div className="flex gap-2 justify-end">
                     <a
                       href={item.file_path}
