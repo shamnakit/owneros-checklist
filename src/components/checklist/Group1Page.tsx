@@ -47,6 +47,23 @@ function slugify(filename: string) {
   return `${base}${ext}`;
 }
 
+// ⤵️ แสดงชื่อไฟล์ให้สั้น: ตัด uuid + timestamp ออกทุกกรณี
+function prettyFileName(row: ViewItem) {
+  const raw =
+    row.file_key?.split("/").pop() ||
+    row.file_path?.split("/").pop() ||
+    "";
+
+  // เคสหลัก: <uuid>-<...>-<timestamp>-<filename.ext>
+  // หา segment ที่เป็นตัวเลขยาว (timestamp >=10 หลัก) แล้วตัดก่อนหน้านั้นทิ้ง
+  const parts = raw.split("-");
+  const tsIdx = parts.findIndex((p) => /^\d{10,}$/.test(p));
+  if (tsIdx !== -1) return parts.slice(tsIdx + 1).join("-");
+
+  // เผื่อเคสมี uuid ต้นคำ แต่ไม่มี timestamp แยกชัด
+  return raw.replace(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}-/i, "");
+}
+
 export default function Group1Page() {
   const { profile } = useUserProfile();
   const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -192,19 +209,6 @@ export default function Group1Page() {
     );
   };
 
-function prettyFileName(row: ViewItem) {
-  // ใช้ key ถ้ามี (แม่นกว่า), ถ้าไม่มีก็ fallback เป็นชื่อส่วนท้ายของ URL
-  const raw =
-    row.file_key?.split("/").pop() ||
-    row.file_path?.split("/").pop() ||
-    "";
-
-  // ตัดรูปแบบ "<uuid>-<timestamp>-" ออก เหลือชื่อไฟล์เดิม
-  // เช่น 0e105163-...-1755364554471-sanitary-systems-2.png -> sanitary-systems-2.png
-  return raw.replace(/^[0-9a-f-]+-\d+-/i, "");
-}
-
-
   // อัปโหลด/เปลี่ยนไฟล์ (ใช้ auth.uid() เป็น prefix ของ key)
   const handleFileUpload = async (row: ViewItem, file: File) => {
     try {
@@ -299,8 +303,9 @@ function prettyFileName(row: ViewItem) {
     );
   };
 
+  // ✅ ถือว่า "ทำแล้ว" ถ้ามีไฟล์ (ดูที่ file_key แม่นกว่า) หรือพิมพ์ ≥ 100 ตัวอักษร
   const isComplete = (it: ViewItem) =>
-    !!it.file_path || (it.input_text?.trim().length || 0) >= 100;
+    !!it.file_key || (it.input_text?.trim().length || 0) >= 100;
 
   return (
     <div className="p-6 space-y-6">
@@ -375,16 +380,19 @@ function prettyFileName(row: ViewItem) {
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleFileUpload(item, f);
-                    e.currentTarget.value = ""; // reset ค่า input
+                    e.currentTarget.value = ""; // reset ค่า input เพื่อให้เลือกไฟล์เดิมได้อีก
                   }}
                 />
               </label>
 
               {item.file_path && (
                 <div className="text-xs text-right space-y-2">
-                  <div className="text-gray-600 truncate max-w-[220px]" title={prettyFileName(item)}>
-  📄 {prettyFileName(item)}
-</div>
+                  <div
+                    className="text-gray-600 truncate max-w-[220px]"
+                    title={prettyFileName(item)}
+                  >
+                    📄 {prettyFileName(item)}
+                  </div>
 
                   <div className="flex gap-2 justify-end">
                     <a
