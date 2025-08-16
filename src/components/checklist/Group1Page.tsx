@@ -1,15 +1,14 @@
 // src/components/checklist/Group1Page.tsx
-// ✅ Core-ready (MVP + Quick Wins UI)
-// - Sticky Summary บนสุด + Progress ต่อหมวด
-// - ตัวกรอง: ทั้งหมด / ยังไม่ทำ / ทำแล้วไม่มีไฟล์ / ทำแล้วมีไฟล์
-// - Toast สำเร็จ/ผิดพลาด (ไม่ใช้ alert) + Auto-hide
-// - Microcopy ชัด: requirement 100 ตัวอักษร + ขนาดไฟล์ ≤ 10MB + ชนิดไฟล์
-// - ชื่อไฟล์สั้น: ตัด uuid + timestamp ออก
-// - isComplete อิง file_key เป็นหลัก (แม่นกว่า file_path)
+// ✅ Core-ready (MVP + Quick Wins UI + Export PDF)
+// - Sticky Summary + Filters + Toast
+// - Export PDF (Option A): สร้าง PDF จาก DOM ด้วย html2canvas + jsPDF (หลายหน้าอัตโนมัติ)
+// - ภาษาไทยไม่เพี้ยน (เรนเดอร์เป็นภาพ) / ลิงก์ไฟล์ใน PDF จะไม่คลิกได้ (ข้อจำกัดของ Option A)
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 type UUID = string;
 const GROUP_NAME = "กลยุทธ์องค์กร";
@@ -36,7 +35,6 @@ type ChecklistRow = {
 };
 
 type ViewItem = ChecklistRow & { index_number: number; display_name: string };
-
 type Filter = "ALL" | "PENDING" | "TEXT_ONLY" | "WITH_FILE";
 
 function slugify(filename: string) {
@@ -62,7 +60,12 @@ function prettyFileName(row: ViewItem) {
   return raw.replace(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}-/i, "");
 }
 
-// Toast เล็ก ๆ ในไฟล์นี้ (ไม่พึ่งไลบรารี)
+function truncate(s: string, n = 150) {
+  if (!s) return "";
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+}
+
+// Toast เล็ก ๆ
 type ToastType = "success" | "error" | "info";
 function Toast({ type, message }: { type: ToastType; message: string }) {
   const color =
@@ -87,13 +90,16 @@ export default function Group1Page() {
   const [loading, setLoading] = useState(false);
 
   const [filter, setFilter] = useState<Filter>("ALL");
+  const [exporting, setExporting] = useState(false);
 
-  // toast state
   const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
   const showToast = (message: string, type: ToastType = "success") => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 2200);
   };
+
+  // พื้นที่ DOM สำหรับ Export (เรนเดอร์แบบ offscreen)
+  const printRef = useRef<HTMLDivElement>(null);
 
   // โหลด template ของกลุ่มนี้
   useEffect(() => {
@@ -237,22 +243,19 @@ export default function Group1Page() {
     showToast("บันทึกแล้ว ✅", "success");
   };
 
-  // อัปโหลด/เปลี่ยนไฟล์ (ใช้ auth.uid() เป็น prefix ของ key)
+  // อัปโหลด/เปลี่ยนไฟล์
   const handleFileUpload = async (row: ViewItem, file: File) => {
     try {
-      // จำกัดขนาดไฟล์ ≤ 10MB
       if (file.size > 10 * 1024 * 1024) {
         showToast("ไฟล์ใหญ่เกิน 10MB", "error");
         return;
       }
-
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       if (!uid) {
         showToast("ไม่พบ session ผู้ใช้", "error");
         return;
       }
-
       const ts = Date.now();
       const safe = slugify(file.name);
       const newKey = `${uid}/${year}/${row.template_id}-${ts}-${safe}`;
@@ -283,14 +286,11 @@ export default function Group1Page() {
         return;
       }
 
-      // ลบไฟล์เก่าหลังชี้ DB ไปตัวใหม่แล้ว
       if (row.file_key) {
         const { error: delErr } = await supabase.storage
           .from("checklist-files")
           .remove([row.file_key]);
-        if (delErr) {
-          console.warn("⚠️ ลบไฟล์เก่าไม่ได้ (ไม่กระทบการใช้งาน):", delErr);
-        }
+        if (delErr) console.warn("⚠️ ลบไฟล์เก่าไม่ได้:", delErr);
       }
 
       setItems((prev) =>
@@ -307,7 +307,7 @@ export default function Group1Page() {
     }
   };
 
-  // ลบไฟล์ (ลบใน bucket และเคลียร์ใน DB)
+  // ลบไฟล์
   const handleFileDelete = async (row: ViewItem) => {
     if (!row.file_key) return;
     const { error: delErr } = await supabase.storage
@@ -368,6 +368,96 @@ export default function Group1Page() {
     }
   }, [items, filter]);
 
+  // -------- Export PDF (Option A) ----------
+  const doExportPDF = async () => {
+    if (!printRef.current) return;
+    if (items.length === 0) {
+      showToast("ยังไม่มีรายการสำหรับส่งออก", "info");
+      return;
+    }
+    try {
+      setExporting(true);
+
+      // ทำให้ node สำหรับพิมพ์มองเห็น (แต่อยู่นอกจอ)
+      const node = printRef.current;
+      node.classList.remove("hidden");
+      node.style.position = "fixed";
+      node.style.left = "-10000px";
+      node.style.top = "0";
+      node.style.width = "794px"; // ความกว้าง A4 ~ 794px ที่ 96DPI
+      node.style.background = "#ffffff";
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
+      const canvas = await html2canvas(node, {
+        scale,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        windowWidth: 794,
+      });
+
+      // ซ่อน node กลับ
+      node.classList.add("hidden");
+      node.removeAttribute("style");
+
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+
+      // คำนวณความสูงของ 1 หน้าในหน่วย "พิกเซล" ของแคนวาส
+      const imgWidthPx = canvas.width;
+      const imgHeightPx = canvas.height;
+      const pageHeightPx = Math.round((imgWidthPx * pageHeight) / pageWidth);
+
+      let positionPx = 0;
+      let pageIndex = 0;
+
+      while (positionPx < imgHeightPx) {
+        const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - positionPx);
+
+        // ทำแคนวาสย่อย
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = imgWidthPx;
+        pageCanvas.height = sliceHeightPx;
+        const ctx = pageCanvas.getContext("2d")!;
+        ctx.drawImage(
+          canvas,
+          0,
+          positionPx,
+          imgWidthPx,
+          sliceHeightPx,
+          0,
+          0,
+          imgWidthPx,
+          sliceHeightPx
+        );
+
+        const imgData = pageCanvas.toDataURL("image/png");
+        const imgHeightMm = (sliceHeightPx * pageWidth) / imgWidthPx; // สัดส่วนให้เต็มความกว้าง
+
+        if (pageIndex > 0) pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, 0, pageWidth, imgHeightMm, undefined, "FAST");
+
+        positionPx += sliceHeightPx;
+        pageIndex += 1;
+      }
+
+      const safeCompany =
+        (profile?.company_name || "OwnerOS").replace(/[^\wก-๙\- ]+/gi, "_");
+      const fileName = `${safeCompany}-Checklist-${GROUP_NAME}-${year}.pdf`;
+      pdf.save(fileName);
+      showToast("ดาวน์โหลดไฟล์ PDF แล้ว ✅", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("สร้าง PDF ไม่สำเร็จ", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+  // -----------------------------------------
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -396,10 +486,7 @@ export default function Group1Page() {
               ความคืบหน้าหมวดนี้: <span className="font-semibold">{stats.percent}%</span>
             </div>
             <div className="h-2 bg-gray-200 rounded-md overflow-hidden">
-              <div
-                className="h-full bg-blue-600"
-                style={{ width: `${stats.percent}%` }}
-              />
+              <div className="h-full bg-blue-600" style={{ width: `${stats.percent}%` }} />
             </div>
             <div className="text-xs text-gray-500 mt-1">
               ครบพร้อมไฟล์: {stats.withFile} • ครบยังไม่มีไฟล์: {stats.textOnly} • ยังไม่ทำ: {stats.pending}
@@ -426,6 +513,18 @@ export default function Group1Page() {
                 {f.label}
               </button>
             ))}
+          </div>
+
+          {/* Export PDF */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={doExportPDF}
+              disabled={exporting || items.length === 0}
+              className="px-3 py-1.5 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+              title="ส่งออกเป็น PDF (ภาษาไทยไม่เพี้ยน)"
+            >
+              {exporting ? "กำลังสร้าง PDF..." : "Export PDF"}
+            </button>
           </div>
         </div>
       </div>
@@ -501,10 +600,7 @@ export default function Group1Page() {
 
                 {item.file_key && (
                   <div className="text-xs text-right space-y-2">
-                    <div
-                      className="text-gray-600 truncate max-w-[220px]"
-                      title={prettyFileName(item)}
-                    >
+                    <div className="text-gray-600 truncate max-w-[220px]" title={prettyFileName(item)}>
                       📄 {prettyFileName(item)}
                     </div>
 
@@ -533,13 +629,77 @@ export default function Group1Page() {
         })}
 
         {!loading && filteredItems.length === 0 && (
-          <div className="text-gray-500 text-sm">
-            ไม่พบรายการตามตัวกรอง
-          </div>
+          <div className="text-gray-500 text-sm">ไม่พบรายการตามตัวกรอง</div>
         )}
       </div>
 
       {toast && <Toast type={toast.type} message={toast.message} />}
+
+      {/* ------------------------ PRINT AREA (offscreen) ------------------------ */}
+      <div ref={printRef} className="hidden">
+        <div className="w-[794px] bg-white text-gray-900">
+          {/* Header */}
+          <div className="flex items-center gap-3 border-b px-6 py-4">
+            {profile?.company_logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.company_logo_url} alt="logo" className="h-10 w-10 object-contain" />
+            ) : (
+              <div className="h-10 w-10 rounded bg-gray-200" />
+            )}
+            <div>
+              <div className="font-bold">
+                {profile?.company_name || "ชื่อบริษัท"} – OwnerOS
+              </div>
+              <div className="text-sm">
+                Checklist หมวด 1: {GROUP_NAME} • ปี {year}
+              </div>
+            </div>
+            <div className="ml-auto text-sm text-gray-600">
+              ออกรายงาน: {new Date().toLocaleString("th-TH")}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="px-6 py-3 text-sm">
+            <div>ความคืบหน้า: <b>{stats.percent}%</b></div>
+            <div className="text-gray-600">
+              ครบพร้อมไฟล์: {stats.withFile} • ครบยังไม่มีไฟล์: {stats.textOnly} • ยังไม่ทำ: {stats.pending}
+            </div>
+          </div>
+
+          {/* Table header */}
+          <div className="px-6">
+            <div className="grid grid-cols-12 gap-2 text-xs font-semibold border-b py-2">
+              <div className="col-span-1">#</div>
+              <div className="col-span-4">หัวข้อ</div>
+              <div className="col-span-2">สถานะ</div>
+              <div className="col-span-3">หมายเหตุ</div>
+              <div className="col-span-2">ไฟล์แนบ</div>
+            </div>
+          </div>
+
+          {/* Rows */}
+          <div className="px-6">
+            {items.map((it, idx) => (
+              <div key={it.id} className="grid grid-cols-12 gap-2 text-xs border-b py-2 break-words">
+                <div className="col-span-1">{idx + 1}</div>
+                <div className="col-span-4">{it.display_name}</div>
+                <div className="col-span-2">
+                  {it.file_key ? "ทำแล้ว (มีไฟล์)" : (it.input_text?.trim().length || 0) >= 100 ? "ทำแล้ว (ไม่มีไฟล์)" : "ยังไม่ทำ"}
+                </div>
+                <div className="col-span-3">{truncate(it.input_text || "", 150)}</div>
+                <div className="col-span-2">{it.file_key ? prettyFileName(it) : "-"}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-6 text-xs text-gray-500">
+            รายงานนี้สร้างอัตโนมัติด้วย OwnerOS • ใช้เพื่อแสดงความพร้อมของระบบองค์กรในหมวดนี้
+          </div>
+        </div>
+      </div>
+      {/* ---------------------------------------------------------------------- */}
     </div>
   );
 }
