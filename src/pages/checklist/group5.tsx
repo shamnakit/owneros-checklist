@@ -1,6 +1,6 @@
+// src/pages/checklist/group5.tsx
 import dynamic from "next/dynamic";
-const Group5Page = dynamic(() => import("@/components/checklist/Group5Page"), { ssr: false });
-
+const ChecklistGroupPage = dynamic(() => import("@/components/checklist/ChecklistGroupPage"), { ssr: false });
 export default function Group5() {
-  return <Group5Page />;
+  return <ChecklistGroupPage groupName="ระบบการเงิน" groupNo={5} />;
 }

@@ -1,6 +1,6 @@
+// src/pages/checklist/group2.tsx
 import dynamic from "next/dynamic";
-const Group2Page = dynamic(() => import("@/components/checklist/Group2Page"), { ssr: false });
-
+const ChecklistGroupPage = dynamic(() => import("@/components/checklist/ChecklistGroupPage"), { ssr: false });
 export default function Group2() {
-  return <Group2Page />;
+  return <ChecklistGroupPage groupName="โครงสร้างองค์กร" groupNo={2} />;
 }
