@@ -15,6 +15,17 @@ function slugify(filename: string) {
   return `${base}${ext}`;
 }
 
+// ✅ พยายามดึง object key จาก public URL (กรณีไม่มี company_logo_key ใน profile)
+function deriveKeyFromPublicUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const BUCKET = "public-assets";
+  // ปกติ: https://<proj>.supabase.co/storage/v1/object/public/public-assets/<KEY>
+  const marker = `/object/public/${BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  return url.slice(idx + marker.length);
+}
+
 export default function SettingsPage() {
   const { profile, loading, refresh } = useUserProfile();
 
@@ -117,7 +128,7 @@ export default function SettingsPage() {
       // อ่าน row เดิม (ถ้ามี)
       const { data: existing, error: selErr } = await supabase
         .from("profiles")
-        .select("id, company_logo_key")
+        .select("id, company_logo_key, company_logo_url")
         .eq("id", uid)
         .maybeSingle();
       if (selErr) {
@@ -133,7 +144,7 @@ export default function SettingsPage() {
           .from("profiles")
           .update({
             company_logo_url: url,
-            company_logo_key: key,
+            company_logo_key: key, // ถ้าตารางมีคอลัมน์นี้จะเก็บ key ให้ด้วย
             updated_at: new Date().toISOString(),
           })
           .eq("id", uid));
@@ -152,9 +163,13 @@ export default function SettingsPage() {
         return;
       }
 
-      // ลบไฟล์เก่า (ถ้ามี)
-      const oldKey = existing?.company_logo_key || profile?.company_logo_key;
-      if (oldKey) {
+      // ลบไฟล์เก่า (ถ้ามี) — ✅ ไม่แตะ profile.company_logo_key อีก
+      const oldKey =
+        existing?.company_logo_key ||
+        deriveKeyFromPublicUrl(existing?.company_logo_url) ||
+        deriveKeyFromPublicUrl(profile?.company_logo_url) ||
+        "";
+      if (oldKey && oldKey !== key) {
         const { error: sErr } = await supabase.storage.from("public-assets").remove([oldKey]);
         if (sErr) console.warn("ลบไฟล์เก่าไม่ได้:", sErr);
       }
