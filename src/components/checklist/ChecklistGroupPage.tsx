@@ -1,4 +1,7 @@
 // src/components/checklist/ChecklistGroupPage.tsx
+
+import Breadcrumbs from "@/components/common/Breadcrumbs";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
@@ -178,9 +181,9 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
 
       const now = new Date().toISOString();
       const payload = defs.map((d) => ({
-        id: crypto.randomUUID(),                // ให้มี id เลย เพื่ออัปเดต state ทันที
+        id: crypto.randomUUID(), // ให้มี id เลย เพื่ออัปเดต state ทันที
         user_id: uid,
-        template_id: crypto.randomUUID(),       // ไอดีเทียม
+        template_id: crypto.randomUUID(), // ไอดีเทียม
         group_name: groupName,
         name: d.name,
         year_version: year,
@@ -479,6 +482,16 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
 
   return (
     <div className="p-6 space-y-6">
+      {/* ✅ Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: "Checklist", href: "/checklist" },
+          { label: `หมวด ${groupNo}: ${groupName}` },
+          // ถ้าต้องการแสดงปีด้วย ให้เปิดบรรทัดต่อไป
+          // { label: String(year) },
+        ]}
+      />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <h1 className="text-2xl font-bold">Checklist หมวด {groupNo}: {groupName}</h1>
