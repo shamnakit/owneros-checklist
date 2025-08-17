@@ -1,14 +1,10 @@
 // src/components/checklist/ChecklistGroupPage.tsx
-// Generic Group Page ใช้ได้กับทุกหมวด: ส่ง props { groupName, groupNo }
-// ฟีเจอร์: Seed เทมเพลต (ถ้ายังไม่มี), Filters, Upload/Replace/Delete, Export PDF, Toast
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
-// ----- Default Templates (ใช้ seed เมื่อหมวดนั้นยังไม่มีใน DB) -----
 const DEFAULT_TEMPLATES: Record<string, { name: string; index_number: number }[]> = {
   "โครงสร้างองค์กร": [
     { name: "มี Org Chart แสดงสายบังคับบัญชา", index_number: 1 },
@@ -19,7 +15,7 @@ const DEFAULT_TEMPLATES: Record<string, { name: string; index_number: number }[]
   "คู่มือปฏิบัติงาน": [
     { name: "มี SOP สำหรับกระบวนการหลักของบริษัท", index_number: 1 },
     { name: "มี WI สำหรับงานที่ต้องการรายละเอียด", index_number: 2 },
-    { name: "มี Flowchart ขั้นตอนการทำงานสำคัญ", index_number: 3 },
+    { name: "มี Flowchart ขั้นตอนงานสำคัญ", index_number: 3 },
     { name: "มีระบบ Version Control หรือ Update เอกสาร", index_number: 4 },
     { name: "มีการสื่อสารคู่มือกับพนักงานใหม่", index_number: 5 },
   ],
@@ -48,7 +44,6 @@ const DEFAULT_TEMPLATES: Record<string, { name: string; index_number: number }[]
   ],
 };
 
-// ----- Types -----
 type UUID = string;
 const yearOptions = [2024, 2025, 2026];
 
@@ -69,7 +64,6 @@ type ViewItem = ChecklistRow & { index_number: number; display_name: string };
 type Filter = "ALL" | "PENDING" | "TEXT_ONLY" | "WITH_FILE";
 type ToastType = "success" | "error" | "info";
 
-// ----- Utils -----
 function slugify(filename: string) {
   const i = filename.lastIndexOf(".");
   const base = (i >= 0 ? filename.slice(0, i) : filename)
@@ -83,7 +77,7 @@ function slugify(filename: string) {
 function prettyFileName(row: ViewItem) {
   const raw = row.file_key?.split("/").pop() || row.file_path?.split("/").pop() || "";
   const parts = raw.split("-");
-  const tsIdx = parts.findIndex((p) => /^\d{10,}$/.test(p)); // timestamp >= 10 digits
+  const tsIdx = parts.findIndex((p) => /^\d{10,}$/.test(p));
   if (tsIdx !== -1) return parts.slice(tsIdx + 1).join("-");
   return raw.replace(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}-/i, "");
 }
@@ -96,7 +90,6 @@ function Toast({ type, message }: { type: ToastType; message: string }) {
   return <div className={`fixed bottom-6 right-6 z-50 text-white px-4 py-2 rounded-lg shadow-lg ${color}`}>{message}</div>;
 }
 
-// ----- Component -----
 export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: string; groupNo: number }) {
   const { profile } = useUserProfile();
   const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -104,15 +97,20 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
   const [items, setItems] = useState<ViewItem[]>([]);
   const [editing, setEditing] = useState<Record<UUID, string>>({});
   const [loading, setLoading] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const [filter, setFilter] = useState<Filter>("ALL");
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<{ type: ToastType; message: string } | null>(null);
-  const showToast = (message: string, type: ToastType = "success") => { setToast({ type, message }); setTimeout(() => setToast(null), 2200); };
+  const showToast = (message: string, type: ToastType = "success") => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 2200);
+  };
 
   const printRef = useRef<HTMLDivElement>(null);
+  const autoSeededRef = useRef(false);
 
-  // โหลด template ของหมวดนี้
+  // โหลด template ของหมวดนี้ (และ auto-seed ถ้าไม่พบ)
   useEffect(() => {
     let active = true;
     (async () => {
@@ -122,10 +120,31 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         .eq("group_name", groupName)
         .order("index_number", { ascending: true });
 
-      if (error) { console.error(error); showToast("โหลดเทมเพลตไม่สำเร็จ", "error"); return; }
-      if (active) setTemplates(((data ?? []) as unknown) as TemplateRow[]);
+      if (error) {
+        console.error(error);
+        showToast("โหลดเทมเพลตไม่สำเร็จ", "error");
+        return;
+      }
+
+      const list = ((data ?? []) as unknown) as TemplateRow[];
+      if (active) setTemplates(list);
+
+      // ไม่มี template → auto-seed
+      if (active && list.length === 0 && !autoSeededRef.current) {
+        autoSeededRef.current = true; // กันลูป
+        await autoSeedTemplatesOrDirect();
+        // โหลดเทมเพลตใหม่อีกรอบ (เผื่อ seed สำเร็จ)
+        const { data: data2 } = await supabase
+          .from("checklist_templates")
+          .select("id,name,index_number,group_name")
+          .eq("group_name", groupName)
+          .order("index_number", { ascending: true });
+        if (active) setTemplates(((data2 ?? []) as unknown) as TemplateRow[]);
+      }
     })();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [groupName]);
 
   const templateMap = useMemo(() => {
@@ -134,29 +153,68 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
     return m;
   }, [templates]);
 
-  // Seed เทมเพลตเริ่มต้น (กรณียังไม่มี)
-  const seedTemplatesForGroup = async () => {
-    const defs = DEFAULT_TEMPLATES[groupName];
-    if (!defs || defs.length === 0) {
-      showToast("ยังไม่ได้ตั้งค่า default สำหรับหมวดนี้", "error");
-      return;
-    }
-    const payload = defs.map((d) => ({ name: d.name, group_name: groupName, index_number: d.index_number }));
-    const { error } = await supabase.from("checklist_templates").upsert(payload, { onConflict: "group_name,name" });
-    if (error) { console.error(error); showToast("สร้างเทมเพลตไม่สำเร็จ", "error"); return; }
-    showToast("สร้างเทมเพลตสำเร็จ ✅", "success");
+  // สร้างเทมเพลตอัตโนมัติ (พยายาม upsert ลง template ก่อน; ถ้าไม่ได้ seed ตรงเข้า checklists_v2)
+  const autoSeedTemplatesOrDirect = async () => {
+    const defs = DEFAULT_TEMPLATES[groupName] || [];
+    if (defs.length === 0) return;
+    try {
+      setSeeding(true);
+      // 1) ทางหลัก: upsert ลง checklist_templates
+      const { error: tmplErr } = await supabase
+        .from("checklist_templates")
+        .upsert(
+          defs.map((d) => ({ name: d.name, group_name: groupName, index_number: d.index_number })),
+          { onConflict: "group_name,name" }
+        );
+      if (!tmplErr) {
+        showToast("สร้างหัวข้ออัตโนมัติแล้ว ✅", "success");
+        return;
+      }
 
-    const { data } = await supabase
-      .from("checklist_templates")
-      .select("id,name,index_number,group_name")
-      .eq("group_name", groupName)
-      .order("index_number", { ascending: true });
-    setTemplates(((data ?? []) as unknown) as TemplateRow[]);
+      // 2) Fallback: seed ตรงเข้า checklists_v2 ของผู้ใช้/ปีปัจจุบัน
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return;
+
+      const now = new Date().toISOString();
+      const payload = defs.map((d) => ({
+        id: crypto.randomUUID(),                // ให้มี id เลย เพื่ออัปเดต state ทันที
+        user_id: uid,
+        template_id: crypto.randomUUID(),       // ไอดีเทียม
+        group_name: groupName,
+        name: d.name,
+        year_version: year,
+        input_text: null,
+        file_path: null,
+        file_key: null,
+        updated_at: now,
+      }));
+
+      await supabase.from("checklists_v2").upsert(payload);
+
+      // อัปเดตหน้าจอให้เห็นทันที (แม้ template ยังไม่มี)
+      const vItems: ViewItem[] = payload
+        .map((r, i) => ({
+          ...(r as any),
+          index_number: defs[i].index_number,
+          display_name: defs[i].name,
+        }))
+        .sort((a, b) => a.index_number - b.index_number);
+
+      setItems(vItems);
+      const e: Record<UUID, string> = {};
+      vItems.forEach((it) => (e[it.id] = ""));
+      setEditing(e);
+
+      showToast("สร้างหัวข้ออัตโนมัติแล้ว ✅", "success");
+    } finally {
+      setSeeding(false);
+    }
   };
 
-  // โหลด/seed checklist ของปี (ทำงานเมื่อ templates พร้อม)
+  // โหลด/seed checklist รายปี (เมื่อ templates พร้อม หรือมี fallback แล้ว)
   useEffect(() => {
-    if (!profile?.id || templates.length === 0) return;
+    if (!profile?.id) return;
     let active = true;
 
     const fetchOrSeed = async () => {
@@ -169,10 +227,17 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         .eq("year_version", year)
         .eq("user_id", profile.id);
 
-      if (error) { console.error(error); showToast("โหลดรายการไม่สำเร็จ", "error"); setLoading(false); return; }
+      if (error) {
+        console.error(error);
+        showToast("โหลดรายการไม่สำเร็จ", "error");
+        setLoading(false);
+        return;
+      }
 
       const existing = ((rows ?? []) as unknown) as ChecklistRow[];
-      if (existing.length === 0) {
+
+      // ถ้ายังไม่มีรายการ → seed จาก template ที่มีอยู่
+      if (existing.length === 0 && templates.length > 0) {
         const payload = templates.map((t) => ({
           user_id: profile.id,
           template_id: t.id,
@@ -186,23 +251,42 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         const { error: upsertError } = await supabase
           .from("checklists_v2")
           .upsert(payload, { onConflict: "user_id,template_id,year_version", ignoreDuplicates: false });
-        if (upsertError) { console.error(upsertError); showToast("สร้างรายการจากเทมเพลตไม่สำเร็จ", "error"); setLoading(false); return; }
+        if (upsertError) {
+          console.error(upsertError);
+          showToast("สร้างรายการจากเทมเพลตไม่สำเร็จ", "error");
+          setLoading(false);
+          return;
+        }
       }
 
+      // โหลดล่าสุดอีกรอบ
       const { data: latest, error: refetchErr } = await supabase
         .from("checklists_v2")
         .select("id,template_id,name,group_name,input_text,file_path,file_key,updated_at,year_version,user_id")
         .eq("group_name", groupName)
         .eq("year_version", year)
         .eq("user_id", profile.id);
-      if (refetchErr) { console.error(refetchErr); showToast("โหลดรายการไม่สำเร็จ", "error"); setLoading(false); return; }
+
+      if (refetchErr) {
+        console.error(refetchErr);
+        showToast("โหลดรายการไม่สำเร็จ", "error");
+        setLoading(false);
+        return;
+      }
 
       if (active) {
+        const defs = DEFAULT_TEMPLATES[groupName] || [];
+        const orderMap = new Map(defs.map((d) => [d.name, d.index_number]));
+
         const l = ((latest ?? []) as unknown) as ChecklistRow[];
         const merged: ViewItem[] = l
           .map((r) => {
             const t = templateMap.get(r.template_id);
-            return { ...r, index_number: t?.index_number ?? 9999, display_name: t?.name ?? r.name };
+            return {
+              ...r,
+              index_number: t?.index_number ?? orderMap.get(r.name) ?? 9999,
+              display_name: t?.name ?? r.name,
+            };
           })
           .sort((a, b) => a.index_number - b.index_number);
 
@@ -215,34 +299,48 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
     };
 
     fetchOrSeed();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, profile?.id, templates.length]);
+  }, [year, profile?.id, templates.length, groupName]);
 
-  // Actions
+  // ---- actions ----
   const handleSave = async (id: UUID) => {
     const value = editing[id] ?? "";
     const updated_at = new Date().toISOString();
     const { error } = await supabase.from("checklists_v2").update({ input_text: value, updated_at }).eq("id", id).eq("user_id", profile!.id);
-    if (error) { console.error(error); showToast("บันทึกไม่สำเร็จ", "error"); return; }
+    if (error) {
+      console.error(error);
+      showToast("บันทึกไม่สำเร็จ", "error");
+      return;
+    }
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, input_text: value, updated_at } : it)));
     showToast("บันทึกแล้ว ✅", "success");
   };
 
   const handleFileUpload = async (row: ViewItem, file: File) => {
     try {
-      if (file.size > 10 * 1024 * 1024) { showToast("ไฟล์ใหญ่เกิน 10MB", "error"); return; }
+      if (file.size > 10 * 1024 * 1024) {
+        showToast("ไฟล์ใหญ่เกิน 10MB", "error");
+        return;
+      }
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
-      if (!uid) { showToast("ไม่พบ session ผู้ใช้", "error"); return; }
-
+      if (!uid) {
+        showToast("ไม่พบ session ผู้ใช้", "error");
+        return;
+      }
       const ts = Date.now();
       const safe = slugify(file.name);
       const newKey = `${uid}/${year}/${row.template_id}-${ts}-${safe}`;
 
-      const { error: uploadErr } = await supabase.storage.from("checklist-files")
-        .upload(newKey, file, { upsert: true, contentType: file.type });
-      if (uploadErr) { console.error(uploadErr); showToast("อัปโหลดไฟล์ไม่สำเร็จ", "error"); return; }
+      const { error: uploadErr } = await supabase.storage.from("checklist-files").upload(newKey, file, { upsert: true, contentType: file.type });
+      if (uploadErr) {
+        console.error(uploadErr);
+        showToast("อัปโหลดไฟล์ไม่สำเร็จ", "error");
+        return;
+      }
 
       const { data: pub } = supabase.storage.from("checklist-files").getPublicUrl(newKey);
       const newUrl = (pub?.publicUrl as string) || "";
@@ -253,7 +351,11 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         .update({ file_path: newUrl, file_key: newKey, updated_at })
         .eq("id", row.id)
         .eq("user_id", profile!.id);
-      if (updErr) { console.error(updErr); showToast("บันทึกไฟล์ลงฐานข้อมูลไม่สำเร็จ", "error"); return; }
+      if (updErr) {
+        console.error(updErr);
+        showToast("บันทึกไฟล์ลงฐานข้อมูลไม่สำเร็จ", "error");
+        return;
+      }
 
       if (row.file_key) {
         const { error: delErr } = await supabase.storage.from("checklist-files").remove([row.file_key]);
@@ -271,7 +373,11 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
   const handleFileDelete = async (row: ViewItem) => {
     if (!row.file_key) return;
     const { error: delErr } = await supabase.storage.from("checklist-files").remove([row.file_key]);
-    if (delErr) { console.error(delErr); showToast("ลบไฟล์จากสตอเรจไม่ได้", "error"); return; }
+    if (delErr) {
+      console.error(delErr);
+      showToast("ลบไฟล์จากสตอเรจไม่ได้", "error");
+      return;
+    }
 
     const updated_at = new Date().toISOString();
     const { error: updErr } = await supabase
@@ -279,13 +385,16 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
       .update({ file_path: null, file_key: null, updated_at })
       .eq("id", row.id)
       .eq("user_id", profile!.id);
-    if (updErr) { console.error(updErr); showToast("อัปเดตฐานข้อมูลไม่สำเร็จ", "error"); return; }
+    if (updErr) {
+      console.error(updErr);
+      showToast("อัปเดตฐานข้อมูลไม่สำเร็จ", "error");
+      return;
+    }
 
     setItems((prev) => prev.map((it) => (it.id === row.id ? { ...it, file_path: null, file_key: null, updated_at } : it)));
     showToast("ลบไฟล์เรียบร้อย ✅", "success");
   };
 
-  // Stats & filters
   const isComplete = (it: ViewItem) => !!it.file_key || (it.input_text?.trim().length || 0) >= 100;
   const isTextOnly = (it: ViewItem) => !it.file_key && (it.input_text?.trim().length || 0) >= 100;
 
@@ -300,32 +409,35 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
 
   const filteredItems = useMemo(() => {
     switch (filter) {
-      case "PENDING": return items.filter((x) => !isComplete(x));
-      case "TEXT_ONLY": return items.filter(isTextOnly);
-      case "WITH_FILE": return items.filter((x) => !!x.file_key);
-      default: return items;
+      case "PENDING":
+        return items.filter((x) => !isComplete(x));
+      case "TEXT_ONLY":
+        return items.filter(isTextOnly);
+      case "WITH_FILE":
+        return items.filter((x) => !!x.file_key);
+      default:
+        return items;
     }
   }, [items, filter]);
 
-  // Export PDF
   const doExportPDF = async () => {
     if (!printRef.current) return;
-    if (items.length === 0) { showToast("ยังไม่มีรายการสำหรับส่งออก", "info"); return; }
+    if (items.length === 0) {
+      showToast("ยังไม่มีรายการสำหรับส่งออก", "info");
+      return;
+    }
     try {
       setExporting(true);
-
       const node = printRef.current;
       node.classList.remove("hidden");
       node.style.position = "fixed";
       node.style.left = "-10000px";
       node.style.top = "0";
-      node.style.width = "794px"; // ~A4 96dpi
+      node.style.width = "794px";
       node.style.background = "#ffffff";
       await new Promise((r) => setTimeout(r, 50));
-
       const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
       const canvas = await html2canvas(node, { scale, useCORS: true, backgroundColor: "#ffffff", logging: false, windowWidth: 794 });
-
       node.classList.add("hidden");
       node.removeAttribute("style");
 
@@ -339,7 +451,6 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
 
       let positionPx = 0;
       let pageIndex = 0;
-
       while (positionPx < imgHeightPx) {
         const sliceHeightPx = Math.min(pageHeightPx, imgHeightPx - positionPx);
         const pageCanvas = document.createElement("canvas");
@@ -387,9 +498,7 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
             <div className="h-2 bg-gray-200 rounded-md overflow-hidden">
               <div className="h-full bg-blue-600" style={{ width: `${stats.percent}%` }} />
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              ครบพร้อมไฟล์: {stats.withFile} • ครบยังไม่มีไฟล์: {stats.textOnly} • ยังไม่ทำ: {stats.pending}
-            </div>
+            <div className="text-xs text-gray-500 mt-1">ครบพร้อมไฟล์: {stats.withFile} • ครบยังไม่มีไฟล์: {stats.textOnly} • ยังไม่ทำ: {stats.pending}</div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -424,18 +533,7 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         </div>
       </div>
 
-      {/* ถ้ายังไม่มี template ของหมวดนี้ ให้ seed ได้ */}
-      {!loading && templates.length === 0 && (
-        <div className="p-4 border rounded-xl bg-amber-50 text-amber-800">
-          <div className="font-semibold mb-1">ยังไม่มีเทมเพลตของหมวดนี้</div>
-          <div className="text-sm mb-3">กด “สร้างเทมเพลตเริ่มต้นของหมวดนี้” เพื่อให้ระบบสร้างรายการอัตโนมัติ</div>
-          <button onClick={seedTemplatesForGroup} className="px-3 py-1.5 text-sm rounded-md bg-amber-600 text-white hover:bg-amber-700">
-            สร้างเทมเพลตเริ่มต้นของหมวดนี้
-          </button>
-        </div>
-      )}
-
-      {loading && <div className="text-gray-500 text-sm">กำลังโหลดข้อมูล…</div>}
+      {(loading || seeding) && <div className="text-gray-500 text-sm">กำลังเตรียมหัวข้อ…</div>}
 
       {/* Items */}
       <div className="space-y-4">
@@ -481,7 +579,7 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) handleFileUpload(item, f);
-                      e.currentTarget.value = ""; // reset input
+                      e.currentTarget.value = "";
                     }}
                   />
                 </label>
@@ -500,14 +598,14 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
             </div>
           );
         })}
-        {!loading && filteredItems.length === 0 && templates.length > 0 && (
-          <div className="text-gray-500 text-sm">ไม่พบรายการตามตัวกรอง</div>
+        {!loading && !seeding && filteredItems.length === 0 && (
+          <div className="text-gray-500 text-sm">ยังไม่มีรายการ</div>
         )}
       </div>
 
       {toast && <Toast type={toast.type} message={toast.message} />}
 
-      {/* PRINT AREA (offscreen) */}
+      {/* PRINT AREA */}
       <div ref={printRef} className="hidden">
         <div className="w-[794px] bg-white text-gray-900">
           <div className="flex items-center gap-3 border-b px-6 py-4">
@@ -542,7 +640,9 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
               <div key={it.id} className="grid grid-cols-12 gap-2 text-xs border-b py-2 break-words">
                 <div className="col-span-1">{idx + 1}</div>
                 <div className="col-span-4">{it.display_name}</div>
-                <div className="col-span-2">{it.file_key ? "ทำแล้ว (มีไฟล์)" : (it.input_text?.trim().length || 0) >= 100 ? "ทำแล้ว (ไม่มีไฟล์)" : "ยังไม่ทำ"}</div>
+                <div className="col-span-2">
+                  {it.file_key ? "ทำแล้ว (มีไฟล์)" : (it.input_text?.trim().length || 0) >= 100 ? "ทำแล้ว (ไม่มีไฟล์)" : "ยังไม่ทำ"}
+                </div>
                 <div className="col-span-3">{truncate(it.input_text || "", 150)}</div>
                 <div className="col-span-2">{it.file_key ? prettyFileName(it) : "-"}</div>
               </div>
