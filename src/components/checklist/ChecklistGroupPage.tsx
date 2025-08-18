@@ -136,7 +136,7 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
       if (active && list.length === 0 && !autoSeededRef.current) {
         autoSeededRef.current = true; // กันลูป
         await autoSeedTemplatesOrDirect();
-        // โหลดเทมเพลตใหม่อีกรอบ (เผื่อ seed สำเร็จ)
+        // โหลดเทมเพลตใหม่จากผล upsert (อาจถูก set แล้วในทางหลัก)
         const { data: data2 } = await supabase
           .from("checklist_templates")
           .select("id,name,index_number,group_name")
@@ -162,14 +162,22 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
     if (defs.length === 0) return;
     try {
       setSeeding(true);
-      // 1) ทางหลัก: upsert ลง checklist_templates
-      const { error: tmplErr } = await supabase
+      // 1) ทางหลัก: upsert ลง checklist_templates + ขอแถวที่เพิ่งเขียนกลับมา
+      const { data: tmplRows, error: tmplErr } = await supabase
         .from("checklist_templates")
         .upsert(
-          defs.map((d) => ({ name: d.name, group_name: groupName, index_number: d.index_number })),
+          defs.map((d) => ({
+            name: d.name,
+            group_name: groupName,
+            index_number: d.index_number,
+          })),
           { onConflict: "group_name,name" }
-        );
+        )
+        .select("id,name,index_number,group_name");
+
       if (!tmplErr) {
+        // อัปเดต state ด้วยแถวที่เพิ่ง upsert ได้เลย
+        setTemplates(((tmplRows ?? []) as unknown) as TemplateRow[]);
         showToast("สร้างหัวข้ออัตโนมัติแล้ว ✅", "success");
         return;
       }
@@ -253,7 +261,8 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         }));
         const { error: upsertError } = await supabase
           .from("checklists_v2")
-          .upsert(payload, { onConflict: "user_id,template_id,year_version", ignoreDuplicates: false });
+          .upsert(payload, { onConflict: "user_id,template_id,year_version", ignoreDuplicates: false })
+          .select("id,template_id,name,group_name,year_version,input_text,file_path,file_key,updated_at,user_id"); // ✅ ขอคืนค่า
         if (upsertError) {
           console.error(upsertError);
           showToast("สร้างรายการจากเทมเพลตไม่สำเร็จ", "error");
@@ -312,13 +321,24 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
   const handleSave = async (id: UUID) => {
     const value = editing[id] ?? "";
     const updated_at = new Date().toISOString();
-    const { error } = await supabase.from("checklists_v2").update({ input_text: value, updated_at }).eq("id", id).eq("user_id", profile!.id);
+    const { data, error } = await supabase
+      .from("checklists_v2")
+      .update({ input_text: value, updated_at })
+      .eq("id", id)
+      .eq("user_id", profile!.id)
+      .select("id,input_text,updated_at")
+      .single(); // ✅ ขอคืนค่า 1 แถว
+
     if (error) {
       console.error(error);
       showToast("บันทึกไม่สำเร็จ", "error");
       return;
     }
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, input_text: value, updated_at } : it)));
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, input_text: data?.input_text ?? value, updated_at: data?.updated_at ?? updated_at } : it
+      )
+    );
     showToast("บันทึกแล้ว ✅", "success");
   };
 
@@ -338,7 +358,9 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
       const safe = slugify(file.name);
       const newKey = `${uid}/${year}/${row.template_id}-${ts}-${safe}`;
 
-      const { error: uploadErr } = await supabase.storage.from("checklist-files").upload(newKey, file, { upsert: true, contentType: file.type });
+      const { error: uploadErr } = await supabase.storage
+        .from("checklist-files")
+        .upload(newKey, file, { upsert: true, contentType: file.type });
       if (uploadErr) {
         console.error(uploadErr);
         showToast("อัปโหลดไฟล์ไม่สำเร็จ", "error");
@@ -365,7 +387,9 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         if (delErr) console.warn("⚠️ ลบไฟล์เก่าไม่ได้:", delErr);
       }
 
-      setItems((prev) => prev.map((it) => (it.id === row.id ? { ...it, file_path: newUrl, file_key: newKey, updated_at } : it)));
+      setItems((prev) =>
+        prev.map((it) => (it.id === row.id ? { ...it, file_path: newUrl, file_key: newKey, updated_at } : it))
+      );
       showToast("อัปโหลดไฟล์เรียบร้อย ✅", "success");
     } catch (e) {
       console.error(e);
@@ -394,7 +418,9 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
       return;
     }
 
-    setItems((prev) => prev.map((it) => (it.id === row.id ? { ...it, file_path: null, file_key: null, updated_at } : it)));
+    setItems((prev) =>
+      prev.map((it) => (it.id === row.id ? { ...it, file_path: null, file_key: null, updated_at } : it))
+    );
     showToast("ลบไฟล์เรียบร้อย ✅", "success");
   };
 
@@ -487,7 +513,6 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         items={[
           { label: "Checklist", href: "/checklist" },
           { label: `หมวด ${groupNo}: ${groupName}` },
-          // ถ้าต้องการแสดงปีด้วย ให้เปิดบรรทัดต่อไป
           // { label: String(year) },
         ]}
       />
@@ -600,7 +625,12 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
 
                 {item.file_key && (
                   <div className="text-xs text-right space-y-2">
-                    <div className="text-gray-600 truncate max-w-[220px]" title={prettyFileName(item)}>📄 {prettyFileName(item)}</div>
+                    <div
+                      className="text-gray-600 truncate max-w-[220px]"
+                      title={prettyFileName(item)}
+                    >
+                      📄 {prettyFileName(item)}
+                    </div>
                     <div className="flex gap-2 justify-end">
                       <a href={item.file_path || "#"} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">🔍 ดูไฟล์แนบ</a>
                       <button onClick={() => handleFileDelete(item)} className="text-red-600 hover:underline" title="ลบไฟล์ออกจากระบบ">🗑️ ลบไฟล์</button>
