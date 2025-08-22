@@ -1,4 +1,3 @@
-// src/components/Sidebar.tsx
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
@@ -20,7 +19,7 @@ import { supabase } from "@/utils/supabaseClient";
 
 type ProfileRow = {
   full_name?: string | null;
-  avatar_path?: string | null; // path ใน storage เช่น "avatars/uid.png"
+  avatar_url?: string | null; // ✅ ใช้ avatar_url แทน avatar_path
 };
 
 function getActiveKey(pathname: string): string {
@@ -59,35 +58,26 @@ export default function Sidebar() {
     if (activeKey.startsWith("checklist:")) setExpanded(true);
   }, [activeKey]);
 
-  // โหลดข้อมูลโปรไฟล์ + avatar
+  // โหลดข้อมูลโปรไฟล์
   useEffect(() => {
     (async () => {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData?.user;
       if (!user) return;
 
-      // 1) ลองอ่านจากตาราง profiles (ปรับชื่อ table/column ให้ตรงของคุณ)
+      // ✅ อ่านจาก profiles.avatar_url
       const { data: row } = await supabase
         .from("profiles")
-        .select("full_name, avatar_path")
+        .select("full_name, avatar_url")
         .eq("id", user.id)
         .maybeSingle();
 
-      // 2) กำหนดชื่อแสดงผล
-      setProfile(row ?? { full_name: (user.user_metadata as any)?.full_name ?? user.email ?? "", avatar_path: null });
+      const fullName =
+        row?.full_name || (user.user_metadata as any)?.full_name || user.email || "";
+      const avatar = row?.avatar_url || (user.user_metadata as any)?.avatar_url || null;
 
-      // 3) หา URL รูป
-      // 3.1 ถ้ามี path ใน bucket "avatars" -> แปลงเป็น public URL
-      if (row?.avatar_path) {
-        const { data } = supabase.storage.from("avatars").getPublicUrl(row.avatar_path);
-        if (data?.publicUrl) {
-          setAvatarUrl(data.publicUrl);
-          return;
-        }
-      }
-      // 3.2 เผื่อกรณี login social: ใช้ avatar_url ใน user_metadata
-      const metaUrl = (user.user_metadata as any)?.avatar_url as string | undefined;
-      if (metaUrl) setAvatarUrl(metaUrl);
+      setProfile({ full_name: fullName, avatar_url: avatar });
+      setAvatarUrl(avatar);
     })();
   }, []);
 
@@ -103,9 +93,9 @@ export default function Sidebar() {
   async function handleLogout() {
     try {
       setLoggingOut(true);
-      // ออกจากระบบทั้ง scope (กันไม่หลุดบน Chrome)
       await supabase.auth.signOut({ scope: "global" } as any);
-      // เคลียร์ token ที่ cache ค้าง
+
+      // เคลียร์ token cache
       try {
         const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -114,7 +104,7 @@ export default function Sidebar() {
         }
         keys.forEach((k) => localStorage.removeItem(k));
       } catch {}
-      // redirect
+
       await router.replace("/login");
       setTimeout(() => {
         if (window.location.pathname !== "/login") window.location.assign("/login");
@@ -142,7 +132,6 @@ export default function Sidebar() {
       {/* Header / Avatar */}
       <div className="flex flex-col items-center gap-2 mb-6">
         {avatarUrl ? (
-          // ใช้ <img> ธรรมดาเลี่ยงการตั้งค่า next/image domains
           <img
             src={avatarUrl}
             alt="Avatar"
@@ -157,8 +146,6 @@ export default function Sidebar() {
         <div className="text-slate-100 text-sm font-medium">
           {profile?.full_name || "ผู้ใช้งาน"}
         </div>
-        {/* ถ้าต้องแสดงอีเมล/บทบาท เติมบรรทัดนี้ได้ */}
-        {/* <div className="text-slate-400 text-xs">{email หรือ role}</div> */}
       </div>
 
       <nav className="space-y-2">
@@ -171,14 +158,12 @@ export default function Sidebar() {
           <span>Dashboard</span>
         </Link>
 
-        {/* Checklist (ปุ่มเดียว) */}
+        {/* Checklist */}
         <button
           type="button"
           onClick={handleChecklistClick}
           className={`${baseItem} w-full justify-between ${
-            isActive("checklist") || activeKey.startsWith("checklist:")
-              ? "ring-1 ring-blue-400/40"
-              : ""
+            isActive("checklist") || activeKey.startsWith("checklist:") ? "ring-1 ring-blue-400/40" : ""
           }`}
         >
           <span className="flex items-center gap-3">
