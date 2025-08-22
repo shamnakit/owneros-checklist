@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard,
   CheckSquare,
-  BarChartBig,
   Settings as SettingsIcon,
   ChevronDown,
   ChevronRight,
@@ -19,12 +18,13 @@ import {
 } from "lucide-react";
 import { supabase } from "@/utils/supabaseClient";
 
-/**
- * Mapping active key ให้มีค่าเดียวเสมอ
- */
+type ProfileRow = {
+  full_name?: string | null;
+  avatar_path?: string | null; // path ใน storage เช่น "avatars/uid.png"
+};
+
 function getActiveKey(pathname: string): string {
-  if (pathname === "/" || pathname === "/dashboard") return "dashboard";
-  if (pathname === "/summary") return "summary";
+  if (pathname === "/" || pathname.startsWith("/dashboard")) return "dashboard";
   if (pathname === "/settings") return "settings";
   if (pathname === "/checklist") return "checklist";
   if (pathname.startsWith("/checklist/")) {
@@ -46,13 +46,50 @@ const checklistChildren = [
 export default function Sidebar() {
   const router = useRouter();
   const activeKey = useMemo(() => getActiveKey(router.pathname), [router.pathname]);
+
   const [expanded, setExpanded] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // โปรไฟล์
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // auto-expand เมื่ออยู่ภายใต้ /checklist/*
   useEffect(() => {
     if (activeKey.startsWith("checklist:")) setExpanded(true);
   }, [activeKey]);
+
+  // โหลดข้อมูลโปรไฟล์ + avatar
+  useEffect(() => {
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const user = userData?.user;
+      if (!user) return;
+
+      // 1) ลองอ่านจากตาราง profiles (ปรับชื่อ table/column ให้ตรงของคุณ)
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_path")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // 2) กำหนดชื่อแสดงผล
+      setProfile(row ?? { full_name: (user.user_metadata as any)?.full_name ?? user.email ?? "", avatar_path: null });
+
+      // 3) หา URL รูป
+      // 3.1 ถ้ามี path ใน bucket "avatars" -> แปลงเป็น public URL
+      if (row?.avatar_path) {
+        const { data } = supabase.storage.from("avatars").getPublicUrl(row.avatar_path);
+        if (data?.publicUrl) {
+          setAvatarUrl(data.publicUrl);
+          return;
+        }
+      }
+      // 3.2 เผื่อกรณี login social: ใช้ avatar_url ใน user_metadata
+      const metaUrl = (user.user_metadata as any)?.avatar_url as string | undefined;
+      if (metaUrl) setAvatarUrl(metaUrl);
+    })();
+  }, []);
 
   const isActive = (key: string) => activeKey === key;
 
@@ -66,23 +103,21 @@ export default function Sidebar() {
   async function handleLogout() {
     try {
       setLoggingOut(true);
-      // 1) ออกจากระบบแบบ global (ทุกแท็บ)
-      await supabase.auth.signOut({ scope: "global" });
-
-      // 2) ล้าง token ที่อาจค้างใน Chrome
+      // ออกจากระบบทั้ง scope (กันไม่หลุดบน Chrome)
+      await supabase.auth.signOut({ scope: "global" } as any);
+      // เคลียร์ token ที่ cache ค้าง
       try {
+        const keys: string[] = [];
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i) || "";
-          if (k.startsWith("sb-")) localStorage.removeItem(k);
+          if (k.startsWith("sb-")) keys.push(k);
         }
+        keys.forEach((k) => localStorage.removeItem(k));
       } catch {}
-
-      // 3) redirect
+      // redirect
       await router.replace("/login");
       setTimeout(() => {
-        if (window.location.pathname !== "/login") {
-          window.location.assign("/login");
-        }
+        if (window.location.pathname !== "/login") window.location.assign("/login");
       }, 150);
     } catch (err) {
       console.error("Logout failed", err);
@@ -92,25 +127,38 @@ export default function Sidebar() {
     }
   }
 
-  // คลิกแถว Checklist (ปุ่มเดียวสไตล์ Asana)
+  // ปุ่ม Checklist เดียว (สไตล์ Asana)
   async function handleChecklistClick() {
-    // ถ้ายังไม่อยู่ใน /checklist* ให้ขยายและพาไป /checklist
     if (!router.pathname.startsWith("/checklist")) {
       setExpanded(true);
       await router.push("/checklist");
       return;
     }
-    // ถ้าอยู่แล้ว → toggle expand เท่านั้น
     setExpanded((v) => !v);
   }
 
   return (
     <aside className="w-64 min-h-screen bg-slate-900 px-3 py-6">
-      {/* Header / avatar skeleton */}
+      {/* Header / Avatar */}
       <div className="flex flex-col items-center gap-2 mb-6">
-        <div className="w-16 h-16 rounded-full bg-slate-700/60" />
-        <div className="h-3 w-40 rounded bg-slate-700/60" />
-        <div className="h-3 w-28 rounded bg-slate-700/60" />
+        {avatarUrl ? (
+          // ใช้ <img> ธรรมดาเลี่ยงการตั้งค่า next/image domains
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            className="w-16 h-16 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-slate-700/60 flex items-center justify-center text-white text-lg">
+            {(profile?.full_name || "U").slice(0, 1).toUpperCase()}
+          </div>
+        )}
+
+        <div className="text-slate-100 text-sm font-medium">
+          {profile?.full_name || "ผู้ใช้งาน"}
+        </div>
+        {/* ถ้าต้องแสดงอีเมล/บทบาท เติมบรรทัดนี้ได้ */}
+        {/* <div className="text-slate-400 text-xs">{email หรือ role}</div> */}
       </div>
 
       <nav className="space-y-2">
@@ -123,12 +171,14 @@ export default function Sidebar() {
           <span>Dashboard</span>
         </Link>
 
-        {/* Checklist (ปุ่มเดียว: ไอคอน + ข้อความ + caret) */}
+        {/* Checklist (ปุ่มเดียว) */}
         <button
           type="button"
           onClick={handleChecklistClick}
           className={`${baseItem} w-full justify-between ${
-            isActive("checklist") || activeKey.startsWith("checklist:") ? "ring-1 ring-blue-400/40" : ""
+            isActive("checklist") || activeKey.startsWith("checklist:")
+              ? "ring-1 ring-blue-400/40"
+              : ""
           }`}
         >
           <span className="flex items-center gap-3">
@@ -153,15 +203,6 @@ export default function Sidebar() {
             ))}
           </div>
         )}
-
-        {/* Summary */}
-        <Link
-          href="/summary"
-          className={`${baseItem} ${isActive("summary") ? activeItem : ""}`}
-        >
-          <BarChartBig size={18} />
-          <span>Summary</span>
-        </Link>
 
         {/* Settings */}
         <Link
