@@ -1,65 +1,97 @@
 // src/pages/dashboard.tsx
-import React from "react";
-import { useUserProfile } from "@/hooks/useUserProfile";
-import ScoreRadarChart from "@/components/charts/ScoreRadarChart";
-import { useRadarScore } from "@/hooks/useRadarScore";
+import { useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import ScoreTierBadge from "@/components/scoring/ScoreTierBadge";
+import ScoreRadar from "@/components/scoring/ScoreRadar";
+import ScoreBars from "@/components/scoring/ScoreBars";
+import BenchmarkCallout from "@/components/scoring/BenchmarkCallout";
+import { sumBuckets, TOTAL_MAX, OPTIONAL_MAX } from "@/types/scoring";
 
-export default function DashboardPage() {
-  const { profile, loading } = useUserProfile();
-  const { data: radarData, loading: radarLoading } = useRadarScore(profile?.id);
+type ScoresShape = {
+  strategy: number;
+  org: number;
+  operations: number;
+  hr: number;
+  finance: number;
+  sales: number;
+  optional?: number;
+};
 
-  if (loading || !profile) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
-        กำลังโหลดข้อมูล...
-      </div>
-    );
-  }
+export default function Dashboard() {
+  // 🧪 MOCK: คะแนนจาก Checklist (ของจริงค่อยเชื่อมต่อภายหลัง)
+  const [scores, setScores] = useState<ScoresShape>({
+    strategy: 65,
+    org: 80,
+    operations: 55,
+    hr: 70,
+    finance: 62,
+    sales: 75,
+    optional: 25, // 0–50
+  });
 
-  const companyName = profile.company_name || "ชื่อบริษัทของคุณ";
-  const hasRadar = Array.isArray(radarData) && radarData.length > 0 && !radarLoading;
+  const total = useMemo(() => sumBuckets(scores as any), [scores]);
+
+  // 🧪 MOCK Benchmark
+  const benchPercentile = 67;
+  const benchIndustry = "Food & Beverage";
 
   return (
-    <div className="min-h-screen p-8 bg-gray-50">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          👋 ยินดีต้อนรับ, {profile.full_name || "เจ้าของกิจการ"}
-        </h1>
-        <p className="text-gray-500 mt-1">บริษัท: {companyName}</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* ความคืบหน้า */}
-        <div className="bg-white p-6 rounded-xl shadow">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">📊 ความคืบหน้าระบบทั้งหมด</h2>
-          <p className="text-gray-600 mb-2">ระบบกลยุทธ์องค์กร: 60%</p>
-          <p className="text-gray-600 mb-2">ระบบบุคคล & HR: 40%</p>
-          <p className="text-gray-600 mb-2">ระบบการเงิน: 20%</p>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">ภาพรวมคะแนนองค์กร (OwnerOS Scoring)</h1>
+          <div className="mt-2 flex items-center gap-3">
+            <ScoreTierBadge total={total} />
+            <div className="text-sm text-slate-500">
+              คะแนนรวม: <b>{total}</b> / {TOTAL_MAX} &nbsp;·&nbsp; หมวดย่อย: สูงสุด {OPTIONAL_MAX}
+            </div>
+          </div>
         </div>
-
-        {/* รายการเร่งด่วน */}
-        <div className="bg-white p-6 rounded-xl shadow">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">⚠ รายการที่ยังไม่ทำ</h2>
-          <ul className="list-disc list-inside text-sm text-gray-600 space-y-2">
-            <li>ยังไม่ได้กำหนด Vision</li>
-            <li>ยังไม่มี Job Description สำหรับฝ่ายขาย</li>
-            <li>ยังไม่ได้แนบโครงสร้างองค์กร</li>
-          </ul>
-        </div>
-
-        {/* Radar Chart */}
-        <div className="bg-white p-6 rounded-xl shadow col-span-1 md:col-span-2 lg:col-span-3">
-          <h2 className="text-xl font-semibold text-gray-700 mb-4">📈 ภาพรวมความพร้อมแยกตามระบบ</h2>
-
-          {radarLoading && <p className="text-gray-500">กำลังโหลดข้อมูล...</p>}
-
-          {!radarLoading && !hasRadar && (
-            <div className="text-gray-500 text-sm">ยังไม่มีข้อมูลกราฟสำหรับผู้ใช้นี้</div>
-          )}
-
-          {!radarLoading && hasRadar && <ScoreRadarChart data={radarData} />}
+        <div className="flex gap-2">
+          <Button variant="outline">Export XLSX</Button>
+          <Button>สร้าง Binder (PDF เร็ว ๆ นี้)</Button>
         </div>
       </div>
+
+      {/* Benchmark Callout */}
+      <BenchmarkCallout info={{ percentile: benchPercentile, industry: benchIndustry }} />
+
+      {/* Radar & Bars */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <h2 className="font-semibold mb-3">ภาพเรดาร์ตามหมวด</h2>
+          <ScoreRadar data={scores} />
+        </Card>
+        <Card className="p-4">
+          <h2 className="font-semibold mb-3">คะแนนรายหมวด (0–100)</h2>
+          <ScoreBars data={scores} />
+        </Card>
+      </div>
+
+      {/* ปรับคะแนน (เดโม) */}
+      <Card className="p-4">
+        <h2 className="font-semibold mb-3">ปรับคะแนน (สำหรับเดโม / ทดสอบ)</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {(Object.keys(scores) as Array<keyof ScoresShape>).map((k) => (
+            <div key={k as string} className="flex items-center gap-2">
+              <label className="w-28 capitalize text-sm text-slate-600">{k}</label>
+              <Input
+                type="number"
+                value={Number(scores[k] ?? 0)}
+                onChange={(e) =>
+                  setScores((prev) => ({ ...prev, [k]: Number(e.target.value || 0) }))
+                }
+              />
+            </div>
+          ))}
+        </div>
+        <div className="text-xs text-slate-500 mt-2">
+          *ใส่ค่าระหว่าง 0–100 ต่อหมวด และ 0–50 สำหรับ optional (ระบบจริงจะคำนวณอัตโนมัติจาก Checklist + หลักฐาน)
+        </div>
+      </Card>
     </div>
   );
 }
