@@ -1,4 +1,3 @@
-// File: src/components/scoring/ScoreRadar.tsx
 import { ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
 
 export default function ScoreRadar({
@@ -21,6 +20,7 @@ export default function ScoreRadar({
     { key: "การเงิน", value: data.finance },
     { key: "ลูกค้า/ขาย", value: data.sales },
   ];
+
   return (
     <div className="w-full h-80">
       <ResponsiveContainer>

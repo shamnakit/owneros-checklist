@@ -1,4 +1,3 @@
-// File: src/components/scoring/ScoreBars.tsx
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 export default function ScoreBars({
@@ -21,6 +20,7 @@ export default function ScoreBars({
     { key: "การเงิน", score: data.finance },
     { key: "ลูกค้า/ขาย", score: data.sales },
   ];
+
   return (
     <div className="w-full h-64">
       <ResponsiveContainer>
