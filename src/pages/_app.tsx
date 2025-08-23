@@ -6,8 +6,11 @@ import { useRouter } from "next/router";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import dynamic from "next/dynamic";
 
-// ปิด SSR ของ MainLayout เพื่อหลีกเลี่ยงปัญหาโหลด profile ไม่ทัน
-const MainLayout = dynamic(() => import("@/layouts/MainLayout"), { ssr: false });
+// ✅ ใส่ fallback เวลาโหลด Layout
+const MainLayout = dynamic(() => import("@/layouts/MainLayout"), {
+  ssr: false,
+  loading: () => <div className="p-4 text-gray-500">Loading layout…</div>,
+});
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -37,17 +40,17 @@ function MyApp({ Component, pageProps }: AppProps) {
   // ✅ หน้าที่ไม่ต้องมี Sidebar
   const NO_SIDEBAR_PATHS = ["/login"];
 
-  // ✅ หน้าที่ควรมี Sidebar (ครอบ layout)
-  const LAYOUT_PATHS = ["/dashboard", "/checklist", "/summary", "/settings"];
+  // ✅ หน้าที่ควรมี Sidebar (ครอบ layout) — รวมหน้าแรก "/"
+  const LAYOUT_PATHS = ["/", "/dashboard", "/checklist", "/summary", "/settings"];
 
   const hideSidebar = NO_SIDEBAR_PATHS.includes(router.pathname);
   const useLayout =
-    LAYOUT_PATHS.some((path) => router.pathname.startsWith(path)) && !hideSidebar;
+    LAYOUT_PATHS.some((path) => router.pathname === path || router.pathname.startsWith(path)) &&
+    !hideSidebar;
 
-  const Layout =
-    useLayout
-      ? ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>
-      : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+  const Layout = useLayout
+    ? ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>
+    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
   return (
     <UserProfileProvider>

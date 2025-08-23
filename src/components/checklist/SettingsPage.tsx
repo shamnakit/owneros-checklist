@@ -1,6 +1,6 @@
 // src/components/checklist/SettingsPage.tsx
 import { useEffect, useState } from "react";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
 
 export default function SettingsPage() {

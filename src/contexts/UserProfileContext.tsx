@@ -1,3 +1,4 @@
+// src/contexts/UserProfileContext.tsx
 import React, {
   createContext,
   useCallback,
@@ -9,6 +10,10 @@ import React, {
 import { useRouter } from "next/router";
 import { supabase } from "@/utils/supabaseClient";
 
+/** อนุญาต role ตามที่ Sidebar ใช้ */
+export type Role = "owner" | "admin" | "member" | "auditor" | "partner";
+
+/** โพรไฟล์ที่ UI ใช้ */
 export type Profile = {
   id: string;
   company_name: string | null;
@@ -17,23 +22,55 @@ export type Profile = {
 
   // optional fields for UI
   full_name?: string | null;
-  position?: string | null;
-  role?: string | null;
+  position?: string | null;      // map จาก position_title
+  role?: Role | null;
   avatar_url?: string | null;
+
+  // access control
+  permissions?: string[] | null;
 
   created_at?: string | null;
   updated_at?: string | null;
 };
 
+/** shape ที่คาดหวังจาก DB (ชื่อคอลัมน์ตรง schema) */
+type ProfilesPick = {
+  id: string;
+  company_name: string | null;
+  company_logo_url: string | null;
+  company_logo_key: string | null;
+  full_name: string | null;
+  position_title: string | null;
+  role: Role | null;
+  avatar_url: string | null;
+  permissions: string[] | null; // jsonb
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type Ctx = {
+  /** auth */
+  uid?: string | null;
+  email?: string | null;
+
+  /** profile row */
   profile: Profile | null;
+
+  /** access control (ดึงซ้ำไว้ให้ใช้สะดวก) */
+  role?: Role | null;
+  permissions?: string[]; // normalize เป็น array เสมอ
+
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
 export const UserProfileContext = createContext<Ctx>({
+  uid: null,
+  email: null,
   profile: null,
+  role: null,
+  permissions: [],
   loading: true,
   refresh: async () => {},
   logout: async () => {},
@@ -43,6 +80,10 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const router = useRouter();
+
+  const [uid, setUid] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,17 +91,24 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     try {
       const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
+      const user = auth?.user;
+      const userId = user?.id || null;
 
-      if (!uid) {
+      setUid(userId);
+      setEmail(user?.email ?? null);
+
+      if (!userId) {
         setProfile(null); // ยังไม่ล็อกอิน
         return;
       }
 
+      // ❗️ไม่ใช้ generic กับ select — ให้ TS มองเป็น unknown ก่อน
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
-        .eq("id", uid)
+        .select(
+          "id, company_name, company_logo_url, company_logo_key, full_name, position_title, role, avatar_url, permissions, created_at, updated_at"
+        )
+        .eq("id", userId)
         .maybeSingle();
 
       if (error) {
@@ -69,20 +117,27 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      const fallback: Profile = {
-        id: uid,
-        company_name: null,
-        company_logo_url: null,
-        company_logo_key: null,
-        full_name: null,
-        position: null,
-        role: null,
-        avatar_url: null,
-        created_at: null,
-        updated_at: null,
+      // safe cast เป็น Partial<ProfilesPick> ก่อน
+      const row = (data ?? null) as Partial<ProfilesPick> | null;
+
+      const normalized: Profile = {
+        id: userId,
+        company_name: row?.company_name ?? null,
+        company_logo_url: row?.company_logo_url ?? null,
+        company_logo_key: row?.company_logo_key ?? null,
+
+        full_name: row?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
+        position: row?.position_title ?? null, // map เป็น field ที่ UI ใช้
+        role: (row?.role as Role | null) ?? null,
+        avatar_url: row?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
+
+        permissions: Array.isArray(row?.permissions) ? row?.permissions : [],
+
+        created_at: row?.created_at ?? null,
+        updated_at: row?.updated_at ?? null,
       };
 
-      setProfile((data as Profile) ?? fallback);
+      setProfile(normalized);
     } finally {
       setLoading(false);
     }
@@ -94,12 +149,16 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === "SIGNED_OUT") {
         setProfile(null);
+        setUid(null);
+        setEmail(null);
         // กันหลงอยู่หน้าที่ต้อง auth
         try {
           await router.replace("/login");
-        } catch {}
+        } catch {
+          if (typeof window !== "undefined") window.location.assign("/login");
+        }
       }
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         await load();
       }
     });
@@ -114,6 +173,19 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
       throw error;
     }
     setProfile(null);
+    setUid(null);
+    setEmail(null);
+
+    // ล้าง cache sb-* กัน token ค้าง
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || "";
+        if (k.startsWith("sb-")) keys.push(k);
+      }
+      keys.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+
     try {
       await router.replace("/login");
     } catch {
@@ -123,10 +195,19 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [router]);
 
-  const value = useMemo(
-    () => ({ profile, loading, refresh: load, logout }),
-    [profile, loading, load, logout]
-  );
+  const value = useMemo<Ctx>(() => {
+    const perms = (profile?.permissions ?? []) as string[];
+    return {
+      uid,
+      email,
+      profile,
+      role: profile?.role ?? null,
+      permissions: perms,
+      loading,
+      refresh: load,
+      logout,
+    };
+  }, [uid, email, profile, loading, load, logout]);
 
   return (
     <UserProfileContext.Provider value={value}>

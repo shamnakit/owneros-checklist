@@ -1,6 +1,6 @@
 // src/pages/checklist/settings.tsx
 import { useState, useEffect } from "react";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
 import Image from "next/image";
 

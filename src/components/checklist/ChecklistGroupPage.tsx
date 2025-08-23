@@ -4,7 +4,7 @@ import Breadcrumbs from "@/components/common/Breadcrumbs";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import { useUserProfile } from "@/hooks/useUserProfile";
+import { useUserProfile } from "@/contexts/UserProfileContext";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
@@ -495,7 +495,11 @@ export default function ChecklistGroupPage({ groupName, groupNo }: { groupName: 
         pageIndex += 1;
       }
 
-      const safeCompany = (profile?.company_name || "OwnerOS").replace(/[^\wก-๙\- ]+/gi, "_");
+      const safeCompany = (profile?.company_name ?? "OwnerOS")
+  .trim()
+  .replace(/[^a-zA-Z0-9ก-๙\- ]+/g, "_");
+
+
       pdf.save(`${safeCompany}-Checklist-หมวด${groupNo}-${groupName}-${year}.pdf`);
       showToast("ดาวน์โหลดไฟล์ PDF แล้ว ✅", "success");
     } catch (err) {
