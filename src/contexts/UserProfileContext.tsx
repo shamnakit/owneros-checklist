@@ -121,21 +121,26 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
       const row = (data ?? null) as Partial<ProfilesPick> | null;
 
       const normalized: Profile = {
-        id: userId,
-        company_name: row?.company_name ?? null,
-        company_logo_url: row?.company_logo_url ?? null,
-        company_logo_key: row?.company_logo_key ?? null,
+  id: userId,
+  company_name: data?.company_name ?? null,
+  company_logo_url: data?.company_logo_url ?? null,
+  company_logo_key: data?.company_logo_key ?? null,
 
-        full_name: row?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
-        position: row?.position_title ?? null, // map เป็น field ที่ UI ใช้
-        role: (row?.role as Role | null) ?? null,
-        avatar_url: row?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
+  full_name: data?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
+  position: data?.position_title ?? null,
 
-        permissions: Array.isArray(row?.permissions) ? row?.permissions : [],
+  // 👇 ถ้าไม่มี role ใน DB → fallback เป็น "owner"
+  role: (data?.role as Role | null) ?? "owner",
 
-        created_at: row?.created_at ?? null,
-        updated_at: row?.updated_at ?? null,
-      };
+  avatar_url: data?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
+
+  // 👇 ถ้าไม่มี permissions → ให้เป็น array ว่าง
+  permissions: Array.isArray(data?.permissions) ? data?.permissions : [],
+
+  created_at: data?.created_at ?? null,
+  updated_at: data?.updated_at ?? null,
+};
+
 
       setProfile(normalized);
     } finally {
