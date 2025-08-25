@@ -13,39 +13,18 @@ import { supabase } from "@/utils/supabaseClient";
 /** อนุญาต role ตามที่ Sidebar ใช้ */
 export type Role = "owner" | "admin" | "member" | "auditor" | "partner";
 
-/** โพรไฟล์ที่ UI ใช้ */
+/** โพรไฟล์ตาม schema ของ DB */
 export type Profile = {
   id: string;
-  company_name: string | null;
-  company_logo_url: string | null;
-  company_logo_key: string | null;
-
-  // optional fields for UI
   full_name?: string | null;
-  position?: string | null;      // map จาก position_title
   role?: Role | null;
-  avatar_url?: string | null;
-
-  // access control
-  permissions?: string[] | null;
-
-  created_at?: string | null;
-  updated_at?: string | null;
-};
-
-/** shape ที่คาดหวังจาก DB (ชื่อคอลัมน์ตรง schema) */
-type ProfilesPick = {
-  id: string;
   company_name: string | null;
   company_logo_url: string | null;
   company_logo_key: string | null;
-  full_name: string | null;
-  position_title: string | null;
-  role: Role | null;
-  avatar_url: string | null;
-  permissions: string[] | null; // jsonb
-  created_at: string | null;
-  updated_at: string | null;
+  avatar_url?: string | null;
+  updated_at?: string | null;
+  revenue_band?: string | null;
+  permissions?: string[]; // jsonb -> array
 };
 
 type Ctx = {
@@ -56,9 +35,9 @@ type Ctx = {
   /** profile row */
   profile: Profile | null;
 
-  /** access control (ดึงซ้ำไว้ให้ใช้สะดวก) */
+  /** access control */
   role?: Role | null;
-  permissions?: string[]; // normalize เป็น array เสมอ
+  permissions?: string[];
 
   loading: boolean;
   refresh: () => Promise<void>;
@@ -83,7 +62,6 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [uid, setUid] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
-
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -98,15 +76,25 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
       setEmail(user?.email ?? null);
 
       if (!userId) {
-        setProfile(null); // ยังไม่ล็อกอิน
+        setProfile(null);
         return;
       }
 
-      // ❗️ไม่ใช้ generic กับ select — ให้ TS มองเป็น unknown ก่อน
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, company_name, company_logo_url, company_logo_key, full_name, position_title, role, avatar_url, permissions, created_at, updated_at"
+          `
+          id,
+          full_name,
+          role,
+          company_name,
+          company_logo_url,
+          company_logo_key,
+          avatar_url,
+          updated_at,
+          revenue_band,
+          permissions
+        `
         )
         .eq("id", userId)
         .maybeSingle();
@@ -117,30 +105,18 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
-      // safe cast เป็น Partial<ProfilesPick> ก่อน
-      const row = (data ?? null) as Partial<ProfilesPick> | null;
-
       const normalized: Profile = {
-  id: userId,
-  company_name: data?.company_name ?? null,
-  company_logo_url: data?.company_logo_url ?? null,
-  company_logo_key: data?.company_logo_key ?? null,
-
-  full_name: data?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
-  position: data?.position_title ?? null,
-
-  // 👇 ถ้าไม่มี role ใน DB → fallback เป็น "owner"
-  role: (data?.role as Role | null) ?? "owner",
-
-  avatar_url: data?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
-
-  // 👇 ถ้าไม่มี permissions → ให้เป็น array ว่าง
-  permissions: Array.isArray(data?.permissions) ? data?.permissions : [],
-
-  created_at: data?.created_at ?? null,
-  updated_at: data?.updated_at ?? null,
-};
-
+        id: userId,
+        full_name: data?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
+        role: (data?.role as Role | null) ?? "owner", // fallback owner
+        company_name: data?.company_name ?? null,
+        company_logo_url: data?.company_logo_url ?? null,
+        company_logo_key: data?.company_logo_key ?? null,
+        avatar_url: data?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
+        updated_at: data?.updated_at ?? null,
+        revenue_band: data?.revenue_band ?? null,
+        permissions: Array.isArray(data?.permissions) ? data?.permissions : [],
+      };
 
       setProfile(normalized);
     } finally {
@@ -148,7 +124,7 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  // ✅ ฟังสถานะ auth เพื่ออัปเดต UI และ redirect อัตโนมัติ
+  // ✅ ฟังสถานะ auth
   useEffect(() => {
     load();
     const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
@@ -156,21 +132,26 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         setProfile(null);
         setUid(null);
         setEmail(null);
-        // กันหลงอยู่หน้าที่ต้อง auth
         try {
           await router.replace("/login");
         } catch {
-          if (typeof window !== "undefined") window.location.assign("/login");
+          if (typeof window !== "undefined") {
+            window.location.assign("/login");
+          }
         }
       }
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
+      ) {
         await load();
       }
     });
     return () => sub?.subscription?.unsubscribe?.();
   }, [load, router]);
 
-  // ✅ ฟังก์ชัน logout รวมศูนย์
+  // ✅ logout รวมศูนย์
   const logout = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -181,7 +162,6 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     setUid(null);
     setEmail(null);
 
-    // ล้าง cache sb-* กัน token ค้าง
     try {
       const keys: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -221,4 +201,5 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
+/** ✅ Hook ใช้งานจริง */
 export const useUserProfile = () => useContext(UserProfileContext);
