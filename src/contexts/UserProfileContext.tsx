@@ -1,4 +1,3 @@
-// src/contexts/UserProfileContext.tsx
 import React, {
   createContext,
   useCallback,
@@ -10,35 +9,56 @@ import React, {
 import { useRouter } from "next/router";
 import { supabase } from "@/utils/supabaseClient";
 
-/** อนุญาต role ตามที่ Sidebar ใช้ */
+/** Role ที่รองรับ */
 export type Role = "owner" | "admin" | "member" | "auditor" | "partner";
 
-/** โพรไฟล์ตาม schema ของ DB */
+/** โครงสร้างข้อมูลที่ UI ใช้ */
 export type Profile = {
   id: string;
+
   full_name?: string | null;
   role?: Role | null;
+
   company_name: string | null;
   company_logo_url: string | null;
   company_logo_key: string | null;
   avatar_url?: string | null;
+
   updated_at?: string | null;
+
   revenue_band?: string | null;
-  permissions?: string[]; // jsonb -> array
+  industry_section?: string | null; // TSIC/DBD A–U
+  juristic_id?: string | null;      // 13 digit
+
+  permissions?: string[];
+};
+
+/** รูปแบบแถวในตาราง profiles (ตรงกับคอลัมน์จริงใน DB) */
+type ProfilesRow = {
+  id: string;
+  full_name: string | null;
+  role: Role | null;
+
+  company_name: string | null;
+  company_logo_url: string | null;
+  company_logo_key: string | null;
+  avatar_url: string | null;
+
+  updated_at: string | null;
+
+  revenue_band: string | null;
+  industry_section: string | null;
+  juristic_id: string | null;
+
+  permissions: string[] | null; // jsonb
 };
 
 type Ctx = {
-  /** auth */
   uid?: string | null;
   email?: string | null;
-
-  /** profile row */
   profile: Profile | null;
-
-  /** access control */
   role?: Role | null;
   permissions?: string[];
-
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
@@ -55,11 +75,8 @@ export const UserProfileContext = createContext<Ctx>({
   logout: async () => {},
 });
 
-export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
-
   const [uid, setUid] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -83,18 +100,20 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          `
-          id,
-          full_name,
-          role,
-          company_name,
-          company_logo_url,
-          company_logo_key,
-          avatar_url,
-          updated_at,
-          revenue_band,
-          permissions
-        `
+          [
+            "id",
+            "full_name",
+            "role",
+            "company_name",
+            "company_logo_url",
+            "company_logo_key",
+            "avatar_url",
+            "updated_at",
+            "revenue_band",
+            "industry_section",
+            "juristic_id",
+            "permissions",
+          ].join(",")
         )
         .eq("id", userId)
         .maybeSingle();
@@ -105,17 +124,27 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         return;
       }
 
+      // ✅ แคสต์เป็นชนิดที่เรากำหนดเอง แก้ Type 'GenericStringError'
+      const row = (data ?? null) as Partial<ProfilesRow> | null;
+
       const normalized: Profile = {
         id: userId,
-        full_name: data?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
-        role: (data?.role as Role | null) ?? "owner", // fallback owner
-        company_name: data?.company_name ?? null,
-        company_logo_url: data?.company_logo_url ?? null,
-        company_logo_key: data?.company_logo_key ?? null,
-        avatar_url: data?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
-        updated_at: data?.updated_at ?? null,
-        revenue_band: data?.revenue_band ?? null,
-        permissions: Array.isArray(data?.permissions) ? data?.permissions : [],
+
+        full_name: row?.full_name ?? (user?.user_metadata as any)?.full_name ?? null,
+        role: (row?.role as Role | null) ?? "owner",
+
+        company_name: row?.company_name ?? null,
+        company_logo_url: row?.company_logo_url ?? null,
+        company_logo_key: row?.company_logo_key ?? null,
+        avatar_url: row?.avatar_url ?? (user?.user_metadata as any)?.avatar_url ?? null,
+
+        updated_at: row?.updated_at ?? null,
+
+        revenue_band: row?.revenue_band ?? null,
+        industry_section: row?.industry_section ?? null,
+        juristic_id: row?.juristic_id ?? null,
+
+        permissions: Array.isArray(row?.permissions) ? row?.permissions! : [],
       };
 
       setProfile(normalized);
@@ -124,7 +153,6 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  // ✅ ฟังสถานะ auth
   useEffect(() => {
     load();
     const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
@@ -135,23 +163,16 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           await router.replace("/login");
         } catch {
-          if (typeof window !== "undefined") {
-            window.location.assign("/login");
-          }
+          if (typeof window !== "undefined") window.location.assign("/login");
         }
       }
-      if (
-        event === "SIGNED_IN" ||
-        event === "TOKEN_REFRESHED" ||
-        event === "USER_UPDATED"
-      ) {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         await load();
       }
     });
     return () => sub?.subscription?.unsubscribe?.();
   }, [load, router]);
 
-  // ✅ logout รวมศูนย์
   const logout = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -181,13 +202,12 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [router]);
 
   const value = useMemo<Ctx>(() => {
-    const perms = (profile?.permissions ?? []) as string[];
     return {
       uid,
       email,
       profile,
-      role: profile?.role ?? null,
-      permissions: perms,
+      role: profile?.role ?? "owner",
+      permissions: profile?.permissions ?? [],
       loading,
       refresh: load,
       logout,
@@ -201,5 +221,4 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-/** ✅ Hook ใช้งานจริง */
 export const useUserProfile = () => useContext(UserProfileContext);
