@@ -1,68 +1,448 @@
 // src/pages/settings/index.tsx
-import Link from "next/link";
-import { Settings, User, Building2, Globe2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/utils/supabaseClient";
+import { useUserProfile } from "@/contexts/UserProfileContext";
+import {
+  User2, Building2, Cog, Save, Upload, Trash2,
+} from "lucide-react";
 
-export default function SettingsHome() {
+// ใช้เก็บ System Settings ฝั่ง client (MVP ไม่แตะ DB)
+const SYS_LANG_KEY = "owneros_lang";
+
+const REVENUE_BANDS = [
+  { value: "<5M", label: "< 5 ล้านบาท/ปี" },
+  { value: "5-10M", label: "5–10 ล้านบาท/ปี" },
+  { value: "10-30M", label: "10–30 ล้านบาท/ปี" },
+  { value: "30-50M", label: "30–50 ล้านบาท/ปี" },
+  { value: "50-100M", label: "50–100 ล้านบาท/ปี" },
+  { value: "100-300M", label: "100–300 ล้านบาท/ปี" },
+  { value: "300-500M", label: "300–500 ล้านบาท/ปี" },
+  { value: "500-1000M", label: "500–1,000 ล้านบาท/ปี" },
+  { value: ">=1000M", label: "≥ 1,000 ล้านบาท/ปี" },
+];
+
+const MOC_INDUSTRY_SECTIONS: { code: string; label: string }[] = [
+  { code: "A", label: "A – เกษตรกรรม ป่าไม้ และการประมง" },
+  { code: "B", label: "B – การทำเหมืองแร่และเหมืองหิน" },
+  { code: "C", label: "C – การผลิต (Manufacturing)" },
+  { code: "D", label: "D – ไฟฟ้า ก๊าซ ไอน้ำ และระบบปรับอากาศ" },
+  { code: "E", label: "E – การประปา ระบบจัดการของเสีย และบำบัดน้ำเสีย" },
+  { code: "F", label: "F – ก่อสร้าง" },
+  { code: "G", label: "G – ค้าส่ง ค้าปลีก และการซ่อมยานยนต์" },
+  { code: "H", label: "H – คมนาคม คลังสินค้า และไปรษณีย์" },
+  { code: "I", label: "I – ที่พักแรมและบริการด้านอาหาร" },
+  { code: "J", label: "J – ข้อมูลข่าวสารและการสื่อสาร (ICT/Software)" },
+  { code: "K", label: "K – การเงิน การประกันภัย และกิจกรรมทางการเงินอื่น" },
+  { code: "L", label: "L – อสังหาริมทรัพย์" },
+  { code: "M", label: "M – วิชาชีพ วิทยาศาสตร์ และเทคนิค" },
+  { code: "N", label: "N – บริหารจัดการและสนับสนุนบริการ" },
+  { code: "O", label: "O – ราชการ ป้องกันประเทศ และประกันสังคมภาคบังคับ" },
+  { code: "P", label: "P – การศึกษา" },
+  { code: "Q", label: "Q – สาธารณสุขและงานสังคมสงเคราะห์" },
+  { code: "R", label: "R – ศิลปะ บันเทิง และนันทนาการ" },
+  { code: "S", label: "S – กิจกรรมบริการด้านอื่น ๆ" },
+  { code: "T", label: "T – กิจกรรมครัวเรือนเป็นนายจ้าง" },
+  { code: "U", label: "U – องค์การระหว่างประเทศและนอกประเทศ" },
+];
+
+const sanitizeFileName = (name: string) =>
+  name.replace(/[^\wก-๙. -]+/g, "_").replace(/\s+/g, "-");
+const isJuristic13 = (s: string) => /^\d{13}$/.test(s);
+const maskJuristic = (raw: string) => {
+  const d = raw.replace(/\D+/g, "").slice(0, 13);
+  const a = d.slice(0, 1);
+  const b = d.slice(1, 5);
+  const c = d.slice(5, 10);
+  const e = d.slice(10, 12);
+  return [a, b && `-${b}`, c && `-${c}`, e && `-${e}`].join("");
+};
+
+export default function SettingsPage() {
+  const { uid, profile, refresh } = useUserProfile();
+
+  // tabs: personal / company / system
+  const [tab, setTab] = useState<"personal" | "company" | "system">("company");
+
+  // ---- Personal ----
+  const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarKey, setAvatarKey] = useState<string | null>(null);
+  const [savingPersonal, setSavingPersonal] = useState(false);
+
+  // ---- Company ----
+  const [companyName, setCompanyName] = useState("");
+  const [revenueBand, setRevenueBand] = useState<string>("");
+  const [industry, setIndustry] = useState<string>("");
+  const [juristicRaw, setJuristicRaw] = useState("");
+  const juristicMasked = useMemo(() => maskJuristic(juristicRaw), [juristicRaw]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoKey, setLogoKey] = useState<string | null>(null);
+  const [savingCompany, setSavingCompany] = useState(false);
+
+  // ---- System ---- (client only MVP)
+  const [lang, setLang] = useState<string>("th");
+  const [savingSystem, setSavingSystem] = useState(false);
+
+  const [uploading, setUploading] = useState(false);
+  const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  // initial
+  useEffect(() => {
+    if (!profile) return;
+    // personal
+    setFullName(profile.full_name ?? "");
+    setAvatarUrl(profile.avatar_url ?? null);
+    // company
+    setCompanyName(profile.company_name ?? "");
+    setRevenueBand(profile.revenue_band ?? "");
+    setIndustry(profile.industry_section ?? "");
+    setJuristicRaw((profile.juristic_id ?? "").replace(/\D+/g, ""));
+    setLogoUrl(profile.company_logo_url ?? null);
+    setLogoKey(profile.company_logo_key ?? null);
+    // system
+    try {
+      setLang(localStorage.getItem(SYS_LANG_KEY) || "th");
+    } catch {}
+  }, [profile]);
+
+  // ---------- Upload helpers ----------
+  const uploadToBucket = async (
+    bucket: string,
+    keyPrefix: string,
+    file: File,
+    oldKey?: string | null
+  ) => {
+    if (!uid) throw new Error("no uid");
+    const ts = Date.now();
+    const key = `${keyPrefix}/${uid}/${ts}-${sanitizeFileName(file.name)}`;
+    const { error: upErr } = await supabase.storage.from(bucket).upload(key, file, {
+      upsert: true,
+      contentType: file.type,
+    });
+    if (upErr) throw upErr;
+    if (oldKey) {
+      // ลบไฟล์เก่าแบบ best-effort
+      try {
+        await supabase.storage.from(bucket).remove([oldKey]);
+      } catch {}
+    }
+    const { data: pub } = supabase.storage.from(bucket).getPublicUrl(key);
+    return { key, url: pub?.publicUrl || "" };
+  };
+
+  // ---------- Save actions (ไม่บังคับกรอก) ----------
+  const savePersonal = async () => {
+    if (!uid) return;
+    try {
+      setSavingPersonal(true);
+      const payload: Record<string, any> = {
+        full_name: fullName?.trim() || null,
+        avatar_url: avatarUrl || null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
+      if (error) throw error;
+      await refresh();
+      showToast("บันทึก Personal สำเร็จ ✅");
+    } catch (e) {
+      console.error(e);
+      showToast("บันทึก Personal ไม่สำเร็จ", "error");
+    } finally {
+      setSavingPersonal(false);
+    }
+  };
+
+  const saveCompany = async () => {
+    if (!uid) return;
+    try {
+      setSavingCompany(true);
+      const payload: Record<string, any> = {
+        company_name: companyName?.trim() || null,
+        revenue_band: revenueBand || null,
+        industry_section: industry || null,
+        juristic_id: juristicRaw || null,
+        company_logo_url: logoUrl || null,
+        company_logo_key: logoKey || null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
+      if (error) throw error;
+      await refresh();
+      showToast("บันทึก Company สำเร็จ ✅");
+    } catch (e) {
+      console.error(e);
+      showToast("บันทึก Company ไม่สำเร็จ", "error");
+    } finally {
+      setSavingCompany(false);
+    }
+  };
+
+  const saveSystem = async () => {
+    try {
+      setSavingSystem(true);
+      localStorage.setItem(SYS_LANG_KEY, lang);
+      showToast("บันทึก System สำเร็จ ✅");
+    } catch (e) {
+      console.error(e);
+      showToast("บันทึก System ไม่สำเร็จ", "error");
+    } finally {
+      setSavingSystem(false);
+    }
+  };
+
+  // ---------- Upload buttons ----------
+  const onChangeAvatar = async (file: File) => {
+    try {
+      setUploading(true);
+      const { key, url } = await uploadToBucket("avatars", "avatars", file, avatarKey);
+      setAvatarKey(key);
+      setAvatarUrl(url);
+      showToast("อัปโหลดรูปโปรไฟล์แล้ว ✅");
+    } catch (e) {
+      console.error(e);
+      showToast("อัปโหลดรูปโปรไฟล์ไม่สำเร็จ", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const onChangeLogo = async (file: File) => {
+    try {
+      setUploading(true);
+      const { key, url } = await uploadToBucket("company-logos", "company-logos", file, logoKey);
+      setLogoKey(key);
+      setLogoUrl(url);
+      showToast("อัปโหลดโลโก้แล้ว ✅");
+    } catch (e) {
+      console.error(e);
+      showToast("อัปโหลดโลโก้ไม่สำเร็จ", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // ---------- UI ----------
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Settings className="text-slate-700" />
-        <h1 className="text-2xl font-bold">Settings</h1>
+      {/* Tabs */}
+      <div className="flex gap-2">
+        <button
+          className={`px-3 py-2 rounded-lg border ${tab === "personal" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          onClick={() => setTab("personal")}
+        >
+          <div className="flex items-center gap-2"><User2 size={16}/> Personal</div>
+        </button>
+        <button
+          className={`px-3 py-2 rounded-lg border ${tab === "company" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          onClick={() => setTab("company")}
+        >
+          <div className="flex items-center gap-2"><Building2 size={16}/> Company</div>
+        </button>
+        <button
+          className={`px-3 py-2 rounded-lg border ${tab === "system" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          onClick={() => setTab("system")}
+        >
+          <div className="flex items-center gap-2"><Cog size={16}/> System</div>
+        </button>
       </div>
 
-      <p className="text-slate-600">
-        ตั้งค่าระบบสำหรับบริษัทของคุณ (MVP v1: <b>Personal</b>, <b>Company</b>, <b>System</b>)
-      </p>
+      {/* Personal */}
+      {tab === "personal" && (
+        <div className="rounded-xl border bg-white p-5 space-y-4">
+          <h2 className="font-semibold mb-2">ข้อมูลส่วนตัว (Personal)</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link
-          href="/settings/personal"
-          className="group rounded-xl border bg-white p-5 hover:border-blue-400 hover:shadow-sm transition"
-        >
-          <div className="flex items-center gap-3">
-            <User className="text-slate-700" />
-            <h2 className="font-semibold">Personal</h2>
-          </div>
-          <p className="text-sm text-slate-600 mt-2">
-            ชื่อ–ตำแหน่ง รูปโปรไฟล์ ข้อมูลผู้กรอก
-          </p>
-          <div className="mt-3 text-blue-600 text-sm opacity-0 group-hover:opacity-100">
-            จัดการ →
-          </div>
-        </Link>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">ชื่อ-นามสกุล</label>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full rounded-lg border px-3 py-2"
+                placeholder="เช่น คุณสมชาย ใจดี"
+              />
+            </div>
 
-        <Link
-          href="/settings/company"
-          className="group rounded-xl border bg-white p-5 hover:border-blue-400 hover:shadow-sm transition"
-        >
-          <div className="flex items-center gap-3">
-            <Building2 className="text-slate-700" />
-            <h2 className="font-semibold">Company</h2>
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">รูปโปรไฟล์</label>
+              <div className="flex items-center gap-3">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt="avatar" className="h-16 w-16 rounded-full object-cover"/>
+                ) : (
+                  <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center text-slate-400">IMG</div>
+                )}
+                <label className="inline-flex items-center gap-2 text-blue-600 cursor-pointer">
+                  <Upload size={16}/> <span>{uploading ? "กำลังอัปโหลด…" : "อัปโหลด/เปลี่ยน"}</span>
+                  <input type="file" accept="image/*" className="hidden"
+                         disabled={uploading}
+                         onChange={(e) => {
+                           const f = e.target.files?.[0];
+                           if (f) onChangeAvatar(f);
+                           e.currentTarget.value = "";
+                         }}/>
+                </label>
+                {avatarUrl && (
+                  <button className="inline-flex items-center gap-2 text-rose-600"
+                          onClick={() => { setAvatarUrl(null); setAvatarKey(null); }}>
+                    <Trash2 size={16}/> ลบรูป
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-slate-600 mt-2">
-            ชื่อบริษัท อุตสาหกรรม โลโก้ และช่วงยอดขาย (Revenue Band)
-          </p>
-          <div className="mt-3 text-blue-600 text-sm opacity-0 group-hover:opacity-100">
-            จัดการ →
-          </div>
-        </Link>
 
-        <Link
-          href="/settings/system"
-          className="group rounded-xl border bg-white p-5 hover:border-blue-400 hover:shadow-sm transition"
-        >
-          <div className="flex items-center gap-3">
-            <Globe2 className="text-slate-700" />
-            <h2 className="font-semibold">System</h2>
+          <div className="flex justify-end">
+            <button
+              onClick={savePersonal}
+              disabled={savingPersonal}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 disabled:opacity-60"
+            >
+              <Save size={18}/>{savingPersonal ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
           </div>
-          <p className="text-sm text-slate-600 mt-2">
-            ภาษา รูปแบบวันที่/เวลา และค่าทั่วไปของระบบ
-          </p>
-          <div className="mt-3 text-blue-600 text-sm opacity-0 group-hover:opacity-100">
-            จัดการ →
+        </div>
+      )}
+
+      {/* Company */}
+      {tab === "company" && (
+        <div className="rounded-xl border bg-white p-5 space-y-4">
+          <h2 className="font-semibold mb-2">ข้อมูลบริษัท (Company)</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">ชื่อบริษัท</label>
+              <input type="text" className="w-full rounded-lg border px-3 py-2"
+                     value={companyName} onChange={(e) => setCompanyName(e.target.value)}
+                     placeholder="เช่น Justacost Co., Ltd."/>
+            </div>
+
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">โลโก้บริษัท</label>
+              <div className="flex items-center gap-3">
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logoUrl} alt="logo" className="h-16 w-16 rounded bg-gray-100 object-contain" />
+                ) : (
+                  <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center text-slate-400">LOGO</div>
+                )}
+                <label className="inline-flex items-center gap-2 text-blue-600 cursor-pointer">
+                  <Upload size={16} /><span>{uploading ? "กำลังอัปโหลด…" : "อัปโหลด/เปลี่ยน"}</span>
+                  <input type="file" accept="image/*" className="hidden"
+                         disabled={uploading}
+                         onChange={(e) => {
+                           const f = e.target.files?.[0];
+                           if (f) onChangeLogo(f);
+                           e.currentTarget.value = "";
+                         }}/>
+                </label>
+                {logoUrl && (
+                  <button className="inline-flex items-center gap-2 text-rose-600"
+                          onClick={() => { setLogoUrl(null); setLogoKey(null); }}>
+                    <Trash2 size={16}/> ลบโลโก้
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </Link>
-      </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">เลขทะเบียนนิติบุคคล (13 หลัก)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={juristicMasked}
+                onChange={(e) => setJuristicRaw(e.target.value.replace(/\D+/g, "").slice(0, 13))}
+                className={`w-full rounded-lg border px-3 py-2 ${juristicRaw && !isJuristic13(juristicRaw) ? "border-rose-400" : ""}`}
+                placeholder="X-XXXX-XXXXX-XX"
+              />
+              <div className="text-xs text-slate-500 mt-1">
+                * ไม่บังคับกรอก (ถ้ากรอกครบ 13 หลัก จะใช้เชื่อม benchmark ภายนอกภายหลัง)
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                อุตสาหกรรม (TSIC/DBD – Section A–U)
+              </label>
+              <select
+                className="w-full rounded-lg border px-3 py-2"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+              >
+                <option value="">— เลือกหมวดอุตสาหกรรม —</option>
+                {MOC_INDUSTRY_SECTIONS.map((s) => (
+                  <option key={s.code} value={s.code}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium text-slate-700 mb-2">ช่วงยอดขายต่อปี (Revenue Band)</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {REVENUE_BANDS.map((opt) => (
+                <label key={opt.value}
+                       className={`border rounded-xl p-3 cursor-pointer transition ${revenueBand === opt.value ? "border-blue-600 ring-2 ring-blue-200 bg-blue-50" : "hover:border-slate-400 bg-white"}`}>
+                  <input type="radio" className="hidden" name="rev" value={opt.value}
+                         checked={revenueBand === opt.value}
+                         onChange={() => setRevenueBand(opt.value)} />
+                  <div className="font-medium">{opt.label}</div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={saveCompany}
+              disabled={savingCompany}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 disabled:opacity-60"
+            >
+              <Save size={18}/>{savingCompany ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* System */}
+      {tab === "system" && (
+        <div className="rounded-xl border bg-white p-5 space-y-4">
+          <h2 className="font-semibold mb-2">การตั้งค่าระบบ (System)</h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">ภาษา (MVP: บันทึกในเบราว์เซอร์)</label>
+              <select className="w-full rounded-lg border px-3 py-2" value={lang} onChange={(e) => setLang(e.target.value)}>
+                <option value="th">ไทย</option>
+                <option value="en">English</option>
+              </select>
+              <div className="text-xs text-slate-500 mt-1">* MVP ยังไม่เก็บใน DB เพื่อหลีกเลี่ยง schema change</div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={saveSystem}
+              disabled={savingSystem}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 disabled:opacity-60"
+            >
+              <Save size={18}/>{savingSystem ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 text-white px-4 py-2 rounded-lg shadow-lg ${toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"}`}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }
