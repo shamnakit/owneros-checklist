@@ -1,19 +1,11 @@
+// src/components/Sidebar.tsx
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  LayoutDashboard,
-  CheckSquare,
-  Settings as SettingsIcon,
-  ChevronDown,
-  ChevronRight,
-  Target,
-  ChartNoAxesCombined,
-  BookText,
-  Users,
-  Wallet,
-  ShoppingCart,
-  LogOut,
+  LayoutDashboard, CheckSquare, Settings as SettingsIcon,
+  ChevronDown, ChevronRight, Target, ChartNoAxesCombined,
+  BookText, Users, Wallet, ShoppingCart, LogOut,
 } from "lucide-react";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 
@@ -44,37 +36,13 @@ function defaultPermissionsByRole(role: Role): Set<string> {
   switch (role) {
     case "owner":
     case "admin":
-      return new Set([
-        "view_dashboard",
-        "view_summary",
-        "view_settings",
-        "view_checklist",
-        ...ALL_CHECKLIST_CHILDREN.map((c) => c.perm),
-      ]);
+      return new Set(["view_dashboard","view_summary","view_settings","view_checklist", ...ALL_CHECKLIST_CHILDREN.map(c=>c.perm)]);
     case "member":
-      return new Set([
-        "view_dashboard",
-        "view_checklist",
-        "view_checklist_group3",
-        "view_checklist_group4",
-        "view_checklist_group6",
-      ]);
+      return new Set(["view_dashboard","view_checklist","view_checklist_group3","view_checklist_group4","view_checklist_group6"]);
     case "auditor":
-      return new Set([
-        "view_dashboard",
-        "view_summary",
-        "view_checklist",
-        ...ALL_CHECKLIST_CHILDREN.map((c) => c.perm),
-      ]);
+      return new Set(["view_dashboard","view_summary","view_checklist", ...ALL_CHECKLIST_CHILDREN.map(c=>c.perm)]);
     case "partner":
-      return new Set([
-        "view_dashboard",
-        "view_summary",
-        "view_checklist",
-        "view_checklist_group1",
-        "view_checklist_group2",
-        "view_checklist_group6",
-      ]);
+      return new Set(["view_dashboard","view_summary","view_checklist","view_checklist_group1","view_checklist_group2","view_checklist_group6"]);
     default:
       return new Set(["view_dashboard"]);
   }
@@ -83,15 +51,20 @@ function defaultPermissionsByRole(role: Role): Set<string> {
 export default function Sidebar() {
   const router = useRouter();
   const activeKey = useMemo(() => getActiveKey(router.pathname), [router.pathname]);
+  const { profile, role: roleFromCtx, permissions = [], logout } = useUserProfile();
 
-  const { profile, role, permissions, logout } = useUserProfile();
-  const effectiveRole: Role = (role as Role) ?? "owner";
+  // 👉 Normalize role: ถ้าเป็น "", null, undefined → owner
+  const normalizedRole: Role = useMemo(() => {
+    const r = (roleFromCtx || "") as string;
+    const allow = new Set(["owner","admin","member","auditor","partner"]);
+    return (allow.has(r) ? (r as Role) : "owner");
+  }, [roleFromCtx]);
 
   const effectivePerms = useMemo(() => {
-    const base = defaultPermissionsByRole(effectiveRole);
-    (permissions ?? []).forEach((p) => base.add(p));
+    const base = defaultPermissionsByRole(normalizedRole);
+    permissions.forEach((p) => base.add(p));
     return base;
-  }, [effectiveRole, permissions]);
+  }, [normalizedRole, permissions]);
 
   const can = (p: string) => effectivePerms.has(p);
 
@@ -110,14 +83,11 @@ export default function Sidebar() {
 
   return (
     <aside className="w-64 min-h-screen bg-slate-900 px-3 py-6">
-      {/* Header / Avatar */}
+      {/* Header */}
       <div className="flex flex-col items-center gap-2 mb-6">
         {profile?.avatar_url ? (
-          <img
-            src={profile.avatar_url}
-            alt="Avatar"
-            className="w-16 h-16 rounded-full object-cover"
-          />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={profile.avatar_url} alt="Avatar" className="w-16 h-16 rounded-full object-cover" />
         ) : (
           <div className="w-16 h-16 rounded-full bg-slate-700/60 flex items-center justify-center text-white text-lg">
             {(profile?.full_name || "U").slice(0, 1).toUpperCase()}
@@ -130,20 +100,14 @@ export default function Sidebar() {
 
       <nav className="space-y-2">
         {can("view_dashboard") && (
-          <Link
-            href="/dashboard"
-            className={`${baseItem} ${activeKey === "dashboard" ? activeItem : ""}`}
-          >
+          <Link href="/dashboard" className={`${baseItem} ${activeKey === "dashboard" ? activeItem : ""}`}>
             <LayoutDashboard size={18} />
             <span>Dashboard</span>
           </Link>
         )}
 
         {can("view_summary") && (
-          <Link
-            href="/summary"
-            className={`${baseItem} ${activeKey === "summary" ? activeItem : ""}`}
-          >
+          <Link href="/summary" className={`${baseItem} ${activeKey === "summary" ? activeItem : ""}`}>
             <BookText size={18} />
             <span>Summary</span>
           </Link>
@@ -161,11 +125,7 @@ export default function Sidebar() {
                 }
                 setExpanded((v) => !v);
               }}
-              className={`${baseItem} w-full justify-between ${
-                activeKey === "checklist" || activeKey.startsWith("checklist:")
-                  ? "ring-1 ring-blue-400/40"
-                  : ""
-              }`}
+              className={`${baseItem} w-full justify-between ${activeKey === "checklist" || activeKey.startsWith("checklist:") ? "ring-1 ring-blue-400/40" : ""}`}
             >
               <span className="flex items-center gap-3">
                 <CheckSquare size={18} />
@@ -176,26 +136,21 @@ export default function Sidebar() {
 
             {expanded && (
               <div className="mt-1">
-                {ALL_CHECKLIST_CHILDREN.filter((c) => can(c.perm)).map((c) => (
-                  <Link
-                    key={c.key}
-                    href={c.href}
-                    className={`${childItem} ${activeKey === c.key ? childActive : ""}`}
-                  >
-                    <c.icon size={16} />
-                    <span>{c.label}</span>
-                  </Link>
-                ))}
+                {ALL_CHECKLIST_CHILDREN
+                  .filter((c) => can(c.perm))
+                  .map((c) => (
+                    <Link key={c.key} href={c.href} className={`${childItem} ${activeKey === c.key ? childActive : ""}`}>
+                      <c.icon size={16} />
+                      <span>{c.label}</span>
+                    </Link>
+                  ))}
               </div>
             )}
           </>
         )}
 
         {can("view_settings") && (
-          <Link
-            href="/settings"
-            className={`${baseItem} ${activeKey === "settings" ? activeItem : ""}`}
-          >
+          <Link href="/settings" className={`${baseItem} ${activeKey === "settings" ? activeItem : ""}`}>
             <SettingsIcon size={18} />
             <span>Settings</span>
           </Link>

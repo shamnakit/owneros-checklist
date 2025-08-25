@@ -3,19 +3,19 @@ import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { UserProfileProvider } from "@/contexts/UserProfileContext";
 import dynamic from "next/dynamic";
+import { UserProfileProvider } from "@/contexts/UserProfileContext";
 
-// ✅ ใส่ fallback เวลาโหลด Layout
+// ปิด SSR ของ Layout + มี fallback ตอนโหลด
 const MainLayout = dynamic(() => import("@/layouts/MainLayout"), {
   ssr: false,
   loading: () => <div className="p-4 text-gray-500">Loading layout…</div>,
 });
 
-function MyApp({ Component, pageProps }: AppProps) {
-  const router = useRouter();
+export default function MyApp({ Component, pageProps }: AppProps) {
+  const { pathname } = useRouter();
 
-  // ⛑️ แพตช์ fetch ทั้งแอป: เติม Accept ให้ทุกคำขอที่ยิงไป /rest/v1/
+  // ⛑️ แพตช์ fetch: ใส่ Accept ให้ทุกคำขอไป /rest/v1/
   useEffect(() => {
     if (typeof window === "undefined") return;
     const orig = window.fetch;
@@ -37,20 +37,11 @@ function MyApp({ Component, pageProps }: AppProps) {
     };
   }, []);
 
-  // ✅ หน้าที่ไม่ต้องมี Sidebar
-  const NO_SIDEBAR_PATHS = ["/login"];
-
-  // ✅ หน้าที่ควรมี Sidebar (ครอบ layout) — รวมหน้าแรก "/"
-  const LAYOUT_PATHS = ["/", "/dashboard", "/checklist", "/summary", "/settings"];
-
-  const hideSidebar = NO_SIDEBAR_PATHS.includes(router.pathname);
-  const useLayout =
-    LAYOUT_PATHS.some((path) => router.pathname === path || router.pathname.startsWith(path)) &&
-    !hideSidebar;
-
-  const Layout = useLayout
-    ? ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>
-    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+  // ✅ ใช้ MainLayout ทุกหน้ายกเว้น /login
+  const isLogin = pathname === "/login";
+  const Layout = isLogin
+    ? ({ children }: { children: React.ReactNode }) => <>{children}</>
+    : ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>;
 
   return (
     <UserProfileProvider>
@@ -60,5 +51,3 @@ function MyApp({ Component, pageProps }: AppProps) {
     </UserProfileProvider>
   );
 }
-
-export default MyApp;
