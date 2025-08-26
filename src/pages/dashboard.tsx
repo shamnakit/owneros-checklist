@@ -1,4 +1,5 @@
 // /src/pages/dashboard.tsx
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
@@ -21,14 +22,6 @@ import { Download, AlertTriangle } from "lucide-react";
 
 // ---------- Types ----------
 type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales" | "addon";
-
-type IndustryAvgRow = {
-  industry_section: string;
-  year_version: number;
-  avg_score: number;
-  avg_max_score: number;
-};
-
 
 type CatRow = {
   user_id: string;
@@ -56,6 +49,13 @@ type WarnRow = {
   score_points: number;
 };
 
+type IndustryAvgRow = {
+  industry_section: string;
+  year_version: number;
+  avg_score: number;
+  avg_max_score: number;
+};
+
 // ---------- Helpers ----------
 const CAT_LABEL: Record<CategoryKey, string> = {
   strategy: "Strategy",
@@ -69,10 +69,6 @@ const CAT_LABEL: Record<CategoryKey, string> = {
 
 const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance", "sales"];
 
-// ใน component state
-const [industryAvg, setIndustryAvg] = useState<Record<number, IndustryAvgRow | undefined>>({});
-
-
 function pct(n: number) {
   return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
@@ -83,11 +79,12 @@ function thaiTier(tier: TotalRow["tier_label"]) {
   return "Early Stage";
 }
 
-// ---------- Page ----------
-export default function DashboardPage() {
+// ---------- Page Impl (client only) ----------
+function DashboardPageImpl() {
   const { uid, profile } = useUserProfile();
 
-  // ปีเริ่มต้น = ปีปัจจุบัน / เทียบกับปีก่อน
+  // ปีที่ระบบมีจริง (ดึงจาก DB)
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState<number>(thisYear);
   const [compareYear, setCompareYear] = useState<number>(thisYear - 1);
@@ -99,113 +96,48 @@ export default function DashboardPage() {
   const [total, setTotal] = useState<Record<number, TotalRow | undefined>>({});
   const [cats, setCats] = useState<Record<number, CatRow[]>>({});
   const [warns, setWarns] = useState<Record<number, WarnRow[]>>({});
+  const [industryAvg, setIndustryAvg] = useState<Record<number, IndustryAvgRow | undefined>>({});
 
-
-useEffect(() => {
-  if (!uid) return;
-  let mounted = true;
-
-  (async () => {
-    setLoading(true);
-    setErrorMsg(null);
-
-    try {
-      const years = [year, compareYear];
-
-      // 1) total (ของบริษัท)
-      const { data: totalRows, error: totalErr } = await supabase
-        .from("vw_score_total")
-        .select("*")
+  // โหลดปีที่มีจริง
+  useEffect(() => {
+    if (!uid) return;
+    let mounted = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from("checklists_v2")
+        .select("year_version")
         .eq("user_id", uid)
-        .in("year_version", years);
-      if (totalErr) throw totalErr;
+        .order("year_version", { ascending: false });
 
-      // 2) categories
-      const { data: catRows, error: catErr } = await supabase
-        .from("vw_score_by_category")
-        .select("*")
-        .eq("user_id", uid)
-        .in("year_version", years);
-      if (catErr) throw catErr;
-
-      // 3) warnings
-      const { data: warnRows, error: warnErr } = await supabase
-        .from("vw_checked_without_evidence")
-        .select("*")
-        .eq("user_id", uid)
-        .in("year_version", years);
-      if (warnErr) throw warnErr;
-
-      // [BENCHMARK] 4) industry average (ถ้ามีหมวดอุตสาหกรรมในโปรไฟล์)
-      let indMap: Record<number, IndustryAvgRow | undefined> = {};
-      if (profile?.industry_section) {
-        const { data: indRows, error: indErr } = await supabase
-          .from("vw_score_industry_avg")
-          .select("*")
-          .eq("industry_section", profile.industry_section)
-          .in("year_version", years);
-        if (indErr) throw indErr;
-
-        (indRows as IndustryAvgRow[] | null)?.forEach((r) => {
-          indMap[r.year_version] = r;
-        });
+      if (error) {
+        console.error(error);
+        return;
       }
 
-      if (!mounted) return;
+      const years = Array.from(
+        new Set((data || []).map((r: any) => Number(r.year_version)).filter(Boolean))
+      );
+      if (mounted) {
+        setAvailableYears(years);
+        if (years.length) {
+          setYear((y) => (years.includes(y) ? y : years[0]));
+          setCompareYear((cy) => (years.includes(cy) ? cy : years[1] ?? years[0]));
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [uid]);
 
-      // map per year (เดิม)
-      const totalMap: Record<number, TotalRow | undefined> = {};
-      totalRows?.forEach((r: TotalRow) => (totalMap[r.year_version] = r));
-      setTotal(totalMap);
-
-      const catsMap: Record<number, CatRow[]> = {};
-      catRows?.forEach((r: CatRow) => {
-        if (!catsMap[r.year_version]) catsMap[r.year_version] = [];
-        catsMap[r.year_version].push(r);
-      });
-      setCats(catsMap);
-
-      const warnMap: Record<number, WarnRow[]> = {};
-      warnRows?.forEach((w: WarnRow) => {
-        if (!warnMap[w.year_version]) warnMap[w.year_version] = [];
-        warnMap[w.year_version].push(w);
-      });
-      setWarns(warnMap);
-
-      // [BENCHMARK] set ค่าเฉลี่ย
-      setIndustryAvg(indMap);
-    } catch (e: any) {
-      console.error(e);
-      setErrorMsg(e?.message || "โหลดข้อมูลไม่สำเร็จ");
-    } finally {
-      if (mounted) setLoading(false);
+  // ถ้าเลือกปีซ้ำกัน ให้สลับ compareYear อัตโนมัติ
+  useEffect(() => {
+    if (!availableYears.length) return;
+    if (year === compareYear) {
+      const alt = availableYears.find((y) => y !== year);
+      if (alt) setCompareYear(alt);
     }
-  })();
-
-  return () => {
-    mounted = false;
-  };
-}, [uid, year, compareYear, profile?.industry_section]);
-
-// [BENCHMARK] เตรียมข้อมูลแสดงผลปีหลัก
-const indA = industryAvg[year];
-const companyA = total[year];
-
-const benchmarkBarData = useMemo(() => {
-  if (!companyA || !indA) return [];
-  return [
-    { name: "Company", value: Math.round(companyA.total_score) },
-    { name: "Industry Avg", value: Math.round(indA.avg_score) },
-  ];
-}, [companyA, indA]);
-
-const diffText = useMemo(() => {
-  if (!companyA || !indA) return "";
-  const diff = Math.round(companyA.total_score - indA.avg_score);
-  const sign = diff > 0 ? "+" : "";
-  return `${sign}${diff}`;
-}, [companyA, indA]);
-
+  }, [year, compareYear, availableYears]);
 
   // ---------- Fetch data ----------
   useEffect(() => {
@@ -219,7 +151,7 @@ const diffText = useMemo(() => {
       try {
         const years = [year, compareYear];
 
-        // header summary
+        // 1) total (ของบริษัท)
         const { data: totalRows, error: totalErr } = await supabase
           .from("vw_score_total")
           .select("*")
@@ -227,7 +159,7 @@ const diffText = useMemo(() => {
           .in("year_version", years);
         if (totalErr) throw totalErr;
 
-        // categories
+        // 2) categories
         const { data: catRows, error: catErr } = await supabase
           .from("vw_score_by_category")
           .select("*")
@@ -235,7 +167,7 @@ const diffText = useMemo(() => {
           .in("year_version", years);
         if (catErr) throw catErr;
 
-        // warnings
+        // 3) warnings
         const { data: warnRows, error: warnErr } = await supabase
           .from("vw_checked_without_evidence")
           .select("*")
@@ -243,27 +175,47 @@ const diffText = useMemo(() => {
           .in("year_version", years);
         if (warnErr) throw warnErr;
 
+        // 4) industry average (ถ้ามีหมวดอุตสาหกรรมในโปรไฟล์)
+        let indMap: Record<number, IndustryAvgRow | undefined> = {};
+        if (profile?.industry_section) {
+          const { data: indRows, error: indErr } = await supabase
+            .from("vw_score_industry_avg")
+            .select("*")
+            .eq("industry_section", profile.industry_section)
+            .in("year_version", years);
+          if (indErr) throw indErr;
+          (indRows as IndustryAvgRow[] | null)?.forEach((r) => {
+            indMap[r.year_version] = r;
+          });
+        }
+
         if (!mounted) return;
 
+        // map per year
         const totalMap: Record<number, TotalRow | undefined> = {};
-        (totalRows as TotalRow[] | null)?.forEach((r) => {
-          totalMap[r.year_version] = r;
-        });
+        (totalRows as TotalRow[] | null)?.forEach((r) => (totalMap[r.year_version] = r));
         setTotal(totalMap);
 
         const catsMap: Record<number, CatRow[]> = {};
         (catRows as CatRow[] | null)?.forEach((r) => {
-          if (!catsMap[r.year_version]) catsMap[r.year_version] = [];
-          catsMap[r.year_version].push(r);
+          // normalize category
+          const cat = (String(r.category).trim().toLowerCase() as CategoryKey);
+          const fixed = { ...r, category: cat };
+          if (!catsMap[fixed.year_version]) catsMap[fixed.year_version] = [];
+          catsMap[fixed.year_version].push(fixed);
         });
         setCats(catsMap);
 
         const warnMap: Record<number, WarnRow[]> = {};
         (warnRows as WarnRow[] | null)?.forEach((w) => {
-          if (!warnMap[w.year_version]) warnMap[w.year_version] = [];
-          warnMap[w.year_version].push(w);
+          const cat = (String(w.category).trim().toLowerCase() as CategoryKey);
+          const fixed = { ...w, category: cat };
+          if (!warnMap[fixed.year_version]) warnMap[fixed.year_version] = [];
+          warnMap[fixed.year_version].push(fixed);
         });
         setWarns(warnMap);
+
+        setIndustryAvg(indMap);
       } catch (e: any) {
         console.error(e);
         setErrorMsg(e?.message || "โหลดข้อมูลไม่สำเร็จ");
@@ -275,7 +227,7 @@ const diffText = useMemo(() => {
     return () => {
       mounted = false;
     };
-  }, [uid, year, compareYear]);
+  }, [uid, year, compareYear, profile?.industry_section]);
 
   // ---------- Compute chart data ----------
   const radarData = useMemo(() => {
@@ -303,56 +255,33 @@ const diffText = useMemo(() => {
         value: row ? Math.round((row.score / Math.max(1, row.max_score_category)) * 100) : 0,
         evidenceRate: row?.evidence_rate_pct ?? 0,
         warnings: warnCount.get(cat) || 0,
+        raw: row,
       };
     });
   }, [cats, warns, year]);
 
+  // [BENCHMARK] เตรียมข้อมูลแสดงผลปีหลัก
+  const companyA = total[year];
+  const indA = industryAvg[year];
+
+  const benchmarkBarData = useMemo(() => {
+    if (!companyA || !indA) return [];
+    return [
+      { name: "Company", value: Math.round(companyA.total_score) },
+      { name: "Industry Avg", value: Math.round(Number(indA.avg_score)) },
+    ];
+  }, [companyA, indA]);
+
+  const diffText = useMemo(() => {
+    if (!companyA || !indA) return "";
+    const diff = Math.round(companyA.total_score - Number(indA.avg_score));
+    const sign = diff > 0 ? "+" : "";
+    return `${sign}${diff}`;
+  }, [companyA, indA]);
+
   const totalA = total[year];
   const totalB = total[compareYear];
   const companyName = profile?.company_name || "บริษัทของฉัน";
-
-{/* [BENCHMARK] Industry Benchmark */}
-{!loading && (
-  <Card className="shadow-md">
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold">
-          Industry Benchmark – {profile?.industry_section || "N/A"} (ปี {year})
-        </h3>
-        {companyA && indA ? (
-          <div className="text-sm text-gray-600">
-            Your Company: {Math.round(companyA.total_score)} / {companyA.max_score} •{" "}
-            Industry Avg: {Math.round(indA.avg_score)} / {Math.round(indA.avg_max_score)} •{" "}
-            Difference: <span className={Number(diffText) >= 0 ? "text-emerald-700" : "text-red-700"}>
-              {diffText}
-            </span>
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">
-            {profile?.industry_section
-              ? "ยังไม่มีข้อมูลเฉลี่ยของอุตสาหกรรมปีนี้"
-              : "ยังไม่ตั้งค่าอุตสาหกรรมในโปรไฟล์"}
-          </div>
-        )}
-      </div>
-
-      {benchmarkBarData.length ? (
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={benchmarkBarData}>
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="value" fill="#0ea5e9" />
-          </BarChart>
-        </ResponsiveContainer>
-      ) : (
-        <div className="text-sm text-gray-500">ไม่มีข้อมูลสำหรับเปรียบเทียบ</div>
-      )}
-    </div>
-  </Card>
-)}
-
-
 
   // ---------- Export Binder ----------
   const handleExport = async (uploadToStorage = false) => {
@@ -409,14 +338,11 @@ const diffText = useMemo(() => {
               className="border rounded-md px-2 py-1"
               aria-label="เลือกปีหลัก"
             >
-              {Array.from({ length: 6 }).map((_, i) => {
-                const y = thisYear - i;
-                return (
-                  <option key={y} value={y}>
-                    ปี {y}
-                  </option>
-                );
-              })}
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  ปี {y}
+                </option>
+              ))}
             </select>
             <span className="text-sm text-gray-500">เทียบกับ</span>
             <select
@@ -425,14 +351,11 @@ const diffText = useMemo(() => {
               className="border rounded-md px-2 py-1"
               aria-label="เลือกปีเปรียบเทียบ"
             >
-              {Array.from({ length: 6 }).map((_, i) => {
-                const y = thisYear - i;
-                return (
-                  <option key={y} value={y}>
-                    ปี {y}
-                  </option>
-                );
-              })}
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  ปี {y}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -531,22 +454,71 @@ const diffText = useMemo(() => {
             </ResponsiveContainer>
 
             <div className="mt-4 space-y-2">
-              {barData.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="text-sm text-gray-500">Evidence rate: {pct(item.evidenceRate)}</span>
+              {barData.map((item) => {
+                const showWarnMax0 = (item.raw?.max_score_category ?? 0) === 0;
+                return (
+                  <div key={item.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{item.name}</span>
+                      {showWarnMax0 ? (
+                        <span className="text-sm text-red-600">ยังไม่ได้ตั้งคะแนนใน template</span>
+                      ) : (
+                        <span className="text-sm text-gray-500">Evidence rate: {pct(item.evidenceRate)}</span>
+                      )}
+                    </div>
+                    {item.warnings > 0 ? (
+                      <span className="flex items-center text-yellow-700 text-sm">
+                        <AlertTriangle size={14} className="mr-1" /> หลักฐานไม่ครบ {item.warnings} รายการ
+                      </span>
+                    ) : (
+                      <span className="text-emerald-700 text-sm">หลักฐานครบ</span>
+                    )}
                   </div>
-                  {item.warnings > 0 ? (
-                    <span className="flex items-center text-yellow-700 text-sm">
-                      <AlertTriangle size={14} className="mr-1" /> หลักฐานไม่ครบ {item.warnings} รายการ
-                    </span>
-                  ) : (
-                    <span className="text-emerald-700 text-sm">หลักฐานครบ</span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* [BENCHMARK] Industry Benchmark */}
+      {!loading && (
+        <Card className="shadow-md">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold">
+                Industry Benchmark – {profile?.industry_section || "N/A"} (ปี {year})
+              </h3>
+              {companyA && indA ? (
+                <div className="text-sm text-gray-600">
+                  Your Company: {Math.round(companyA.total_score)} / {companyA.max_score} •{" "}
+                  Industry Avg: {Math.round(Number(indA.avg_score))} / {Math.round(Number(indA.avg_max_score))} •{" "}
+                  Difference:{" "}
+                  <span className={Number(diffText) >= 0 ? "text-emerald-700" : "text-red-700"}>
+                    {diffText}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">
+                  {profile?.industry_section
+                    ? "ยังไม่มีข้อมูลเฉลี่ยของอุตสาหกรรมปีนี้"
+                    : "ยังไม่ตั้งค่าอุตสาหกรรมในโปรไฟล์"}
+                </div>
+              )}
+            </div>
+
+            {benchmarkBarData.length ? (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={benchmarkBarData}>
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#0ea5e9" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-sm text-gray-500">ไม่มีข้อมูลสำหรับเปรียบเทียบ</div>
+            )}
           </div>
         </Card>
       )}
@@ -554,4 +526,5 @@ const diffText = useMemo(() => {
   );
 }
 
-
+// ✅ Export แบบ client-only (ปิด SSR เฉพาะหน้า dashboard)
+export default dynamic(() => Promise.resolve(DashboardPageImpl), { ssr: false });
