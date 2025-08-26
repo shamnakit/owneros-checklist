@@ -22,6 +22,14 @@ import { Download, AlertTriangle } from "lucide-react";
 // ---------- Types ----------
 type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales" | "addon";
 
+type IndustryAvgRow = {
+  industry_section: string;
+  year_version: number;
+  avg_score: number;
+  avg_max_score: number;
+};
+
+
 type CatRow = {
   user_id: string;
   year_version: number;
@@ -61,6 +69,10 @@ const CAT_LABEL: Record<CategoryKey, string> = {
 
 const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance", "sales"];
 
+// ใน component state
+const [industryAvg, setIndustryAvg] = useState<Record<number, IndustryAvgRow | undefined>>({});
+
+
 function pct(n: number) {
   return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
@@ -87,6 +99,113 @@ export default function DashboardPage() {
   const [total, setTotal] = useState<Record<number, TotalRow | undefined>>({});
   const [cats, setCats] = useState<Record<number, CatRow[]>>({});
   const [warns, setWarns] = useState<Record<number, WarnRow[]>>({});
+
+
+useEffect(() => {
+  if (!uid) return;
+  let mounted = true;
+
+  (async () => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const years = [year, compareYear];
+
+      // 1) total (ของบริษัท)
+      const { data: totalRows, error: totalErr } = await supabase
+        .from("vw_score_total")
+        .select("*")
+        .eq("user_id", uid)
+        .in("year_version", years);
+      if (totalErr) throw totalErr;
+
+      // 2) categories
+      const { data: catRows, error: catErr } = await supabase
+        .from("vw_score_by_category")
+        .select("*")
+        .eq("user_id", uid)
+        .in("year_version", years);
+      if (catErr) throw catErr;
+
+      // 3) warnings
+      const { data: warnRows, error: warnErr } = await supabase
+        .from("vw_checked_without_evidence")
+        .select("*")
+        .eq("user_id", uid)
+        .in("year_version", years);
+      if (warnErr) throw warnErr;
+
+      // [BENCHMARK] 4) industry average (ถ้ามีหมวดอุตสาหกรรมในโปรไฟล์)
+      let indMap: Record<number, IndustryAvgRow | undefined> = {};
+      if (profile?.industry_section) {
+        const { data: indRows, error: indErr } = await supabase
+          .from("vw_score_industry_avg")
+          .select("*")
+          .eq("industry_section", profile.industry_section)
+          .in("year_version", years);
+        if (indErr) throw indErr;
+
+        (indRows as IndustryAvgRow[] | null)?.forEach((r) => {
+          indMap[r.year_version] = r;
+        });
+      }
+
+      if (!mounted) return;
+
+      // map per year (เดิม)
+      const totalMap: Record<number, TotalRow | undefined> = {};
+      totalRows?.forEach((r: TotalRow) => (totalMap[r.year_version] = r));
+      setTotal(totalMap);
+
+      const catsMap: Record<number, CatRow[]> = {};
+      catRows?.forEach((r: CatRow) => {
+        if (!catsMap[r.year_version]) catsMap[r.year_version] = [];
+        catsMap[r.year_version].push(r);
+      });
+      setCats(catsMap);
+
+      const warnMap: Record<number, WarnRow[]> = {};
+      warnRows?.forEach((w: WarnRow) => {
+        if (!warnMap[w.year_version]) warnMap[w.year_version] = [];
+        warnMap[w.year_version].push(w);
+      });
+      setWarns(warnMap);
+
+      // [BENCHMARK] set ค่าเฉลี่ย
+      setIndustryAvg(indMap);
+    } catch (e: any) {
+      console.error(e);
+      setErrorMsg(e?.message || "โหลดข้อมูลไม่สำเร็จ");
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, [uid, year, compareYear, profile?.industry_section]);
+
+// [BENCHMARK] เตรียมข้อมูลแสดงผลปีหลัก
+const indA = industryAvg[year];
+const companyA = total[year];
+
+const benchmarkBarData = useMemo(() => {
+  if (!companyA || !indA) return [];
+  return [
+    { name: "Company", value: Math.round(companyA.total_score) },
+    { name: "Industry Avg", value: Math.round(indA.avg_score) },
+  ];
+}, [companyA, indA]);
+
+const diffText = useMemo(() => {
+  if (!companyA || !indA) return "";
+  const diff = Math.round(companyA.total_score - indA.avg_score);
+  const sign = diff > 0 ? "+" : "";
+  return `${sign}${diff}`;
+}, [companyA, indA]);
+
 
   // ---------- Fetch data ----------
   useEffect(() => {
@@ -191,6 +310,49 @@ export default function DashboardPage() {
   const totalA = total[year];
   const totalB = total[compareYear];
   const companyName = profile?.company_name || "บริษัทของฉัน";
+
+{/* [BENCHMARK] Industry Benchmark */}
+{!loading && (
+  <Card className="shadow-md">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold">
+          Industry Benchmark – {profile?.industry_section || "N/A"} (ปี {year})
+        </h3>
+        {companyA && indA ? (
+          <div className="text-sm text-gray-600">
+            Your Company: {Math.round(companyA.total_score)} / {companyA.max_score} •{" "}
+            Industry Avg: {Math.round(indA.avg_score)} / {Math.round(indA.avg_max_score)} •{" "}
+            Difference: <span className={Number(diffText) >= 0 ? "text-emerald-700" : "text-red-700"}>
+              {diffText}
+            </span>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-500">
+            {profile?.industry_section
+              ? "ยังไม่มีข้อมูลเฉลี่ยของอุตสาหกรรมปีนี้"
+              : "ยังไม่ตั้งค่าอุตสาหกรรมในโปรไฟล์"}
+          </div>
+        )}
+      </div>
+
+      {benchmarkBarData.length ? (
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={benchmarkBarData}>
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="value" fill="#0ea5e9" />
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="text-sm text-gray-500">ไม่มีข้อมูลสำหรับเปรียบเทียบ</div>
+      )}
+    </div>
+  </Card>
+)}
+
+
 
   // ---------- Export Binder ----------
   const handleExport = async (uploadToStorage = false) => {
@@ -391,3 +553,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
