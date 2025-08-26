@@ -1,13 +1,11 @@
 // src/components/Sidebar.tsx
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   LayoutDashboard,
   CheckSquare,
   Settings as SettingsIcon,
-  ChevronDown,
-  ChevronRight,
   Target,
   ChartNoAxesCombined,
   BookText, // ใช้เป็นไอคอนของ checklist group3
@@ -22,7 +20,6 @@ type Role = "owner" | "admin" | "member" | "auditor" | "partner";
 
 function getActiveKey(pathname: string): string {
   if (pathname === "/" || pathname.startsWith("/dashboard")) return "dashboard";
-  // ❌ ตัด summary ออก
   if (pathname === "/settings" || pathname.startsWith("/settings")) return "settings";
   if (pathname === "/checklist") return "checklist";
   if (pathname.startsWith("/checklist/")) {
@@ -98,18 +95,13 @@ export default function Sidebar() {
 
   const can = (p: string) => effectivePerms.has(p);
 
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    if (activeKey.startsWith("checklist:")) setExpanded(true);
-  }, [activeKey]);
-
-  // ✅ กันดับเบิลคลิก + ensure await logout สำหรับ Chrome
+  // กันดับเบิลคลิกตอน logout
   const [loggingOut, setLoggingOut] = useState(false);
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      await logout(); // สำคัญมาก: ต้อง await เพื่อให้ signOut + clear token จบก่อน redirect
+      await logout();
     } finally {
       setLoggingOut(false);
     }
@@ -155,47 +147,33 @@ export default function Sidebar() {
           </Link>
         )}
 
-        {/* ❌ ตัด Summary ออก */}
-
+        {/* Checklist: แสดงหมวดย่อยตลอดเวลา */}
         {can("view_checklist") && (
           <>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!router.pathname.startsWith("/checklist")) {
-                  setExpanded(true);
-                  await router.push("/checklist");
-                  return;
-                }
-                setExpanded((v) => !v);
-              }}
-              className={`${baseItem} w-full justify-between ${
+            <Link
+              href="/checklist"
+              className={`${baseItem} ${
                 activeKey === "checklist" || activeKey.startsWith("checklist:")
                   ? "ring-1 ring-blue-400/40"
                   : ""
               }`}
             >
-              <span className="flex items-center gap-3">
-                <CheckSquare size={18} />
-                <span>Checklist</span>
-              </span>
-              {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-            </button>
+              <CheckSquare size={18} />
+              <span>Checklist</span>
+            </Link>
 
-            {expanded && (
-              <div className="mt-1">
-                {ALL_CHECKLIST_CHILDREN.filter((c) => can(c.perm)).map((c) => (
-                  <Link
-                    key={c.key}
-                    href={c.href}
-                    className={`${childItem} ${activeKey === c.key ? childActive : ""}`}
-                  >
-                    <c.icon size={16} />
-                    <span>{c.label}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <div className="mt-1">
+              {ALL_CHECKLIST_CHILDREN.filter((c) => can(c.perm)).map((c) => (
+                <Link
+                  key={c.key}
+                  href={c.href}
+                  className={`${childItem} ${activeKey === c.key ? childActive : ""}`}
+                >
+                  <c.icon size={16} />
+                  <span>{c.label}</span>
+                </Link>
+              ))}
+            </div>
           </>
         )}
 
