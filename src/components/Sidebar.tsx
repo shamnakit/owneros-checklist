@@ -103,6 +103,18 @@ export default function Sidebar() {
     if (activeKey.startsWith("checklist:")) setExpanded(true);
   }, [activeKey]);
 
+  // ✅ กันดับเบิลคลิก + ensure await logout สำหรับ Chrome
+  const [loggingOut, setLoggingOut] = useState(false);
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout(); // สำคัญมาก: ต้อง await เพื่อให้ signOut + clear token จบก่อน redirect
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   const baseItem =
     "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-slate-200 hover:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-blue-400/40";
   const activeItem =
@@ -201,11 +213,13 @@ export default function Sidebar() {
       <div className="mt-8">
         <button
           type="button"
-          onClick={logout}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 text-white py-2.5 hover:bg-rose-500"
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 text-white py-2.5 hover:bg-rose-500 disabled:opacity-70"
+          disabled={loggingOut}
+          aria-busy={loggingOut}
         >
           <LogOut size={18} />
-          ออกจากระบบ
+          {loggingOut ? "กำลังออก..." : "ออกจากระบบ"}
         </button>
       </div>
     </aside>

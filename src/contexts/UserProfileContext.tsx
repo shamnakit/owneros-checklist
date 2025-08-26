@@ -1,3 +1,5 @@
+//src/contexts/UserProfileContext.tsx
+
 import React, {
   createContext,
   useCallback,
@@ -124,7 +126,7 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return;
       }
 
-      // ✅ แคสต์เป็นชนิดที่เรากำหนดเอง แก้ Type 'GenericStringError'
+      // ✅ แคสต์เป็นชนิดที่เรากำหนดเอง
       const row = (data ?? null) as Partial<ProfilesRow> | null;
 
       const normalized: Profile = {
@@ -155,48 +157,76 @@ export const UserProfileProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   useEffect(() => {
     load();
+
     const { data: sub } = supabase.auth.onAuthStateChange(async (event) => {
       if (event === "SIGNED_OUT") {
+        // เคลียร์ state และไปหน้า login (hard) — กัน state ค้างใน Chrome
         setProfile(null);
         setUid(null);
         setEmail(null);
-        try {
-          await router.replace("/login");
-        } catch {
-          if (typeof window !== "undefined") window.location.assign("/login");
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        } else {
+          try {
+            await router.replace("/login");
+          } catch {
+            /* noop */
+          }
         }
       }
+
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         await load();
       }
     });
+
     return () => sub?.subscription?.unsubscribe?.();
   }, [load, router]);
 
   const logout = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("logout error:", error);
-      throw error;
-    }
-    setProfile(null);
-    setUid(null);
-    setEmail(null);
-
     try {
-      const keys: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i) || "";
-        if (k.startsWith("sb-")) keys.push(k);
+      // 1) ออกจากระบบ Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("logout error:", error);
       }
-      keys.forEach((k) => localStorage.removeItem(k));
-    } catch {}
 
-    try {
-      await router.replace("/login");
-    } catch {
+      // 2) ล้าง key ที่ Chrome มักค้าง (auth token ของ Supabase)
+      try {
+        // localStorage
+        const lsKeys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i) || "";
+          if (k.startsWith("sb-")) lsKeys.push(k);
+        }
+        lsKeys.forEach((k) => localStorage.removeItem(k));
+
+        // sessionStorage
+        const ssKeys: string[] = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const k = sessionStorage.key(i) || "";
+          if (k.startsWith("sb-")) ssKeys.push(k);
+        }
+        ssKeys.forEach((k) => sessionStorage.removeItem(k));
+      } catch {
+        // ignore
+      }
+
+      // 3) รีเซ็ต state context
+      setProfile(null);
+      setUid(null);
+      setEmail(null);
+
+      // 4) hard redirect เพื่อกัน hydration/state ค้างใน Chrome
       if (typeof window !== "undefined") {
-        window.location.assign("/login");
+        window.location.href = "/login";
+      } else {
+        await router.replace("/login");
+      }
+    } catch (e) {
+      console.error("Logout fatal:", e);
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
       }
     }
   }, [router]);
