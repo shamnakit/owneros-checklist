@@ -114,8 +114,8 @@ function ChecklistOverviewImpl() {
       setErr(null);
       try {
          const [{ data: tot, error: e1 }, { data: catRows, error: e2 }] = await Promise.all([
-   supabase.rpc("fn_score_total_for_me", { p_year: year, p_require_evidence: false }),
-   supabase.rpc("fn_score_by_category_for_me", { p_year: year, p_require_evidence: false }),
+    supabase.rpc("fn_score_total_for_me", { p_year: year, p_require_evidence: false }),
+ supabase.rpc("fn_score_by_category_for_me", { p_year: year, p_require_evidence: false }),
  ]);
         if (e1) throw e1;
         if (e2) throw e2;
