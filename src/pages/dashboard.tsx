@@ -20,43 +20,34 @@ import {
 } from "recharts";
 import { Download, AlertTriangle } from "lucide-react";
 
-// ---------- Types ----------
-type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales" | "addon";
+type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 
 type CatRow = {
-  user_id: string;
-  year_version: number;
-  category: CategoryKey;
+  category: CategoryKey | string;
   score: number;
   max_score_category: number;
   evidence_rate_pct: number; // 0..100
 };
 
 type TotalRow = {
-  user_id: string;
-  year_version: number;
   total_score: number;
   max_score: number;
   tier_label: "Excellent" | "Developing" | "Early Stage";
 };
 
+type IndustryAvgRow = {
+  industry_section: string;
+  avg_score: number;
+  avg_max_score: number;
+};
+
 type WarnRow = {
-  user_id: string;
-  year_version: number;
-  category: CategoryKey;
+  category: CategoryKey | string;
   checklist_id: string;
   name: string;
   score_points: number;
 };
 
-type IndustryAvgRow = {
-  industry_section: string;
-  year_version: number;
-  avg_score: number;
-  avg_max_score: number;
-};
-
-// ---------- Helpers ----------
 const CAT_LABEL: Record<CategoryKey, string> = {
   strategy: "Strategy",
   structure: "Structure",
@@ -64,7 +55,6 @@ const CAT_LABEL: Record<CategoryKey, string> = {
   hr: "HR",
   finance: "Finance",
   sales: "Sales",
-  addon: "Add-on",
 };
 
 const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance", "sales"];
@@ -72,18 +62,14 @@ const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance
 function pct(n: number) {
   return `${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 }
-
 function thaiTier(tier: TotalRow["tier_label"]) {
   if (tier === "Excellent") return "Excellent";
   if (tier === "Developing") return "Developing";
   return "Early Stage";
 }
 
-// ---------- Page Impl (client only) ----------
 function DashboardPageImpl() {
   const { uid, profile } = useUserProfile();
-
-  // ปีที่ระบบมีจริง (ดึงจาก DB)
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState<number>(thisYear);
@@ -92,37 +78,28 @@ function DashboardPageImpl() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // เก็บข้อมูลตามปี
+  // per-year data (จาก RPC ทั้งหมด)
   const [total, setTotal] = useState<Record<number, TotalRow | undefined>>({});
   const [cats, setCats] = useState<Record<number, CatRow[]>>({});
   const [warns, setWarns] = useState<Record<number, WarnRow[]>>({});
   const [industryAvg, setIndustryAvg] = useState<Record<number, IndustryAvgRow | undefined>>({});
 
-  // โหลดปีที่มีจริง
+  // โหลดปีที่มีจริงด้วย RPC
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
     (async () => {
-      const { data, error } = await supabase
-        .from("checklists_v2")
-        .select("year_version")
-        .eq("user_id", uid)
-        .order("year_version", { ascending: false });
-
+      const { data, error } = await supabase.rpc("fn_available_years_for_me");
+      if (!mounted) return;
       if (error) {
         console.error(error);
         return;
       }
-
-      const years = Array.from(
-        new Set((data || []).map((r: any) => Number(r.year_version)).filter(Boolean))
-      );
-      if (mounted) {
-        setAvailableYears(years);
-        if (years.length) {
-          setYear((y) => (years.includes(y) ? y : years[0]));
-          setCompareYear((cy) => (years.includes(cy) ? cy : years[1] ?? years[0]));
-        }
+      const years = (data || []).map((r: any) => Number(r.year_version)).filter(Boolean);
+      setAvailableYears(years.length ? years : [thisYear]);
+      if (years.length) {
+        setYear((y) => (years.includes(y) ? y : years[0]));
+        setCompareYear((cy) => (years.includes(cy) ? cy : years[1] ?? years[0]));
       }
     })();
     return () => {
@@ -130,7 +107,7 @@ function DashboardPageImpl() {
     };
   }, [uid]);
 
-  // ถ้าเลือกปีซ้ำกัน ให้สลับ compareYear อัตโนมัติ
+  // ป้องกันเลือกปีซ้ำกัน
   useEffect(() => {
     if (!availableYears.length) return;
     if (year === compareYear) {
@@ -139,82 +116,62 @@ function DashboardPageImpl() {
     }
   }, [year, compareYear, availableYears]);
 
-  // ---------- Fetch data ----------
+  // ดึงคะแนนจริงจาก RPC (แทนการอ่าน vw_*)
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
-
     (async () => {
       setLoading(true);
       setErrorMsg(null);
-
       try {
         const years = [year, compareYear];
 
-        // 1) total (ของบริษัท)
-        const { data: totalRows, error: totalErr } = await supabase
-          .from("vw_score_total")
-          .select("*")
-          .eq("user_id", uid)
-          .in("year_version", years);
-        if (totalErr) throw totalErr;
-
-        // 2) categories
-        const { data: catRows, error: catErr } = await supabase
-          .from("vw_score_by_category")
-          .select("*")
-          .eq("user_id", uid)
-          .in("year_version", years);
-        if (catErr) throw catErr;
-
-        // 3) warnings
-        const { data: warnRows, error: warnErr } = await supabase
-          .from("vw_checked_without_evidence")
-          .select("*")
-          .eq("user_id", uid)
-          .in("year_version", years);
-        if (warnErr) throw warnErr;
-
-        // 4) industry average (ถ้ามีหมวดอุตสาหกรรมในโปรไฟล์)
-        let indMap: Record<number, IndustryAvgRow | undefined> = {};
-        if (profile?.industry_section) {
-          const { data: indRows, error: indErr } = await supabase
-            .from("vw_score_industry_avg")
-            .select("*")
-            .eq("industry_section", profile.industry_section)
-            .in("year_version", years);
-          if (indErr) throw indErr;
-          (indRows as IndustryAvgRow[] | null)?.forEach((r) => {
-            indMap[r.year_version] = r;
-          });
-        }
+        // รวม RPC ต่อปี
+        const results = await Promise.all(
+          years.map(async (y) => {
+            const [t, c, w, ind] = await Promise.all([
+              supabase.rpc("fn_score_total_for_me", { p_year: y, p_require_evidence: true }),
+              supabase.rpc("fn_score_by_category_for_me", { p_year: y, p_require_evidence: true }),
+              // warnings ให้อ่านจาก vw_checked_without_evidence เดิม (ยังใช้ user context ผ่าน RLS) หรือคุณจะทำ RPC แยกก็ได้
+              supabase
+                .from("vw_checked_without_evidence")
+                .select("*")
+                .eq("year_version", y)
+                .limit(999),
+              supabase.rpc("fn_industry_avg_for_me", { p_year: y, p_require_evidence: true }),
+            ]);
+            return { y, t, c, w, ind };
+          })
+        );
 
         if (!mounted) return;
 
-        // map per year
         const totalMap: Record<number, TotalRow | undefined> = {};
-        (totalRows as TotalRow[] | null)?.forEach((r) => (totalMap[r.year_version] = r));
-        setTotal(totalMap);
-
         const catsMap: Record<number, CatRow[]> = {};
-        (catRows as CatRow[] | null)?.forEach((r) => {
-          // normalize category
-          const cat = (String(r.category).trim().toLowerCase() as CategoryKey);
-          const fixed = { ...r, category: cat };
-          if (!catsMap[fixed.year_version]) catsMap[fixed.year_version] = [];
-          catsMap[fixed.year_version].push(fixed);
+        const warnsMap: Record<number, WarnRow[]> = {};
+        const indMap: Record<number, IndustryAvgRow | undefined> = {};
+
+        results.forEach(({ y, t, c, w, ind }) => {
+          totalMap[y] = (t.data as TotalRow[] | null)?.[0];
+          const normalizedCats =
+            (c.data as CatRow[] | null)?.map((r) => ({
+              ...r,
+              category: String(r.category).trim().toLowerCase(),
+            })) ?? [];
+          catsMap[y] = normalizedCats;
+
+          warnsMap[y] =
+            (w.data as WarnRow[] | null)?.map((r) => ({
+              ...r,
+              category: String(r.category).trim().toLowerCase(),
+            })) ?? [];
+
+          indMap[y] = (ind.data as IndustryAvgRow[] | null)?.[0];
         });
+
+        setTotal(totalMap);
         setCats(catsMap);
-
-        const warnMap: Record<number, WarnRow[]> = {};
-        (warnRows as WarnRow[] | null)?.forEach((w) => {
-          const cat = (String(w.category).trim().toLowerCase() as CategoryKey);
-          const fixed = { ...w, category: cat };
-          if (!warnMap[fixed.year_version]) warnMap[fixed.year_version] = [];
-          warnMap[fixed.year_version].push(fixed);
-        });
-        setWarns(warnMap);
-
+        setWarns(warnsMap);
         setIndustryAvg(indMap);
       } catch (e: any) {
         console.error(e);
@@ -227,9 +184,9 @@ function DashboardPageImpl() {
     return () => {
       mounted = false;
     };
-  }, [uid, year, compareYear, profile?.industry_section]);
+  }, [uid, year, compareYear]);
 
-  // ---------- Compute chart data ----------
+  // ===== Charts data =====
   const radarData = useMemo(() => {
     const a = cats[year] || [];
     const b = cats[compareYear] || [];
@@ -237,44 +194,42 @@ function DashboardPageImpl() {
     const byB = new Map(b.map((r) => [r.category, r.score]));
     return CAT_ORDER.map((cat) => ({
       category: CAT_LABEL[cat],
-      scoreA: byA.get(cat) ?? 0,
-      scoreB: byB.get(cat) ?? 0,
+      scoreA: Number(byA.get(cat) ?? 0),
+      scoreB: Number(byB.get(cat) ?? 0),
     }));
   }, [cats, year, compareYear]);
 
   const barData = useMemo(() => {
     const a = cats[year] || [];
     const w = warns[year] || [];
-    const warnCount = new Map<CategoryKey, number>();
+    const warnCount = new Map<string, number>();
     w.forEach((x) => warnCount.set(x.category, (warnCount.get(x.category) || 0) + 1));
 
     return CAT_ORDER.map((cat) => {
       const row = a.find((c) => c.category === cat);
       return {
         name: CAT_LABEL[cat],
-        value: row ? Math.round((row.score / Math.max(1, row.max_score_category)) * 100) : 0,
-        evidenceRate: row?.evidence_rate_pct ?? 0,
+        value: row ? Math.round((Number(row.score) / Math.max(1, Number(row.max_score_category))) * 100) : 0,
+        evidenceRate: Number(row?.evidence_rate_pct ?? 0),
         warnings: warnCount.get(cat) || 0,
         raw: row,
       };
     });
   }, [cats, warns, year]);
 
-  // [BENCHMARK] เตรียมข้อมูลแสดงผลปีหลัก
   const companyA = total[year];
   const indA = industryAvg[year];
-
   const benchmarkBarData = useMemo(() => {
     if (!companyA || !indA) return [];
     return [
-      { name: "Company", value: Math.round(companyA.total_score) },
+      { name: "Company", value: Math.round(Number(companyA.total_score)) },
       { name: "Industry Avg", value: Math.round(Number(indA.avg_score)) },
     ];
   }, [companyA, indA]);
 
   const diffText = useMemo(() => {
     if (!companyA || !indA) return "";
-    const diff = Math.round(companyA.total_score - Number(indA.avg_score));
+    const diff = Math.round(Number(companyA.total_score) - Number(indA.avg_score));
     const sign = diff > 0 ? "+" : "";
     return `${sign}${diff}`;
   }, [companyA, indA]);
@@ -283,7 +238,7 @@ function DashboardPageImpl() {
   const totalB = total[compareYear];
   const companyName = profile?.company_name || "บริษัทของฉัน";
 
-  // ---------- Export Binder ----------
+  // Export binder (เดิม)
   const handleExport = async (uploadToStorage = false) => {
     if (!uid) return;
     try {
@@ -303,11 +258,8 @@ function DashboardPageImpl() {
 
       if (uploadToStorage) {
         const j = await res.json();
-        if (j?.url) {
-          window.open(j.url, "_blank");
-        } else {
-          alert("Export เสร็จ แต่ไม่ได้ลิงก์ไฟล์");
-        }
+        if (j?.url) window.open(j.url, "_blank");
+        else alert("Export เสร็จ แต่ไม่ได้ลิงก์ไฟล์");
         return;
       }
 
@@ -324,7 +276,6 @@ function DashboardPageImpl() {
     }
   };
 
-  // ---------- UI ----------
   return (
     <div className="p-6 grid gap-6">
       {/* Header */}
@@ -332,29 +283,15 @@ function DashboardPageImpl() {
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">{companyName}</h1>
           <div className="flex items-center gap-2">
-            <select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              className="border rounded-md px-2 py-1"
-              aria-label="เลือกปีหลัก"
-            >
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="border rounded-md px-2 py-1">
               {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  ปี {y}
-                </option>
+                <option key={y} value={y}>ปี {y}</option>
               ))}
             </select>
             <span className="text-sm text-gray-500">เทียบกับ</span>
-            <select
-              value={compareYear}
-              onChange={(e) => setCompareYear(Number(e.target.value))}
-              className="border rounded-md px-2 py-1"
-              aria-label="เลือกปีเปรียบเทียบ"
-            >
+            <select value={compareYear} onChange={(e) => setCompareYear(Number(e.target.value))} className="border rounded-md px-2 py-1">
               {availableYears.map((y) => (
-                <option key={y} value={y}>
-                  ปี {y}
-                </option>
+                <option key={y} value={y}>ปี {y}</option>
               ))}
             </select>
           </div>
@@ -388,10 +325,10 @@ function DashboardPageImpl() {
           <div className="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h2 className="text-4xl font-bold">
-                {Math.round(totalA.total_score).toLocaleString()} / {totalA.max_score.toLocaleString()}
+                {Math.round(Number(totalA.total_score)).toLocaleString()} / {Number(totalA.max_score).toLocaleString()}
               </h2>
               <p className="text-gray-600">
-                {pct((totalA.total_score / Math.max(1, totalA.max_score)) * 100)} ความพร้อม • ปี {year}
+                {pct((Number(totalA.total_score) / Math.max(1, Number(totalA.max_score))) * 100)} ความพร้อม • ปี {year}
               </p>
             </div>
             <div className="text-center">
@@ -409,8 +346,8 @@ function DashboardPageImpl() {
               </span>
               {totalB && (
                 <p className="text-sm text-gray-500 mt-1">
-                  เทียบปี {compareYear}: {Math.round(totalB.total_score).toLocaleString()} /{" "}
-                  {totalB.max_score.toLocaleString()} ({thaiTier(totalB.tier_label)})
+                  เทียบปี {compareYear}: {Math.round(Number(totalB.total_score)).toLocaleString()} /{" "}
+                  {Number(totalB.max_score).toLocaleString()} ({thaiTier(totalB.tier_label)})
                 </p>
               )}
             </div>
@@ -418,13 +355,11 @@ function DashboardPageImpl() {
         </Card>
       )}
 
-      {/* Radar Chart */}
+      {/* Radar */}
       {!loading && (
         <Card className="shadow-md">
           <div className="p-6">
-            <h3 className="font-semibold mb-2">
-              Radar Chart (ปี {compareYear} vs ปี {year})
-            </h3>
+            <h3 className="font-semibold mb-2">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
             <ResponsiveContainer width="100%" height={350}>
               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                 <PolarGrid />
@@ -438,12 +373,11 @@ function DashboardPageImpl() {
         </Card>
       )}
 
-      {/* Progress Bars + Warnings */}
+      {/* Progress + Warnings */}
       {!loading && (
         <Card className="shadow-md">
           <div className="p-6">
             <h3 className="font-semibold mb-4">ความคืบหน้าตามหมวด (ปี {year})</h3>
-
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={barData}>
                 <XAxis dataKey="name" />
@@ -452,7 +386,6 @@ function DashboardPageImpl() {
                 <Bar dataKey="value" fill="#16a34a" />
               </BarChart>
             </ResponsiveContainer>
-
             <div className="mt-4 space-y-2">
               {barData.map((item) => {
                 const showWarnMax0 = (item.raw?.max_score_category ?? 0) === 0;
@@ -463,7 +396,7 @@ function DashboardPageImpl() {
                       {showWarnMax0 ? (
                         <span className="text-sm text-red-600">ยังไม่ได้ตั้งคะแนนใน template</span>
                       ) : (
-                        <span className="text-sm text-gray-500">Evidence rate: {pct(item.evidenceRate)}</span>
+                        <span className="text-sm text-gray-500">Evidence rate: {pct(Number(item.evidenceRate))}</span>
                       )}
                     </div>
                     {item.warnings > 0 ? (
@@ -481,28 +414,22 @@ function DashboardPageImpl() {
         </Card>
       )}
 
-      {/* [BENCHMARK] Industry Benchmark */}
+      {/* Industry Benchmark */}
       {!loading && (
         <Card className="shadow-md">
           <div className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold">
-                Industry Benchmark – {profile?.industry_section || "N/A"} (ปี {year})
-              </h3>
+              <h3 className="font-semibold">Industry Benchmark – {profile?.industry_section || "N/A"} (ปี {year})</h3>
               {companyA && indA ? (
                 <div className="text-sm text-gray-600">
-                  Your Company: {Math.round(companyA.total_score)} / {companyA.max_score} •{" "}
+                  Your Company: {Math.round(Number(companyA.total_score))} / {Math.round(Number(companyA.max_score))} •{" "}
                   Industry Avg: {Math.round(Number(indA.avg_score))} / {Math.round(Number(indA.avg_max_score))} •{" "}
                   Difference:{" "}
-                  <span className={Number(diffText) >= 0 ? "text-emerald-700" : "text-red-700"}>
-                    {diffText}
-                  </span>
+                  <span className={Number(diffText) >= 0 ? "text-emerald-700" : "text-red-700"}>{diffText}</span>
                 </div>
               ) : (
                 <div className="text-sm text-gray-500">
-                  {profile?.industry_section
-                    ? "ยังไม่มีข้อมูลเฉลี่ยของอุตสาหกรรมปีนี้"
-                    : "ยังไม่ตั้งค่าอุตสาหกรรมในโปรไฟล์"}
+                  {profile?.industry_section ? "ยังไม่มีข้อมูลเฉลี่ยของอุตสาหกรรมปีนี้" : "ยังไม่ตั้งค่าอุตสาหกรรมในโปรไฟล์"}
                 </div>
               )}
             </div>
@@ -526,5 +453,4 @@ function DashboardPageImpl() {
   );
 }
 
-// ✅ Export แบบ client-only (ปิด SSR เฉพาะหน้า dashboard)
 export default dynamic(() => Promise.resolve(DashboardPageImpl), { ssr: false });
