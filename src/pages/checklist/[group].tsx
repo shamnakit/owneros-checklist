@@ -1,3 +1,4 @@
+// src/pages/checklist/[group].tsx
 import dynamic from "next/dynamic";
 import MainLayout from "@/layouts/MainLayout";
 import ChecklistGroupPage from "@/components/checklist/ChecklistGroupPage";
@@ -21,17 +22,20 @@ function GroupRoutePageImpl() {
   const cfg = GROUP_MAP[g as GKey];
 
   return (
-    <MainLayout>
-      <ChecklistGroupPage
-        groupNo={cfg.no}
-        categoryKey={cfg.key as any}
-        title={cfg.title}
-        breadcrumb={`Checklist › หมวด ${cfg.no}`}
-        requireEvidence={false}      // MVP: ติ๊กก็นับ (ค่อยสลับเป็น true ได้)
-        storageBucket="evidence"
-      />
-    </MainLayout>
+    <ChecklistGroupPage
+      groupNo={cfg.no}
+      categoryKey={cfg.key as any}
+      title={cfg.title}
+      breadcrumb={`Checklist › หมวด ${cfg.no}`}
+      requireEvidence={false}
+      storageBucket="evidence"
+    />
   );
 }
+
+// ใส่ MainLayout ที่นี่ (ไม่ต้องห่อใน JSX ด้านบน)
+(GroupRoutePageImpl as any).getLayout = (page: React.ReactElement) => (
+  <MainLayout>{page}</MainLayout>
+);
 
 export default dynamic(() => Promise.resolve(GroupRoutePageImpl), { ssr: false });
