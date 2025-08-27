@@ -130,8 +130,8 @@ function DashboardPageImpl() {
         const results = await Promise.all(
           years.map(async (y) => {
             const [t, c, w, ind] = await Promise.all([
-              supabase.rpc("fn_score_total_for_me", { p_year: y, p_require_evidence: true }),
-              supabase.rpc("fn_score_by_category_for_me", { p_year: y, p_require_evidence: true }),
+               supabase.rpc("fn_score_total_for_me", { p_year: y, p_require_evidence: false }),
+ supabase.rpc("fn_score_by_category_for_me", { p_year: y, p_require_evidence: false }),
               // warnings ให้อ่านจาก vw_checked_without_evidence เดิม (ยังใช้ user context ผ่าน RLS) หรือคุณจะทำ RPC แยกก็ได้
               supabase
                 .from("vw_checked_without_evidence")
