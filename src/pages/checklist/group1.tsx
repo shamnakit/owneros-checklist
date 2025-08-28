@@ -1,13 +1,10 @@
 // src/pages/checklist/group1.tsx
-import Head from "next/head";
+import AppShell from "@/components/layouts/AppShell";
 import ChecklistGroupPage from "@/components/checklist/ChecklistGroupPage";
 
-export default function StrategyPage() {
+export default function Group1() {
   return (
-    <>
-      <Head>
-        <title>Checklist หมวด 1: กลยุทธ์และทิศทางองค์กร | BizSystem</title>
-      </Head>
+    <AppShell title="Checklist หมวด 1: กลยุทธ์และทิศทางองค์กร | BizSystem">
       <ChecklistGroupPage
         groupNo={1}
         categoryKey="strategy"
@@ -15,6 +12,6 @@ export default function StrategyPage() {
         breadcrumb="Checklist › หมวด 1"
         requireEvidence={false}
       />
-    </>
+    </AppShell>
   );
 }

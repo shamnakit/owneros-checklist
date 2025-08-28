@@ -8,7 +8,7 @@ import {
   Settings as SettingsIcon,
   Target,
   ChartNoAxesCombined,
-  BookText, // ใช้เป็นไอคอนของ checklist group3
+  BookText,
   Users,
   Wallet,
   ShoppingCart,
@@ -30,12 +30,12 @@ function getActiveKey(pathname: string): string {
 }
 
 const ALL_CHECKLIST_CHILDREN = [
-  { key: "checklist:group1", href: "/checklist/group1", label: "กลยุทธ์องค์กร", icon: Target, perm: "view_checklist_group1" },
-  { key: "checklist:group2", href: "/checklist/group2", label: "โครงสร้างองค์กร", icon: ChartNoAxesCombined, perm: "view_checklist_group2" },
-  { key: "checklist:group3", href: "/checklist/group3", label: "คู่มือปฏิบัติงาน", icon: BookText, perm: "view_checklist_group3" },
-  { key: "checklist:group4", href: "/checklist/group4", label: "ระบบบุคคล & HR", icon: Users, perm: "view_checklist_group4" },
-  { key: "checklist:group5", href: "/checklist/group5", label: "ระบบการเงิน", icon: Wallet, perm: "view_checklist_group5" },
-  { key: "checklist:group6", href: "/checklist/group6", label: "ระบบลูกค้า / ขาย", icon: ShoppingCart, perm: "view_checklist_group6" },
+  { key: "checklist:group1", href: "/checklist/group1", label: "กลยุทธ์และทิศทางองค์กร", icon: Target, perm: "view_checklist_group1" },
+  { key: "checklist:group2", href: "/checklist/group2", label: "โครงสร้างและการกำกับดูแล", icon: ChartNoAxesCombined, perm: "view_checklist_group2" },
+  { key: "checklist:group3", href: "/checklist/group3", label: "กระบวนการและคู่มือการทำงาน", icon: BookText, perm: "view_checklist_group3" },
+  { key: "checklist:group4", href: "/checklist/group4", label: "บุคลากรและการพัฒนา HR", icon: Users, perm: "view_checklist_group4" },
+  { key: "checklist:group5", href: "/checklist/group5", label: "การเงินและการวัดผล", icon: Wallet, perm: "view_checklist_group5" },
+  { key: "checklist:group6", href: "/checklist/group6", label: "ลูกค้าและการตลาด/การขาย", icon: ShoppingCart, perm: "view_checklist_group6" },
 ] as const;
 
 function defaultPermissionsByRole(role: Role): Set<string> {
@@ -116,7 +116,8 @@ export default function Sidebar() {
   const childActive = "bg-blue-600 text-white hover:bg-blue-600";
 
   return (
-    <aside className="w-64 min-h-screen bg-slate-900 px-3 py-6">
+    // fixed + full-height + scroll-only-inside-sidebar
+    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-slate-900 px-3 py-6 overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col items-center gap-2 mb-6">
         {profile?.avatar_url ? (
@@ -141,13 +142,14 @@ export default function Sidebar() {
           <Link
             href="/dashboard"
             className={`${baseItem} ${activeKey === "dashboard" ? activeItem : ""}`}
+            aria-current={activeKey === "dashboard" ? "page" : undefined}
           >
             <LayoutDashboard size={18} />
             <span>Dashboard</span>
           </Link>
         )}
 
-        {/* Checklist: แสดงหมวดย่อยตลอดเวลา */}
+        {/* Checklist */}
         {can("view_checklist") && (
           <>
             <Link
@@ -157,17 +159,23 @@ export default function Sidebar() {
                   ? "ring-1 ring-blue-400/40"
                   : ""
               }`}
+              aria-current={
+                activeKey === "checklist" || activeKey.startsWith("checklist:")
+                  ? "page"
+                  : undefined
+              }
             >
               <CheckSquare size={18} />
               <span>Checklist</span>
             </Link>
 
-            <div className="mt-1">
+            <div className="mt-1 pb-4">
               {ALL_CHECKLIST_CHILDREN.filter((c) => can(c.perm)).map((c) => (
                 <Link
                   key={c.key}
                   href={c.href}
                   className={`${childItem} ${activeKey === c.key ? childActive : ""}`}
+                  aria-current={activeKey === c.key ? "page" : undefined}
                 >
                   <c.icon size={16} />
                   <span>{c.label}</span>
@@ -181,6 +189,7 @@ export default function Sidebar() {
           <Link
             href="/settings"
             className={`${baseItem} ${activeKey === "settings" ? activeItem : ""}`}
+            aria-current={activeKey === "settings" ? "page" : undefined}
           >
             <SettingsIcon size={18} />
             <span>Settings</span>
@@ -188,7 +197,7 @@ export default function Sidebar() {
         )}
       </nav>
 
-      <div className="mt-8">
+      <div className="mt-6">
         <button
           type="button"
           onClick={handleLogout}
