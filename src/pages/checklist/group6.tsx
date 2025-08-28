@@ -1,6 +1,6 @@
 // src/pages/checklist/group6.tsx
-import AppShell from "@/components/layouts/AppShell";
-import ChecklistGroupPage from "@/components/checklist/ChecklistGroupPage";
+import AppShell from "../../components/layouts/AppShell";
+import ChecklistGroupPage from "../../components/checklist/ChecklistGroupPage";
 
 export default function Group6() {
   return (

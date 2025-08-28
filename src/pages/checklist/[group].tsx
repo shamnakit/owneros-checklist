@@ -1,6 +1,6 @@
 // src/pages/checklist/[group].tsx
 import dynamic from "next/dynamic";
-import MainLayout from "@/layouts/MainLayout";
+import MainLayout from "@/components/layouts/MainLayout";
 import ChecklistGroupPage from "@/components/checklist/ChecklistGroupPage";
 import { useRouter } from "next/router";
 

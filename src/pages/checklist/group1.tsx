@@ -1,5 +1,5 @@
-// src/pages/checklist/group1.tsx
-import AppShell from "@/components/layouts/AppShell";
+//src/pages/checklist/group1.tsx
+import AppShell from "../../components/layouts/AppShell";
 import ChecklistGroupPage from "@/components/checklist/ChecklistGroupPage";
 
 export default function Group1() {

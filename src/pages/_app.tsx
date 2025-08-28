@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
 
 // ปิด SSR ของ Layout + มี fallback ตอนโหลด
-const MainLayout = dynamic(() => import("@/layouts/MainLayout"), {
+const MainLayout = dynamic(() => import("@/components/layouts/MainLayout"), {
   ssr: false,
   loading: () => <div className="p-4 text-gray-500">Loading layout…</div>,
 });
