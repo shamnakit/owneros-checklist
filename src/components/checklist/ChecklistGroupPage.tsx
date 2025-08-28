@@ -30,6 +30,16 @@ type Item = {
 
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 
+/** ✨ Map categoryKey ฝั่ง UI → ชื่อคีย์ในฐานข้อมูล (ปรับให้ตรงกับ DB ของคุณได้) */
+const CATEGORY_ALIAS: Record<CategoryKey, string> = {
+  strategy: "strategy",
+  structure: "org_structure",
+  sop: "work_system",
+  hr: "workforce",
+  finance: "finance",          // ถ้า DB ใช้ "measurement" ให้เปลี่ยนเป็นคีย์นั้น
+  sales: "customer_sales",     // ถ้า DB ใช้ "customer" ให้ปรับเป็น "customer"
+};
+
 /* ----------------------------------------------------------------
  * OVERRIDES: ตั้งชื่อหัวข้อย่อยพร้อมคำอธิบายสำหรับทุกหมวด (1–6)
  * ระบบจะเติมลำดับอัตโนมัติ: {groupNo}.{index+1}• {title} – {desc}
@@ -37,7 +47,6 @@ type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
  *  - น้อยกว่า: ใช้เท่าที่มี
  *  - มากกว่า: รายการเกินจะใช้ชื่อเดิมจากฐานข้อมูล
  * ---------------------------------------------------------------- */
-
 type TitleDesc = { title: string; desc?: string };
 
 const STRATEGY_OVERRIDES: TitleDesc[] = [
@@ -165,12 +174,26 @@ export default function ChecklistGroupPage({
     setLoading(true);
     setErrorMsg(null);
     try {
+      // ใช้ alias ให้ตรงกับคีย์ DB (แก้ปัญหาหมวดว่าง)
+      const dbCategory = CATEGORY_ALIAS[categoryKey] ?? categoryKey;
+
       const { data, error } = await supabase.rpc("fn_checklist_items_for_me", {
         p_year: year,
-        p_category: categoryKey,
+        p_category: dbCategory,
       });
       if (error) throw error;
-      const rows = (data || []) as Item[];
+
+      // บังคับเรียงให้คงที่ (กันเลขกระโดด)
+      const rows = ((data || []) as Item[]).sort((a, b) => {
+        const ta = (a.template_id || "").toString();
+        const tb = (b.template_id || "").toString();
+        if (ta < tb) return -1;
+        if (ta > tb) return 1;
+        const na = (a.name || "").toString().toLowerCase();
+        const nb = (b.name || "").toString().toLowerCase();
+        return na.localeCompare(nb);
+      });
+
       setItems(rows);
 
       // sync drafts จาก input_text ปัจจุบัน (ครั้งแรก/ตอนเปลี่ยนปี)
@@ -466,8 +489,13 @@ export default function ChecklistGroupPage({
       )}
 
       {/* Items */}
-      {!loading && visible.length === 0 && (
-        <div className="text-slate-500">ยังไม่มีหัวข้อในหมวดนี้</div>
+      {!loading && items.length === 0 && (
+        <div className="text-slate-500">
+          ยังไม่มีหัวข้อในหมวดนี้
+          <div className="text-xs mt-1">
+            (debug: categoryKey = <code>{categoryKey}</code>, dbKey = <code>{CATEGORY_ALIAS[categoryKey] ?? categoryKey}</code>)
+          </div>
+        </div>
       )}
 
       <ul className="space-y-4 pb-24">
