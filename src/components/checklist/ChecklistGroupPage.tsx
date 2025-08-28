@@ -4,7 +4,7 @@ import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle } from "lucide-react";
 
-/** หมวดมาตรฐานที่ใช้กับตาราง/ฟังก์ชันฝั่งฐานข้อมูล */
+/** หมวดมาตรฐานที่ใช้กับฐานข้อมูล */
 export type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 
 export type ChecklistGroupPageProps = {
@@ -30,30 +30,79 @@ type Item = {
 
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 
-/** ----------------------------------------------------------------
- *  OVERRIDE เฉพาะหมวด 1 (strategy) — แก้ชื่อหัวข้อย่อยจาก UI
- *  ลำดับจะแม็พตาม index ของรายการที่ดึงมา
- *  ถ้าจำนวนข้อในฐานข้อมูลไม่เท่ากับลิสต์นี้ ระบบยังทำงานได้:
- *    - มีหัวข้อน้อยกว่า: ใช้ชื่อที่มี
- *    - มีหัวข้อมากกว่า: ข้อเกินจะใช้ชื่อเดิมจากฐานข้อมูล
- *  ---------------------------------------------------------------- */
-const STRATEGY_TITLES: string[] = [
-  "Vision (วิสัยทัศน์)",
-  "Mission (พันธกิจ)",
-  "Core Values (ค่านิยมหลัก)",
-  "Strategic Objectives (วัตถุประสงค์เชิงกลยุทธ์)",
-  "SWOT / TOWS (จุดแข็ง–จุดอ่อน–โอกาส–อุปสรรค)",
-  "Stakeholders & Needs (ผู้มีส่วนได้ส่วนเสียและความคาดหวัง)",
-  "Critical Success Factors – CSF (ปัจจัยสู่ความสำเร็จ)",
-  "Strategic Initiatives / Projects (โครงการเชิงกลยุทธ์)",
-  "KPI Alignment (Lead–Lag) & Targets",
+/* ----------------------------------------------------------------
+ * OVERRIDES: ตั้งชื่อหัวข้อย่อยพร้อมคำอธิบายสำหรับทุกหมวด (1–6)
+ * ระบบจะเติมลำดับอัตโนมัติ: {groupNo}.{index+1}• {title} – {desc}
+ * ถ้าจำนวนรายการจริงไม่เท่ากับลิสต์นี้:
+ *  - น้อยกว่า: ใช้เท่าที่มี
+ *  - มากกว่า: รายการเกินจะใช้ชื่อเดิมจากฐานข้อมูล
+ * ---------------------------------------------------------------- */
+
+type TitleDesc = { title: string; desc?: string };
+
+const STRATEGY_OVERRIDES: TitleDesc[] = [
+  { title: "Vision (วิสัยทัศน์)", desc: "ภาพอนาคตที่องค์กรอยากไปให้ถึง" },
+  { title: "Mission (พันธกิจ)", desc: "สิ่งที่องค์กรทำ/ส่งมอบให้กับลูกค้าและสังคม" },
+  { title: "Core Values (ค่านิยมหลัก)", desc: "คุณค่าที่บุคลากรยึดถือร่วมกัน" },
+  { title: "Strategic Objectives (วัตถุประสงค์เชิงกลยุทธ์)", desc: "เป้าหมายใหญ่ที่สอดคล้องกับวิสัยทัศน์" },
+  { title: "SWOT / TOWS", desc: "จุดแข็ง–จุดอ่อน–โอกาส–อุปสรรค และทางเลือกเชิงกลยุทธ์" },
+  { title: "Stakeholders & Needs", desc: "ผู้มีส่วนได้ส่วนเสียหลักและความคาดหวัง" },
+  { title: "Critical Success Factors – CSF", desc: "ปัจจัยสู่ความสำเร็จขององค์กร" },
+  { title: "Strategic Initiatives / Projects", desc: "โครงการ/แผนงานเชิงกลยุทธ์ที่กำลังดำเนินการ" },
+  { title: "KPI Alignment (Lead–Lag) & Targets", desc: "เชื่อม KPI กับกลยุทธ์และกำหนดเป้าหมาย" },
 ];
 
-/** ถ้าต้องการ override หมวดอื่นภายหลัง สามารถเพิ่มลิสต์ได้ในรูปแบบ:
- *    const STRUCTURE_TITLES: string[] = [ ... ]
- *  แล้วแก้ในฟังก์ชัน getDisplayName ให้รองรับ key นั้น ๆ
- */
+const STRUCTURE_OVERRIDES: TitleDesc[] = [
+  { title: "Org Chart", desc: "แผนผังโครงสร้างองค์กรและสายบังคับบัญชา" },
+  { title: "Board & Executives", desc: "คณะกรรมการ/ผู้บริหารและบทบาทหน้าที่" },
+  { title: "Roles & Responsibilities", desc: "การมอบหมายความรับผิดชอบชัดเจน" },
+  { title: "KPI/OKR Review Cadence", desc: "รอบการติดตามผลการทำงานของหน่วยงาน/บุคคล" },
+  { title: "Governance & Code of Conduct", desc: "นโยบายธรรมาภิบาลและจรรยาบรรณธุรกิจ" },
+];
 
+const SOP_OVERRIDES: TitleDesc[] = [
+  { title: "Core Processes", desc: "ระบุและออกแบบกระบวนการหลักขององค์กร" },
+  { title: "SOP/WI", desc: "คู่มือ/ขั้นตอนการทำงานสำหรับงานสำคัญ" },
+  { title: "Process Map / Flowchart", desc: "แผนภาพแสดงลำดับงาน จุดควบคุม และอินพุต/เอาต์พุต" },
+  { title: "Process KPIs", desc: "ตัวชี้วัดประสิทธิภาพต่อกระบวนการ" },
+  { title: "Periodic Review & Improvement", desc: "ทบทวน/ปรับปรุง SOP/WI เป็นประจำ" },
+];
+
+const HR_OVERRIDES: TitleDesc[] = [
+  { title: "Recruitment & Onboarding", desc: "รับสมัครและปฐมนิเทศพนักงานใหม่" },
+  { title: "Employee Handbook", desc: "คู่มือพนักงาน/นโยบายบุคคล" },
+  { title: "Performance & Feedback", desc: "ระบบประเมินผลและการให้ข้อเสนอแนะ" },
+  { title: "Training / IDP", desc: "แผนพัฒนาศักยภาพรายบุคคล/ทีม" },
+  { title: "Engagement & Culture", desc: "สร้างความผูกพันและค่านิยมในทางปฏิบัติ" },
+];
+
+const FINANCE_OVERRIDES: TitleDesc[] = [
+  { title: "Annual Budget", desc: "งบประมาณประจำปีและแผนการเงิน" },
+  { title: "Financial Reports (P&L, Cash Flow)", desc: "รายงานการเงินหลัก" },
+  { title: "Budget vs Actual", desc: "การติดตามผลเทียบเป้าหมาย" },
+  { title: "Financial KPIs", desc: "ตัวชี้วัดทางการเงินหลัก" },
+  { title: "Data Analysis / Dashboard", desc: "การใช้ข้อมูลเพื่อการตัดสินใจ" },
+];
+
+const SALES_OVERRIDES: TitleDesc[] = [
+  { title: "Customer Segmentation / Persona", desc: "ทำความเข้าใจลูกค้าเป้าหมาย" },
+  { title: "Customer Journey & Experience", desc: "ออกแบบประสบการณ์และจุดสัมผัส" },
+  { title: "Feedback & Satisfaction", desc: "ระบบรับฟังเสียงลูกค้า/ความพึงพอใจ" },
+  { title: "Sales Data & Market Analysis", desc: "ข้อมูลยอดขายและการวิเคราะห์ตลาด" },
+  { title: "Marketing & Sales Plan", desc: "แผนการตลาดและการขายประจำปี" },
+];
+
+/** แผนที่หมวด → ลิสต์ override */
+const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
+  strategy: STRATEGY_OVERRIDES,
+  structure: STRUCTURE_OVERRIDES,
+  sop: SOP_OVERRIDES,
+  hr: HR_OVERRIDES,
+  finance: FINANCE_OVERRIDES,
+  sales: SALES_OVERRIDES,
+};
+
+/** utils */
 function fmtDate(s?: string | null) {
   if (!s) return "-";
   const d = new Date(s);
@@ -98,7 +147,7 @@ export default function ChecklistGroupPage({
       const { data, error } = await supabase.rpc("fn_available_years_for_me");
       if (!mounted) return;
       if (!error && Array.isArray(data) && data.length) {
-        const ys = data.map((r: any) => Number(r.year_version)).filter(Boolean);
+        const ys = (data as any[]).map((r) => Number((r as any).year_version)).filter(Boolean);
         if (ys.length) {
           setYears(ys);
           setYear((y) => (ys.includes(y) ? y : ys[0]));
@@ -316,12 +365,16 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** helper: แสดงชื่อหัวข้อ (รองรับ override เฉพาะ strategy) */
+  /** helper: แสดงชื่อหัวข้อ (รองรับ override + ลำดับ) */
   const getDisplayName = (origName: string, index: number) => {
-    if (categoryKey === "strategy") {
-      return STRATEGY_TITLES[index] ?? origName;
+    const list = TITLE_OVERRIDES[categoryKey];
+    const order = `${groupNo}.${index + 1}• `;
+    if (list && list[index]) {
+      const { title, desc } = list[index];
+      return `${order}${title}${desc ? ` – ${desc}` : ""}`;
     }
-    return origName;
+    // ถ้าไม่มี override ใช้ชื่อเดิม แต่ยังเติมลำดับให้
+    return `${order}${origName}`;
   };
 
   return (
@@ -355,6 +408,11 @@ export default function ChecklistGroupPage({
             ความคืบหน้าหมวดนี้: {summary.pct}%{" "}
             {requireEvidence ? "(นับเมื่อมีหลักฐาน)" : "(ติ๊กก็นับ)"}
           </div>
+          <div className="flex items-center gap-2 text-sm text-slate-600">
+            <span>ครบพร้อมไฟล์: {summary.completed}</span>
+            <span>• ติ๊กแล้วไม่มีไฟล์: {summary.checkedNoFile}</span>
+            <span>• ยังไม่ทำ: {summary.notStarted}</span>
+          </div>
         </div>
         <div className="mt-2 w-full bg-gray-200/70 h-2 rounded-full overflow-hidden">
           <div
@@ -366,7 +424,7 @@ export default function ChecklistGroupPage({
           />
         </div>
         <div className="mt-2 text-xs text-slate-500">
-          ครบพร้อมไฟล์: {summary.completed} • ติ๊กแล้วไม่มีไฟล์: {summary.checkedNoFile} • ยังไม่ทำ: {summary.notStarted}
+          ครบพร้อมไฟล์: {summary.withFile} รายการ
         </div>
       </div>
 
