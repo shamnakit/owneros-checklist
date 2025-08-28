@@ -4,15 +4,15 @@ import { supabase } from "@/utils/supabaseClient";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle } from "lucide-react";
 
-/** หมวดมาตรฐานที่ใช้กับตาราง checklist_templates.category */
+/** หมวดมาตรฐานที่ใช้กับตาราง/ฟังก์ชันฝั่งฐานข้อมูล */
 export type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 
 export type ChecklistGroupPageProps = {
   groupNo: 1 | 2 | 3 | 4 | 5 | 6;
   categoryKey: CategoryKey;
-  title: string;               // เช่น "Checklist หมวด 2: โครงสร้างองค์กร"
+  title: string;               // เช่น "Checklist หมวด 2: โครงสร้างและการกำกับดูแล"
   breadcrumb?: string;         // เช่น "Checklist › หมวด 2"
-  requireEvidence?: boolean;   // default=false (MVP: ติ๊กก็นับ) ; ถ้า true จะนับเฉพาะมีไฟล์
+  requireEvidence?: boolean;   // default=false (ติ๊กก็นับ) ; ถ้า true จะนับเฉพาะมีไฟล์
   storageBucket?: string;      // default="evidence"
 };
 
@@ -30,22 +30,29 @@ type Item = {
 
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 
-/** ------------------------------
- *  Override เฉพาะหมวด 1 (กลยุทธ์)
- *  หากต้องการแก้หัวข้อ ให้แก้ที่ STRATEGY_TITLES อย่างเดียว
+/** ----------------------------------------------------------------
+ *  OVERRIDE เฉพาะหมวด 1 (strategy) — แก้ชื่อหัวข้อย่อยจาก UI
  *  ลำดับจะแม็พตาม index ของรายการที่ดึงมา
- *  ------------------------------ */
+ *  ถ้าจำนวนข้อในฐานข้อมูลไม่เท่ากับลิสต์นี้ ระบบยังทำงานได้:
+ *    - มีหัวข้อน้อยกว่า: ใช้ชื่อที่มี
+ *    - มีหัวข้อมากกว่า: ข้อเกินจะใช้ชื่อเดิมจากฐานข้อมูล
+ *  ---------------------------------------------------------------- */
 const STRATEGY_TITLES: string[] = [
   "Vision (วิสัยทัศน์)",
   "Mission (พันธกิจ)",
   "Core Values (ค่านิยมหลัก)",
   "Strategic Objectives (วัตถุประสงค์เชิงกลยุทธ์)",
-  "SWOT / TOWS (การวิเคราะห์จุดแข็ง–จุดอ่อน–โอกาส–อุปสรรค)",
-  "Key Stakeholders & Needs (ผู้มีส่วนได้ส่วนเสียและความคาดหวัง)",
+  "SWOT / TOWS (จุดแข็ง–จุดอ่อน–โอกาส–อุปสรรค)",
+  "Stakeholders & Needs (ผู้มีส่วนได้ส่วนเสียและความคาดหวัง)",
   "Critical Success Factors – CSF (ปัจจัยสู่ความสำเร็จ)",
   "Strategic Initiatives / Projects (โครงการเชิงกลยุทธ์)",
   "KPI Alignment (Lead–Lag) & Targets",
 ];
+
+/** ถ้าต้องการ override หมวดอื่นภายหลัง สามารถเพิ่มลิสต์ได้ในรูปแบบ:
+ *    const STRUCTURE_TITLES: string[] = [ ... ]
+ *  แล้วแก้ในฟังก์ชัน getDisplayName ให้รองรับ key นั้น ๆ
+ */
 
 function fmtDate(s?: string | null) {
   if (!s) return "-";
@@ -83,7 +90,7 @@ export default function ChecklistGroupPage({
   // draft ต่อข้อ (สำหรับ textarea)
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  /** โหลด “ปีที่มีข้อมูลจริง” ของ user */
+  /** โหลดรายชื่อปีที่มีข้อมูลจริงของ user (แสดงใน dropdown) */
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
@@ -116,6 +123,7 @@ export default function ChecklistGroupPage({
       if (error) throw error;
       const rows = (data || []) as Item[];
       setItems(rows);
+
       // sync drafts จาก input_text ปัจจุบัน (ครั้งแรก/ตอนเปลี่ยนปี)
       setDrafts((prev) => {
         const next = { ...prev };
@@ -347,11 +355,6 @@ export default function ChecklistGroupPage({
             ความคืบหน้าหมวดนี้: {summary.pct}%{" "}
             {requireEvidence ? "(นับเมื่อมีหลักฐาน)" : "(ติ๊กก็นับ)"}
           </div>
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <span>ครบพร้อมไฟล์: {summary.completed}</span>
-            <span>• ติ๊กแล้วไม่มีไฟล์: {summary.checkedNoFile}</span>
-            <span>• ยังไม่ทำ: {summary.notStarted}</span>
-          </div>
         </div>
         <div className="mt-2 w-full bg-gray-200/70 h-2 rounded-full overflow-hidden">
           <div
@@ -363,7 +366,7 @@ export default function ChecklistGroupPage({
           />
         </div>
         <div className="mt-2 text-xs text-slate-500">
-          ครบพร้อมไฟล์: {summary.withFile} รายการ
+          ครบพร้อมไฟล์: {summary.completed} • ติ๊กแล้วไม่มีไฟล์: {summary.checkedNoFile} • ยังไม่ทำ: {summary.notStarted}
         </div>
       </div>
 
