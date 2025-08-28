@@ -30,6 +30,23 @@ type Item = {
 
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 
+/** ------------------------------
+ *  Override เฉพาะหมวด 1 (กลยุทธ์)
+ *  หากต้องการแก้หัวข้อ ให้แก้ที่ STRATEGY_TITLES อย่างเดียว
+ *  ลำดับจะแม็พตาม index ของรายการที่ดึงมา
+ *  ------------------------------ */
+const STRATEGY_TITLES: string[] = [
+  "Vision (วิสัยทัศน์)",
+  "Mission (พันธกิจ)",
+  "Core Values (ค่านิยมหลัก)",
+  "Strategic Objectives (วัตถุประสงค์เชิงกลยุทธ์)",
+  "SWOT / TOWS (การวิเคราะห์จุดแข็ง–จุดอ่อน–โอกาส–อุปสรรค)",
+  "Key Stakeholders & Needs (ผู้มีส่วนได้ส่วนเสียและความคาดหวัง)",
+  "Critical Success Factors – CSF (ปัจจัยสู่ความสำเร็จ)",
+  "Strategic Initiatives / Projects (โครงการเชิงกลยุทธ์)",
+  "KPI Alignment (Lead–Lag) & Targets",
+];
+
 function fmtDate(s?: string | null) {
   if (!s) return "-";
   const d = new Date(s);
@@ -291,6 +308,14 @@ export default function ChecklistGroupPage({
     }
   };
 
+  /** helper: แสดงชื่อหัวข้อ (รองรับ override เฉพาะ strategy) */
+  const getDisplayName = (origName: string, index: number) => {
+    if (categoryKey === "strategy") {
+      return STRATEGY_TITLES[index] ?? origName;
+    }
+    return origName;
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       {/* Header */}
@@ -385,12 +410,14 @@ export default function ChecklistGroupPage({
       )}
 
       <ul className="space-y-4 pb-24">
-        {visible.map((it) => {
+        {visible.map((it, idx) => {
           const stateIcon = it.has_record
             ? it.has_evidence
               ? <CheckCircle2 className="text-emerald-600" size={18} />
               : <AlertTriangle className="text-amber-600" size={18} />
             : <Circle className="text-slate-400" size={18} />;
+
+          const displayName = getDisplayName(it.name, idx);
 
           return (
             <li
@@ -408,7 +435,7 @@ export default function ChecklistGroupPage({
                 <div className="flex items-start gap-3">
                   {stateIcon}
                   <div>
-                    <div className="font-semibold text-slate-800">{it.name}</div>
+                    <div className="font-semibold text-slate-800">{displayName}</div>
                     <div className="text-xs text-slate-500">
                       คะแนนข้อนี้: +{it.score_points} • อัปเดตล่าสุด: {fmtDate(it.updated_at)}
                     </div>
