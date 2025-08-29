@@ -31,14 +31,14 @@ type Item = {
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 
 /** ✨ Map categoryKey ฝั่ง UI → ชื่อคีย์ในฐานข้อมูล (ปรับให้ตรงกับ DB ของคุณได้) */
-const CATEGORY_ALIAS: Record<CategoryKey, string> = {
+const CATEGORY_ALIAS = {
   strategy: "strategy",
-  structure: "org_structure",
-  sop: "work_system",
-  hr: "workforce",
-  finance: "finance",          // ถ้า DB ใช้ "measurement" ให้เปลี่ยนเป็นคีย์นั้น
-  sales: "customer_sales",     // ถ้า DB ใช้ "customer" ให้ปรับเป็น "customer"
-};
+  structure: "structure",
+  sop: "sop",
+  hr: "hr",
+  finance: "finance",
+  sales: "sales",
+} as const;
 
 /* ----------------------------------------------------------------
  * OVERRIDES: ตั้งชื่อหัวข้อย่อยพร้อมคำอธิบายสำหรับทุกหมวด (1–6)
