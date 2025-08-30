@@ -1,8 +1,7 @@
 // src/components/checklist/ChecklistGroupPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
-import { useUserProfile } from "@/contexts/UserProfileContext";
-import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle, Eye, Trash2 } from "lucide-react";
 
 /** หมวดมาตรฐานที่ใช้กับฐานข้อมูล */
 export type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
@@ -125,7 +124,7 @@ const badge = (text: string, active = false) =>
   `px-3 py-1.5 rounded-full text-sm ${active ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`;
 
 /** helper: สรุปสถานะสีจาก record/evidence */
-function getStatus(it: Pick<Item,"has_record"|"has_evidence">) {
+function getStatus(it: Pick<Item, "has_record" | "has_evidence">) {
   if (!it.has_record) return "red";
   if (it.has_record && !it.has_evidence) return "yellow";
   return "green";
@@ -139,9 +138,13 @@ export default function ChecklistGroupPage({
   requireEvidence = false,
   storageBucket = DEFAULT_BUCKET,
 }: ChecklistGroupPageProps) {
-  const { uid } = useUserProfile();
-  const thisYear = new Date().getFullYear();
+  // ✅ ดึง uid โดยตรงจาก Supabase (กันเคสที่ context ไม่มี uid)
+  const [uid, setUid] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null));
+  }, []);
 
+  const thisYear = new Date().getFullYear();
   const [years, setYears] = useState<number[]>([thisYear]);
   const [year, setYear] = useState<number>(thisYear);
 
@@ -170,7 +173,9 @@ export default function ChecklistGroupPage({
         }
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [uid]);
 
   /** โหลดรายการ checklist ของหมวด */
@@ -179,7 +184,6 @@ export default function ChecklistGroupPage({
     setLoading(true);
     setErrorMsg(null);
     try {
-      // ใช้ alias ให้ตรงกับคีย์ DB (แก้ปัญหาหมวดว่าง)
       const dbCategory = CATEGORY_ALIAS[categoryKey] ?? categoryKey;
 
       const { data, error } = await supabase.rpc("fn_checklist_items_for_me", {
@@ -188,7 +192,7 @@ export default function ChecklistGroupPage({
       });
       if (error) throw error;
 
-      // บังคับเรียงให้คงที่ (กันเลขกระโดด)
+      // บังคับเรียงให้คงที่
       const rows = ((data || []) as Item[]).sort((a, b) => {
         const ta = (a.template_id || "").toString();
         const tb = (b.template_id || "").toString();
@@ -201,7 +205,7 @@ export default function ChecklistGroupPage({
 
       setItems(rows);
 
-      // sync drafts จาก input_text ปัจจุบัน (ครั้งแรก/ตอนเปลี่ยนปี)
+      // sync drafts จาก input_text
       setDrafts((prev) => {
         const next = { ...prev };
         rows.forEach((it) => {
@@ -225,7 +229,7 @@ export default function ChecklistGroupPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, year, categoryKey]);
 
-  /** คำนวณสรุปหมวด (ถ่วงน้ำหนักคะแนน) */
+  /** คำนวณสรุปหมวด */
   const summary = useMemo(() => {
     const total = items.reduce((s, it) => s + Number(it.score_points || 0), 0);
     const scored = items
@@ -264,19 +268,21 @@ export default function ChecklistGroupPage({
         const { error } = await supabase
           .from("checklists_v2")
           .upsert(
-            [{
-              user_id: uid,
-              template_id: it.template_id,
-              year_version: year,
-              name: it.name,
-              has_record: true,               // ✅ ติ๊กเอง = has_record=true
-              updated_at: new Date().toISOString(),
-            }],
+            [
+              {
+                user_id: uid,
+                template_id: it.template_id,
+                year_version: year,
+                name: it.name,
+                has_record: true, // ✅ ติ๊กเอง = has_record=true
+                updated_at: new Date().toISOString(),
+              },
+            ],
             { onConflict: "user_id,template_id,year_version" }
           );
         if (error) throw error;
       } else {
-        // ยกเลิกติ๊ก: (ตัดสินใจลบทิ้งแถว เพื่อกันซ้อน)
+        // ยกเลิกติ๊ก: ลบทิ้งแถว
         const { error } = await supabase
           .from("checklists_v2")
           .delete()
@@ -299,18 +305,20 @@ export default function ChecklistGroupPage({
     if (!uid) return;
     setSavingId(it.template_id);
     try {
-      // ensure row (และติ๊กอัตโนมัติ)
+      // ensure row (ติ๊กอัตโนมัติ)
       const ensureRes = await supabase
         .from("checklists_v2")
         .upsert(
-          [{
-            user_id: uid,
-            template_id: it.template_id,
-            year_version: year,
-            name: it.name,
-            has_record: true,                 // ✅ auto-check
-            updated_at: new Date().toISOString(),
-          }],
+          [
+            {
+              user_id: uid,
+              template_id: it.template_id,
+              year_version: year,
+              name: it.name,
+              has_record: true, // ✅ auto-check
+              updated_at: new Date().toISOString(),
+            },
+          ],
           { onConflict: "user_id,template_id,year_version" }
         );
       if (ensureRes.error) throw ensureRes.error;
@@ -321,8 +329,13 @@ export default function ChecklistGroupPage({
       const { error: upErr } = await supabase.storage.from(storageBucket).upload(key, file, {
         cacheControl: "3600",
         upsert: false,
+        contentType: file.type || undefined,
       });
-      if (upErr) throw upErr;
+      if (upErr) {
+        console.error(upErr);
+        alert("อัปโหลดไฟล์ล้มเหลว: " + (upErr.message || JSON.stringify(upErr)));
+        return;
+      }
 
       // update row with file info + mark evidence
       const { error: updErr } = await supabase
@@ -330,13 +343,17 @@ export default function ChecklistGroupPage({
         .update({
           file_key: key,
           file_path: file.name,
-          has_evidence: true,                // ✅ มีไฟล์ = เขียว (ถ้า has_record=true แล้ว)
+          has_evidence: true, // ✅ มีไฟล์ = เขียว (ถ้า has_record=true แล้ว)
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", uid)
         .eq("template_id", it.template_id)
         .eq("year_version", year);
-      if (updErr) throw updErr;
+      if (updErr) {
+        console.error(updErr);
+        alert("บันทึกข้อมูลไฟล์ลงฐานข้อมูลล้มเหลว: " + (updErr.message || JSON.stringify(updErr)));
+        return;
+      }
 
       await load();
     } catch (e: any) {
@@ -354,18 +371,20 @@ export default function ChecklistGroupPage({
     try {
       const text = (drafts[it.template_id] ?? it.input_text ?? "").trim();
 
-      // ensure row (และติ๊กอัตโนมัติเมื่อพิมพ์)
+      // ensure row (ติ๊กอัตโนมัติเมื่อพิมพ์)
       const ensureRes = await supabase
         .from("checklists_v2")
         .upsert(
-          [{
-            user_id: uid,
-            template_id: it.template_id,
-            year_version: year,
-            name: it.name,
-            has_record: true,                 // ✅ auto-check เมื่อมีการบันทึกข้อความ
-            updated_at: new Date().toISOString(),
-          }],
+          [
+            {
+              user_id: uid,
+              template_id: it.template_id,
+              year_version: year,
+              name: it.name,
+              has_record: true, // ✅ auto-check เมื่อมีการบันทึกข้อความ
+              updated_at: new Date().toISOString(),
+            },
+          ],
           { onConflict: "user_id,template_id,year_version" }
         );
       if (ensureRes.error) throw ensureRes.error;
@@ -374,7 +393,6 @@ export default function ChecklistGroupPage({
         .from("checklists_v2")
         .update({
           input_text: text,
-          // ไม่บังคับ has_evidence ที่นี่ (เหลืองได้ถ้าไม่มีไฟล์)
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", uid)
@@ -391,6 +409,109 @@ export default function ChecklistGroupPage({
     }
   };
 
+  /** ดูไฟล์ (Signed URL – bucket private) */
+  const viewEvidence = async (it: Item) => {
+    if (!it.file_key) {
+      alert("ยังไม่มีไฟล์ในข้อนี้");
+      return;
+    }
+    const { data, error } = await supabase
+      .storage
+      .from(storageBucket)
+      .createSignedUrl(it.file_key, 60 * 5, { download: false }); // 5 นาที
+    if (error || !data?.signedUrl) {
+      console.error(error);
+      alert("เปิดไฟล์ไม่สำเร็จ: " + (error?.message || "unknown"));
+      return;
+    }
+    window.open(data.signedUrl, "_blank");
+  };
+
+  /** เปลี่ยนไฟล์ (ลบเก่า → อัปใหม่) */
+  const replaceEvidence = async (it: Item, file: File) => {
+    if (!uid) return;
+    setSavingId(it.template_id);
+    try {
+      if (it.file_key) {
+        const { error: delErr } = await supabase.storage.from(storageBucket).remove([it.file_key]);
+        if (delErr) {
+          console.warn("ลบไฟล์เก่าไม่สำเร็จ แต่จะอัปใหม่ต่อ:", delErr.message);
+        }
+      }
+
+      const ext = file.name.split(".").pop() || "bin";
+      const key = `${uid}/${year}/${it.template_id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase
+        .storage
+        .from(storageBucket)
+        .upload(key, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+      if (upErr) throw upErr;
+
+      const { error: updErr } = await supabase
+        .from("checklists_v2")
+        .upsert(
+          [
+            {
+              user_id: uid,
+              template_id: it.template_id,
+              year_version: year,
+              name: it.name,
+              has_record: true,
+              has_evidence: true,
+              file_key: key,
+              file_path: file.name,
+              updated_at: new Date().toISOString(),
+            },
+          ],
+          { onConflict: "user_id,template_id,year_version" }
+        );
+      if (updErr) throw updErr;
+
+      await load();
+    } catch (e: any) {
+      console.error(e);
+      alert("เปลี่ยนไฟล์ไม่สำเร็จ: " + (e?.message || "unknown"));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  /** ลบไฟล์ */
+  const removeEvidence = async (it: Item) => {
+    if (!uid || !it.file_key) return;
+    if (!confirm("ยืนยันลบไฟล์แนบข้อนี้?")) return;
+
+    setSavingId(it.template_id);
+    try {
+      const { error: delErr } = await supabase.storage.from(storageBucket).remove([it.file_key]);
+      if (delErr) throw delErr;
+
+      const { error: updErr } = await supabase
+        .from("checklists_v2")
+        .update({
+          has_evidence: false,
+          file_key: null,
+          file_path: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", uid)
+        .eq("template_id", it.template_id)
+        .eq("year_version", year);
+      if (updErr) throw updErr;
+
+      await load();
+    } catch (e: any) {
+      console.error(e);
+      alert("ลบไฟล์ไม่สำเร็จ: " + (e?.message || "unknown"));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   /** helper: แสดงชื่อหัวข้อ (รองรับ override + ลำดับ) */
   const getDisplayName = (origName: string, index: number) => {
     const list = TITLE_OVERRIDES[categoryKey];
@@ -399,7 +520,6 @@ export default function ChecklistGroupPage({
       const { title, desc } = list[index];
       return `${order}${title}${desc ? ` – ${desc}` : ""}`;
     }
-    // ถ้าไม่มี override ใช้ชื่อเดิม แต่ยังเติมลำดับให้
     return `${order}${origName}`;
   };
 
@@ -419,7 +539,9 @@ export default function ChecklistGroupPage({
             className="border rounded-md px-2 py-1"
           >
             {years.map((y) => (
-              <option key={y} value={y}>{y}</option>
+              <option key={y} value={y}>
+                {y}
+              </option>
             ))}
           </select>
         </div>
@@ -429,8 +551,7 @@ export default function ChecklistGroupPage({
       <div className="p-4 mb-6 rounded-xl bg-white border">
         <div className="flex items-center justify-between">
           <div className="text-slate-700 font-medium">
-            ความคืบหน้าหมวดนี้: {summary.pct}%{" "}
-            {requireEvidence ? "(นับเมื่อมีหลักฐาน)" : "(ติ๊กก็นับ)"}
+            ความคืบหน้าหมวดนี้: {summary.pct}% {requireEvidence ? "(นับเมื่อมีหลักฐาน)" : "(ติ๊กก็นับ)"}
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <span>ครบพร้อมไฟล์: {summary.completed}</span>
@@ -449,17 +570,26 @@ export default function ChecklistGroupPage({
 
       {/* Filters */}
       <div className="flex gap-2 mb-4">
-        <button className={badge("ทั้งหมด", filter === "all")} onClick={() => setFilter("all")}>ทั้งหมด</button>
-        <button className={badge("ยังไม่ทำ", filter === "not_started")} onClick={() => setFilter("not_started")}>ยังไม่ทำ</button>
-        <button className={badge("ติ๊กแล้วไม่มีไฟล์", filter === "checked_no_file")} onClick={() => setFilter("checked_no_file")}>ติ๊กแล้วไม่มีไฟล์</button>
-        <button className={badge("ทำแล้วมีไฟล์", filter === "completed")} onClick={() => setFilter("completed")}>ทำแล้วมีไฟล์</button>
+        <button className={badge("ทั้งหมด", filter === "all")} onClick={() => setFilter("all")}>
+          ทั้งหมด
+        </button>
+        <button className={badge("ยังไม่ทำ", filter === "not_started")} onClick={() => setFilter("not_started")}>
+          ยังไม่ทำ
+        </button>
+        <button
+          className={badge("ติ๊กแล้วไม่มีไฟล์", filter === "checked_no_file")}
+          onClick={() => setFilter("checked_no_file")}
+        >
+          ติ๊กแล้วไม่มีไฟล์
+        </button>
+        <button className={badge("ทำแล้วมีไฟล์", filter === "completed")} onClick={() => setFilter("completed")}>
+          ทำแล้วมีไฟล์
+        </button>
       </div>
 
       {/* Error / Loading */}
       {errorMsg && (
-        <div className="p-4 mb-4 rounded-xl border border-red-300 text-red-700 bg-red-50">
-          {errorMsg}
-        </div>
+        <div className="p-4 mb-4 rounded-xl border border-red-300 text-red-700 bg-red-50">{errorMsg}</div>
       )}
       {loading && (
         <div className="flex items-center gap-2 text-slate-600">
@@ -472,7 +602,8 @@ export default function ChecklistGroupPage({
         <div className="text-slate-500">
           ยังไม่มีหัวข้อในหมวดนี้
           <div className="text-xs mt-1">
-            (debug: categoryKey = <code>{categoryKey}</code>, dbKey = <code>{CATEGORY_ALIAS[categoryKey] ?? categoryKey}</code>)
+            (debug: categoryKey = <code>{categoryKey}</code>, dbKey ={" "}
+            <code>{CATEGORY_ALIAS[categoryKey] ?? categoryKey}</code>)
           </div>
         </div>
       )}
@@ -481,9 +612,13 @@ export default function ChecklistGroupPage({
         {visible.map((it, idx) => {
           const status = getStatus(it);
           const stateIcon =
-            status === "green" ? <CheckCircle2 className="text-emerald-600" size={18} /> :
-            status === "yellow" ? <AlertTriangle className="text-amber-600" size={18} /> :
-            <Circle className="text-slate-400" size={18} />;
+            status === "green" ? (
+              <CheckCircle2 className="text-emerald-600" size={18} />
+            ) : status === "yellow" ? (
+              <AlertTriangle className="text-amber-600" size={18} />
+            ) : (
+              <Circle className="text-slate-400" size={18} />
+            );
 
           const displayName = getDisplayName(it.name, idx);
 
@@ -491,9 +626,7 @@ export default function ChecklistGroupPage({
             <li
               key={it.template_id}
               className={`bg-white p-4 rounded-xl shadow border ${
-                status === "green" ? "border-emerald-200" :
-                status === "yellow" ? "border-amber-200" :
-                "border-slate-200"
+                status === "green" ? "border-emerald-200" : status === "yellow" ? "border-amber-200" : "border-slate-200"
               }`}
             >
               {/* Header row */}
@@ -505,14 +638,52 @@ export default function ChecklistGroupPage({
                     <div className="text-xs text-slate-500">
                       คะแนนข้อนี้: +{it.score_points} • อัปเดตล่าสุด: {fmtDate(it.updated_at)}
                     </div>
-                    {status === "yellow" && (
+
+                    {/* ชื่อไฟล์ + ปุ่มดู/เปลี่ยน/ลบ */}
+                    {it.has_evidence && it.file_path ? (
+                      <div className="text-xs mt-1 flex items-center gap-3">
+                        <span className="text-emerald-700">ไฟล์: {it.file_path}</span>
+
+                        <button
+                          type="button"
+                          onClick={() => viewEvidence(it)}
+                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-500 underline"
+                          title="ดูไฟล์"
+                        >
+                          <Eye size={14} /> ดูไฟล์
+                        </button>
+
+                        <label
+                          className="inline-flex items-center gap-1 text-slate-700 hover:text-slate-600 underline cursor-pointer"
+                          title="เปลี่ยนไฟล์"
+                        >
+                          <Upload size={14} /> เปลี่ยนไฟล์
+                          <input
+                            type="file"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) replaceEvidence(it, f);
+                            }}
+                            disabled={savingId === it.template_id}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => removeEvidence(it)}
+                          className="inline-flex items-center gap-1 text-red-600 hover:text-red-500 underline"
+                          title="ลบไฟล์"
+                        >
+                          <Trash2 size={14} /> ลบไฟล์
+                        </button>
+                      </div>
+                    ) : status === "yellow" ? (
                       <div className="text-xs text-amber-700 mt-1">
                         ติ๊กแล้วแต่ยังไม่มีหลักฐาน — อัปโหลดไฟล์เพื่อปลดล็อกคะแนนเต็ม
                       </div>
-                    )}
-                    {it.has_evidence && it.file_path && (
-                      <div className="text-xs text-emerald-700 mt-1">ไฟล์: {it.file_path}</div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -533,6 +704,7 @@ export default function ChecklistGroupPage({
                     <span>แนบไฟล์</span>
                     <input
                       type="file"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
@@ -551,9 +723,7 @@ export default function ChecklistGroupPage({
                   rows={3}
                   placeholder="พิมพ์บันทึก/สรุปหลักฐาน…"
                   value={drafts[it.template_id] ?? it.input_text ?? ""}
-                  onChange={(e) =>
-                    setDrafts((d) => ({ ...d, [it.template_id]: e.target.value }))
-                  }
+                  onChange={(e) => setDrafts((d) => ({ ...d, [it.template_id]: e.target.value }))}
                 />
                 <div className="mt-2 flex justify-end">
                   <button
