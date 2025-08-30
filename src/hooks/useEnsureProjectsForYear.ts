@@ -1,7 +1,7 @@
 // src/hooks/useEnsureProjectsForYear.ts
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabaseClients'
+import { supabase } from '@/utils/supabaseClient'
 
 export function useEnsureProjectsForYear(companyId: string | null, year: number) {
   const [filingProjectId, setFilingProjectId] = useState<string | null>(null)

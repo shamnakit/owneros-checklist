@@ -1,7 +1,7 @@
 // src/hooks/useCanEdit.ts
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabaseClients'
+import { supabase } from '@/utils/supabaseClient'
 
 export function useCanEdit(projectTable: 'filing_projects'|'pre_filing_projects', projectId: string | null) {
   const [canEdit, setCanEdit] = useState(false)

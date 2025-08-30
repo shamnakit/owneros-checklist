@@ -1,7 +1,7 @@
 // src/hooks/useCompanyId.ts
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/utils/supabaseClients'
+import { supabase } from '@/utils/supabaseClient'
 
 export function useCompanyId() {
   const [companyId, setCompanyId] = useState<string | null>(null)
