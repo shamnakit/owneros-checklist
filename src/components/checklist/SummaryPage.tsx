@@ -9,15 +9,15 @@ import { Trophy, Info, Target, Download } from "lucide-react";
 type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 
 type CatRow = {
-  category: string;                 // key ชื่อหมวดจาก RPC
-  score: number;                    // คะแนนที่ได้ของหมวด
-  max_score_category: number;       // คะแนนเต็มของหมวด
-  evidence_rate_pct: number;        // %Progress ของหมวด (0–100)
+  category: string;
+  score: number;
+  max_score_category: number;
+  evidence_rate_pct: number;
 };
 
 type TotalRow = {
-  total_score: number;              // คะแนนรวมทุกหมวด
-  max_score: number;                // คะแนนเต็มรวม (ควรเป็น 600)
+  total_score: number;
+  max_score: number;
   tier_label: "Excellent" | "Developing" | "Early Stage";
 };
 
@@ -136,49 +136,54 @@ function SummaryPageImpl() {
   }, [scorePctOverall]);
 
   // === Export CSV ===
-  const handleExportCSV = () => {
-    // ส่วนหัว metadata
-    const meta: string[][] = [
-      ["Report", "OwnerOS Summary v1.6 Balanced"],
-      ["Year", String(year)],
-      ["GeneratedAt", new Date().toISOString()],
-      [],
-    ];
+  const handleExportCSV = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    try {
+      e?.preventDefault();
+      e?.stopPropagation();
 
-    // หัวตาราง
-    const header = ["CategoryKey", "CategoryNameTH", "ScoreObtained", "ScoreMax", "ScorePct(%)", "ProgressPct(%)", "SectionStatus"];
-
-    // เนื้อหา: ต่อหมวด
-    const body: string[][] = MAIN_CAT_KEYS.map((k) => {
-      const r = rows[k];
-      const max = Number(r?.max_score_category ?? 0);
-      const score = Number(r?.score ?? 0);
-      const scorePct = max > 0 ? Math.round((score / max) * 100) : 0;
-      const progressPct = Math.max(0, Math.min(100, Math.round(Number(r?.evidence_rate_pct ?? 0))));
-      const passed = scorePct >= SECTION_FLOOR.scorePct && progressPct >= SECTION_FLOOR.progressPct;
-      return [
-        k,
-        CAT_LABEL[k],
-        isFinite(score) ? String(score) : "",
-        isFinite(max) ? String(max) : "",
-        String(scorePct),
-        String(progressPct),
-        passed ? "PASS" : "FAIL",
+      const meta: string[][] = [
+        ["Report", "OwnerOS Summary v1.6 Balanced"],
+        ["Year", String(year)],
+        ["GeneratedAt", new Date().toISOString()],
+        [],
       ];
-    });
 
-    const rowsAll = [...meta, header, ...body];
-    const csv = rowsAll.map((row) => row.map(csvEsc).join(",")).join("\r\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }); // \ufeff = BOM เพื่อภาษาไทยใน Excel
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    a.download = `owneros_summary_${year}_${ts}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      const header = ["CategoryKey", "CategoryNameTH", "ScoreObtained", "ScoreMax", "ScorePct(%)", "ProgressPct(%)", "SectionStatus"];
+
+      const body: string[][] = MAIN_CAT_KEYS.map((k) => {
+        const r = rows[k];
+        const max = Number(r?.max_score_category ?? 0);
+        const score = Number(r?.score ?? 0);
+        const scorePct = max > 0 ? Math.round((score / max) * 100) : 0;
+        const progressPct = Math.max(0, Math.min(100, Math.round(Number(r?.evidence_rate_pct ?? 0))));
+        const passed = scorePct >= SECTION_FLOOR.scorePct && progressPct >= SECTION_FLOOR.progressPct;
+        return [
+          k,
+          CAT_LABEL[k],
+          isFinite(score) ? String(score) : "",
+          isFinite(max) ? String(max) : "",
+          String(scorePct),
+          String(progressPct),
+          passed ? "PASS" : "FAIL",
+        ];
+      });
+
+      const rowsAll = [...meta, header, ...body];
+      const csv = rowsAll.map((row) => row.map(csvEsc).join(",")).join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }); // BOM สำหรับภาษาไทยใน Excel
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      a.href = url;
+      a.download = `owneros_summary_${year}_${ts}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Export CSV failed:", err);
+      alert("Export ไม่สำเร็จ: " + (err?.message || "ไม่ทราบสาเหตุ"));
+    }
   };
 
   return (
@@ -250,7 +255,8 @@ function SummaryPageImpl() {
           <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b">
             <div className="font-medium text-slate-700">รายละเอียดรายหมวด</div>
             <button
-              onClick={handleExportCSV}
+              type="button"                                  // ✅ ป้องกัน submit form
+              onClick={(e) => handleExportCSV(e)}            // ✅ กัน event + export
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-500"
               title="ส่งออก CSV"
             >
