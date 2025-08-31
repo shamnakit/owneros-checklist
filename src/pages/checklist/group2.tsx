@@ -10,7 +10,7 @@ export default function Group2() {
         categoryKey="structure"
         title="Checklist หมวด 2: โครงสร้างและการกำกับดูแล"
         breadcrumb="Checklist › หมวด 2"
-        requireEvidence={false}
+        requireEvidence={true}
       />
     </AppShell>
   );

@@ -10,7 +10,7 @@ export default function Group3() {
         categoryKey="sop"
         title="Checklist หมวด 3: กระบวนการและคู่มือการทำงาน"
         breadcrumb="Checklist › หมวด 3"
-        requireEvidence={false}
+        requireEvidence={true}
       />
     </AppShell>
   );

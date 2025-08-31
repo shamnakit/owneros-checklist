@@ -10,7 +10,7 @@ export default function Group4() {
         categoryKey="hr"
         title="Checklist หมวด 4: บุคลากรและการพัฒนา HR"
         breadcrumb="Checklist › หมวด 4"
-        requireEvidence={false}
+        requireEvidence={true}
       />
     </AppShell>
   );

@@ -10,7 +10,7 @@ export default function Group5() {
         categoryKey="finance"
         title="Checklist หมวด 5: การเงินและการวัดผล"
         breadcrumb="Checklist › หมวด 5"
-        requireEvidence={false}
+        requireEvidence={true}
       />
     </AppShell>
   );
