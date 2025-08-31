@@ -266,6 +266,7 @@ type TemplateRow = {
   order_no?: number | null;
   is_active?: boolean;
 };
+export type Checklist = TemplateRow;
 
 export async function getChecklists(): Promise<TemplateRow[]> {
   const { data, error } = await supabase
