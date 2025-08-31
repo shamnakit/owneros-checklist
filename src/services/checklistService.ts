@@ -255,3 +255,49 @@ export async function signedUrl(payload: { key: string; bucket?: string; expires
   if (error || !data?.signedUrl) throw error || new Error("no signed url");
   return data.signedUrl;
 }
+
+// ---- Admin helpers for checklist templates (shim) ----
+type TemplateRow = {
+  id?: string;
+  template_id?: string;        // ถ้ามีเลขรหัสภายใน
+  name: string;
+  category: "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
+  score_points: number;
+  order_no?: number | null;
+  is_active?: boolean;
+};
+
+export async function getChecklists(): Promise<TemplateRow[]> {
+  const { data, error } = await supabase
+    .from("checklist_templates")
+    .select("*")
+    .order("category", { ascending: true })
+    .order("order_no", { ascending: true });
+  if (error) throw error;
+  return (data || []) as TemplateRow[];
+}
+
+export async function createChecklist(payload: TemplateRow): Promise<void> {
+  const row = {
+    name: payload.name,
+    category: payload.category,
+    score_points: Number(payload.score_points || 0),
+    order_no: payload.order_no ?? null,
+    is_active: payload.is_active ?? true,
+    template_id: payload.template_id ?? null,
+  };
+  const { error } = await supabase.from("checklist_templates").insert(row);
+  if (error) throw error;
+}
+
+export async function updateChecklist(id: string, patch: Partial<TemplateRow>): Promise<void> {
+  const row: any = { ...patch };
+  if (row.score_points != null) row.score_points = Number(row.score_points);
+  const { error } = await supabase.from("checklist_templates").update(row).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteChecklist(id: string): Promise<void> {
+  const { error } = await supabase.from("checklist_templates").delete().eq("id", id);
+  if (error) throw error;
+}
