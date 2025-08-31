@@ -1,9 +1,5 @@
-import dynamic from "next/dynamic";
-
-const SummaryPage = dynamic(() => import("@/components/checklist/SummaryPage"), {
-  ssr: false,
-});
-
+// src/pages/summary.tsx
+import SummaryPage from "@/components/checklist/SummaryPage";
 export default function Summary() {
   return <SummaryPage />;
 }

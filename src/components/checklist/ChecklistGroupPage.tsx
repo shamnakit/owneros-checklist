@@ -22,7 +22,6 @@ const toMaturity = (it: ChecklistItem) => {
   return it.has_evidence ? 2 : 1;
 };
 
-
 export type ChecklistGroupPageProps = {
   groupNo: 1 | 2 | 3 | 4 | 5 | 6;
   categoryKey: CategoryKey;
@@ -412,22 +411,19 @@ export default function ChecklistGroupPage({
                       คะแนนข้อนี้: +{it.score_points} • อัปเดตล่าสุด: {fmtDate(it.updated_at)}
                     </div>
 
-
-{/* Maturity Display */}
-<div className="mt-1 text-xs">
-  <span className="text-slate-600">ระดับ Maturity: </span>
-  {(() => {
-    const m = toMaturity(it);
-    return (
-      <span className={`font-medium ${m === 2 ? "text-emerald-700" : m === 1 ? "text-amber-700" : "text-slate-500"}`}>
-        {m === 2 ? "2 – ครบและใช้งานจริง" : m === 1 ? "1 – มีบางส่วน" : "0 – ยังไม่เริ่ม"}
-      </span>
-    );
-  })()}
-  <span className="ml-2 text-slate-400">(ติ๊ก = 1, ติ๊ก+ไฟล์ = 2)</span>
-</div>
-
-
+                    {/* Maturity Display */}
+                    <div className="mt-1 text-xs">
+                      <span className="text-slate-600">ระดับ Maturity: </span>
+                      {(() => {
+                        const m = toMaturity(it);
+                        return (
+                          <span className={`font-medium ${m === 2 ? "text-emerald-700" : m === 1 ? "text-amber-700" : "text-slate-500"}`}>
+                            {m === 2 ? "2 – ครบและใช้งานจริง" : m === 1 ? "1 – มีบางส่วน" : "0 – ยังไม่เริ่ม"}
+                          </span>
+                        );
+                      })()}
+                      <span className="ml-2 text-slate-400">(ติ๊ก = 1, ติ๊ก+ไฟล์ = 2)</span>
+                    </div>
 
                     {/* ชื่อไฟล์ + ปุ่มดู/เปลี่ยน/ลบ */}
                     {it.has_evidence && it.file_path ? (
