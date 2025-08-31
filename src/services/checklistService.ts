@@ -257,44 +257,56 @@ export async function signedUrl(payload: { key: string; bucket?: string; expires
 }
 
 // ---- Admin helpers for checklist templates (shim) ----
-type TemplateRow = {
+export type TemplateRow = {
   id?: string;
-  template_id?: string;        // ถ้ามีเลขรหัสภายใน
-  name: string;
+  template_id?: string | null;
+  name: string;                  // ชื่อจริงในตาราง
+  description?: string | null;   // ถ้าไม่มีคอลัมน์นี้ ให้ลบฟิลด์นี้ออก
   category: "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
   score_points: number;
   order_no?: number | null;
   is_active?: boolean;
 };
-export type Checklist = TemplateRow;
 
-export async function getChecklists(): Promise<TemplateRow[]> {
+// ให้ admin.tsx import ได้
+export type Checklist = TemplateRow & { title?: string };
+
+type AdminChecklistInput = Partial<TemplateRow> & {
+  title?: string;        // alias ของ name
+  description?: string;  // ถ้า UI ส่งมาก็รับไว้
+};
+
+export async function getChecklists(): Promise<Checklist[]> {
   const { data, error } = await supabase
     .from("checklist_templates")
     .select("*")
     .order("category", { ascending: true })
     .order("order_no", { ascending: true });
   if (error) throw error;
-  return (data || []) as TemplateRow[];
+  return (data || []).map((r: any) => ({ ...r, title: r.name })) as Checklist[];
 }
 
-export async function createChecklist(payload: TemplateRow): Promise<void> {
-  const row = {
-    name: payload.name,
-    category: payload.category,
-    score_points: Number(payload.score_points || 0),
+export async function createChecklist(payload: AdminChecklistInput): Promise<Checklist> {
+  const row: TemplateRow = {
+    name: (payload.title ?? payload.name ?? "").toString(),
+    description: payload.description ?? null,
+    category: (payload.category ?? "strategy") as TemplateRow["category"],
+    score_points: Number(payload.score_points ?? 1),
     order_no: payload.order_no ?? null,
     is_active: payload.is_active ?? true,
     template_id: payload.template_id ?? null,
   };
-  const { error } = await supabase.from("checklist_templates").insert(row);
+  const { data, error } = await supabase.from("checklist_templates").insert(row).select().single();
   if (error) throw error;
+  const created = data as TemplateRow;
+  return { ...created, title: created.name };
 }
 
-export async function updateChecklist(id: string, patch: Partial<TemplateRow>): Promise<void> {
-  const row: any = { ...patch };
-  if (row.score_points != null) row.score_points = Number(row.score_points);
-  const { error } = await supabase.from("checklist_templates").update(row).eq("id", id);
+export async function updateChecklist(id: string, patch: Partial<AdminChecklistInput>): Promise<void> {
+  const upd: any = { ...patch };
+  if (upd.title != null) { upd.name = upd.title; delete upd.title; }
+  if (upd.score_points != null) upd.score_points = Number(upd.score_points);
+  const { error } = await supabase.from("checklist_templates").update(upd).eq("id", id);
   if (error) throw error;
 }
 
