@@ -3,13 +3,13 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
 
-// ✅ ให้แน่ใจว่าใช้ Node runtime (สำคัญกับ ExcelJS)
+// ✅ ใช้รูปแบบ config ของ Pages Router โดยไม่ใส่ "as const"
 export const config = {
   api: {
-    bodyParser: false,      // ไม่รับไฟล์อัปโหลดผ่าน body ใน route นี้
-    responseLimit: false,   // กัน response ใหญ่
+    bodyParser: false,
+    responseLimit: false,
   },
-} as const;
+};
 
 type TotalRow = {
   user_id: string;
@@ -70,7 +70,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const STORAGE_BUCKET = process.env.BINDER_BUCKET || "binders";
 
-    // ✅ ตรวจ ENV ชัดๆ ตั้งแต่ต้น (กัน 500 ที่มองไม่เห็นสาเหตุ)
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       const missing = [
         !SUPABASE_URL ? "NEXT_PUBLIC_SUPABASE_URL" : null,
@@ -80,18 +79,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    // ✅ สร้าง client หลังเช็ค ENV แล้วเท่านั้น
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const userId =
-      (req.query.userId as string) ||
-      (req.body as any)?.userId;
-    const year = Number(
-      (req.query.year as string) ||
-      (req.body as any)?.year
-    );
+    const userId = (req.query.userId as string) || (req.body as any)?.userId;
+    const year = Number((req.query.year as string) || (req.body as any)?.year);
     const companyName =
       (req.query.companyName as string) ||
       (req.body as any)?.companyName ||
@@ -106,11 +99,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    // 1) โหลดข้อมูลจริงจาก views (บังคับ userId/year)
+    // 1) ดึงข้อมูลจากวิว
     const [
       { data: totalRows, error: e1 },
       { data: cats, error: e2 },
-      // ❗ Warnings ให้ optional: ถ้าพังให้ถือว่า "ไม่มี"
       { data: warnsRaw, error: e3 },
     ] = await Promise.all([
       supabase.from("vw_score_total").select("*").eq("user_id", userId).eq("year_version", year).limit(1),
@@ -146,7 +138,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { header: "Field", key: "field", width: 24 },
       { header: "Value", key: "value", width: 60 },
     ];
-
     ws1.addRows([
       { field: "Company", value: companyName },
       { field: "Year", value: year },
@@ -154,7 +145,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { field: "Tier", value: total ? thaiTier(total.tier_label) : "-" },
       { field: "Generated At", value: new Date().toISOString() },
     ]);
-
     ws1.getRow(1).font = { bold: true };
     ws1.getColumn(1).font = { bold: true };
     ws1.getColumn(1).alignment = { vertical: "middle" };
@@ -169,9 +159,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { header: "Evidence Rate (%)", key: "evidence", width: 18 },
     ];
     ws2.getRow(1).font = { bold: true };
-
     ((cats as CatRow[]) || []).forEach((r) => {
-      if (r.category === "addon") return; // ตัด Add-on ออกจากกราฟหลัก
+      if (r.category === "addon") return;
       ws2.addRow({
         category: CAT_LABEL[r.category],
         score: r.score,
@@ -180,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     });
 
-    /** Sheet 3: Warnings (ติ๊กแล้วไม่มีไฟล์) — optional */
+    /** Sheet 3: Warnings */
     const ws3 = wb.addWorksheet("Warnings");
     ws3.columns = [
       { header: "Category", key: "category", width: 18 },
@@ -188,7 +177,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { header: "Score Points", key: "points", width: 14 },
     ];
     ws3.getRow(1).font = { bold: true };
-
     (warns || []).forEach((w) => {
       ws3.addRow({
         category: CAT_LABEL[w.category],
@@ -197,22 +185,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     });
 
-    // 3) สร้างไฟล์ Buffer
-    const arrayBuffer = await wb.xlsx.writeBuffer(); // ArrayBuffer / Uint8Array
+    // 3) สร้างไฟล์
+    const arrayBuffer = await wb.xlsx.writeBuffer();
 
     if (upload) {
-      // 4) อัปโหลดลง Storage แล้วคืน signed URL
+      // 4) อัปโหลดขึ้น Storage แล้วคืนลิงก์
       try {
-        // สร้าง bucket ถ้ายังไม่มี (error = มีอยู่แล้ว -> ignore)
         await supabase.storage.createBucket(STORAGE_BUCKET, { public: false }).catch(() => {});
-
         const filename = `binder_${companyName.replace(/\s+/g, "_")}_${year}_${Date.now()}.xlsx`;
-
-        // ใช้ Blob เพื่อความเข้ากันได้สูงสุดบน Node/fetch
         const blob = new Blob([arrayBuffer], {
           type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         });
-
         const { error: upErr } = await supabase.storage
           .from(STORAGE_BUCKET)
           .upload(filename, blob, {
@@ -224,16 +207,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           res.status(500).json({ error: "Upload failed", detail: upErr.message });
           return;
         }
-
         const { data: signed, error: signErr } = await supabase.storage
           .from(STORAGE_BUCKET)
-          .createSignedUrl(filename, 60 * 60); // 1 ชม.
+          .createSignedUrl(filename, 60 * 60);
         if (signErr || !signed?.signedUrl) {
           console.error("[export-binder] sign error:", signErr);
           res.status(500).json({ error: "Create signed URL failed", detail: signErr?.message });
           return;
         }
-
         res.status(200).json({ url: signed.signedUrl, filename });
         return;
       } catch (e: any) {
@@ -243,17 +224,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 5) ส่งเป็นไฟล์ดาวน์โหลดทันที
+    // 5) ส่งดาวน์โหลดตรง
     const safeName = `Binder_${companyName.replace(/[^\w\-]+/g, "_")}_${year}.xlsx`;
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
-    // ใช้ Buffer จาก ArrayBuffer
-    const nodeBuffer = Buffer.isBuffer(arrayBuffer)
-      ? (arrayBuffer as Buffer)
-      : Buffer.from(arrayBuffer as ArrayBuffer);
+    const nodeBuffer = Buffer.isBuffer(arrayBuffer) ? (arrayBuffer as Buffer) : Buffer.from(arrayBuffer as ArrayBuffer);
     res.status(200).send(nodeBuffer);
   } catch (err: any) {
     console.error("[export-binder] fatal error:", err);
