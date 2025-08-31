@@ -1,10 +1,21 @@
 // src/components/checklist/ChecklistGroupPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/utils/supabaseClient";
+import {
+  loadItems,
+  listYears,
+  toggleRecord,
+  saveText as svcSaveText,
+  uploadEvidence as svcUploadEvidence,
+  replaceEvidence as svcReplaceEvidence,
+  removeEvidence as svcRemoveEvidence,
+  signedUrl as svcSignedUrl,
+  getStatus,
+  calcSummary,
+  fmtDate,
+  type ChecklistItem,
+  type CategoryKey,
+} from "@/services/checklistService";
 import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle, Eye, Trash2 } from "lucide-react";
-
-/** หมวดมาตรฐานที่ใช้กับฐานข้อมูล */
-export type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 
 export type ChecklistGroupPageProps = {
   groupNo: 1 | 2 | 3 | 4 | 5 | 6;
@@ -15,29 +26,9 @@ export type ChecklistGroupPageProps = {
   storageBucket?: string;      // default="evidence"
 };
 
-type Item = {
-  template_id: string;
-  name: string;
-  score_points: number;
-  has_record: boolean;
-  has_evidence: boolean;
-  updated_at: string | null;
-  input_text: string | null;
-  file_key: string | null;
-  file_path: string | null;
-};
-
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 
-/** ✨ Map categoryKey ฝั่ง UI → ชื่อคีย์ในฐานข้อมูล (ปรับให้ตรงกับ DB ของคุณได้) */
-const CATEGORY_ALIAS = {
-  strategy: "strategy",
-  structure: "structure",
-  sop: "sop",
-  hr: "hr",
-  finance: "finance",
-  sales: "sales",
-} as const;
+const DEFAULT_BUCKET = "evidence";
 
 /* ----------------------------------------------------------------
  * OVERRIDES: ตั้งชื่อหัวข้อย่อยพร้อมคำอธิบายสำหรับทุกหมวด (1–6)
@@ -100,7 +91,6 @@ const SALES_OVERRIDES: TitleDesc[] = [
   { title: "Marketing & Sales Plan", desc: "แผนการตลาดและการขายประจำปี" },
 ];
 
-/** แผนที่หมวด → ลิสต์ override */
 const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
   strategy: STRATEGY_OVERRIDES,
   structure: STRUCTURE_OVERRIDES,
@@ -110,25 +100,8 @@ const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
   sales: SALES_OVERRIDES,
 };
 
-/** utils */
-function fmtDate(s?: string | null) {
-  if (!s) return "-";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString();
-}
-
-const DEFAULT_BUCKET = "evidence";
-
 const badge = (text: string, active = false) =>
   `px-3 py-1.5 rounded-full text-sm ${active ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`;
-
-/** helper: สรุปสถานะสีจาก record/evidence */
-function getStatus(it: Pick<Item, "has_record" | "has_evidence">) {
-  if (!it.has_record) return "red";
-  if (it.has_record && !it.has_evidence) return "yellow";
-  return "green";
-}
 
 export default function ChecklistGroupPage({
   groupNo,
@@ -138,74 +111,43 @@ export default function ChecklistGroupPage({
   requireEvidence = false,
   storageBucket = DEFAULT_BUCKET,
 }: ChecklistGroupPageProps) {
-  // ✅ ดึง uid โดยตรงจาก Supabase (กันเคสที่ context ไม่มี uid)
-  const [uid, setUid] = useState<string | null>(null);
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUid(data.user?.id ?? null));
-  }, []);
-
   const thisYear = new Date().getFullYear();
   const [years, setYears] = useState<number[]>([thisYear]);
   const [year, setYear] = useState<number>(thisYear);
 
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
-
-  // draft ต่อข้อ (สำหรับ textarea)
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  /** โหลดรายชื่อปีที่มีข้อมูลจริงของ user (แสดงใน dropdown) */
+  /** โหลดรายชื่อปี */
   useEffect(() => {
-    if (!uid) return;
     let mounted = true;
     (async () => {
-      const { data, error } = await supabase.rpc("fn_available_years_for_me");
-      if (!mounted) return;
-      if (!error && Array.isArray(data) && data.length) {
-        const ys = (data as any[]).map((r) => Number((r as any).year_version)).filter(Boolean);
-        if (ys.length) {
-          setYears(ys);
-          setYear((y) => (ys.includes(y) ? y : ys[0]));
-        }
+      try {
+        const ys = await listYears();
+        if (!mounted) return;
+        setYears(ys);
+        setYear((y) => (ys.includes(y) ? y : ys[0]));
+      } catch (e: any) {
+        console.error(e);
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [uid]);
+  }, []);
 
   /** โหลดรายการ checklist ของหมวด */
   const load = async () => {
-    if (!uid) return;
     setLoading(true);
     setErrorMsg(null);
     try {
-      const dbCategory = CATEGORY_ALIAS[categoryKey] ?? categoryKey;
-
-      const { data, error } = await supabase.rpc("fn_checklist_items_for_me", {
-        p_year: year,
-        p_category: dbCategory,
-      });
-      if (error) throw error;
-
-      // บังคับเรียงให้คงที่
-      const rows = ((data || []) as Item[]).sort((a, b) => {
-        const ta = (a.template_id || "").toString();
-        const tb = (b.template_id || "").toString();
-        if (ta < tb) return -1;
-        if (ta > tb) return 1;
-        const na = (a.name || "").toString().toLowerCase();
-        const nb = (b.name || "").toString().toLowerCase();
-        return na.localeCompare(nb);
-      });
-
+      const rows = await loadItems({ year, category: categoryKey });
       setItems(rows);
-
-      // sync drafts จาก input_text
       setDrafts((prev) => {
         const next = { ...prev };
         rows.forEach((it) => {
@@ -224,26 +166,12 @@ export default function ChecklistGroupPage({
   };
 
   useEffect(() => {
-    if (!uid) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid, year, categoryKey]);
+  }, [year, categoryKey]);
 
-  /** คำนวณสรุปหมวด */
-  const summary = useMemo(() => {
-    const total = items.reduce((s, it) => s + Number(it.score_points || 0), 0);
-    const scored = items
-      .filter((it) => (requireEvidence ? it.has_record && it.has_evidence : it.has_record))
-      .reduce((s, it) => s + Number(it.score_points || 0), 0);
-    const pct = total > 0 ? Math.round((scored / total) * 100) : 0;
-    const counts = {
-      completed: items.filter((it) => it.has_record && it.has_evidence).length,
-      checkedNoFile: items.filter((it) => it.has_record && !it.has_evidence).length,
-      notStarted: items.filter((it) => !it.has_record).length,
-      withFile: items.filter((it) => it.has_evidence).length,
-    };
-    return { pct, total, scored, ...counts };
-  }, [items, requireEvidence]);
+  /** สรุปภาพรวมหมวด */
+  const summary = useMemo(() => calcSummary(items, requireEvidence), [items, requireEvidence]);
 
   /** ฟิลเตอร์รายการ */
   const visible = useMemo(() => {
@@ -259,38 +187,11 @@ export default function ChecklistGroupPage({
     }
   }, [items, filter]);
 
-  /** ติ๊ก/ยกเลิก (ติ๊กเอง) */
-  const toggleItem = async (it: Item, next: boolean) => {
-    if (!uid) return;
+  /** ติ๊ก/ยกเลิก (manual) */
+  const onToggleItem = async (it: ChecklistItem, next: boolean) => {
     setSavingId(it.template_id);
     try {
-      if (next) {
-        const { error } = await supabase
-          .from("checklists_v2")
-          .upsert(
-            [
-              {
-                user_id: uid,
-                template_id: it.template_id,
-                year_version: year,
-                name: it.name,
-                has_record: true, // ✅ ติ๊กเอง = has_record=true
-                updated_at: new Date().toISOString(),
-              },
-            ],
-            { onConflict: "user_id,template_id,year_version" }
-          );
-        if (error) throw error;
-      } else {
-        // ยกเลิกติ๊ก: ลบทิ้งแถว
-        const { error } = await supabase
-          .from("checklists_v2")
-          .delete()
-          .eq("user_id", uid)
-          .eq("template_id", it.template_id)
-          .eq("year_version", year);
-        if (error) throw error;
-      }
+      await toggleRecord({ template_id: it.template_id, year, name: it.name, next });
       await load();
     } catch (e: any) {
       console.error(e);
@@ -300,177 +201,32 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** อัปโหลดหลักฐาน (ไฟล์) → auto-ติ๊ก + has_evidence */
-  const uploadEvidence = async (it: Item, file: File) => {
-    if (!uid) return;
+  /** อัปโหลดหลักฐาน (auto-check + evidence=true) */
+  const onUploadEvidence = async (it: ChecklistItem, file: File) => {
     setSavingId(it.template_id);
     try {
-      // ensure row (ติ๊กอัตโนมัติ)
-      const ensureRes = await supabase
-        .from("checklists_v2")
-        .upsert(
-          [
-            {
-              user_id: uid,
-              template_id: it.template_id,
-              year_version: year,
-              name: it.name,
-              has_record: true, // ✅ auto-check
-              updated_at: new Date().toISOString(),
-            },
-          ],
-          { onConflict: "user_id,template_id,year_version" }
-        );
-      if (ensureRes.error) throw ensureRes.error;
-
-      // upload to storage bucket
-      const ext = file.name.split(".").pop() || "bin";
-      const key = `${uid}/${year}/${it.template_id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from(storageBucket).upload(key, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || undefined,
-      });
-      if (upErr) {
-        console.error(upErr);
-        alert("อัปโหลดไฟล์ล้มเหลว: " + (upErr.message || JSON.stringify(upErr)));
-        return;
-      }
-
-      // update row with file info + mark evidence
-      const { error: updErr } = await supabase
-        .from("checklists_v2")
-        .update({
-          file_key: key,
-          file_path: file.name,
-          has_evidence: true, // ✅ มีไฟล์ = เขียว (ถ้า has_record=true แล้ว)
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", uid)
-        .eq("template_id", it.template_id)
-        .eq("year_version", year);
-      if (updErr) {
-        console.error(updErr);
-        alert("บันทึกข้อมูลไฟล์ลงฐานข้อมูลล้มเหลว: " + (updErr.message || JSON.stringify(updErr)));
-        return;
-      }
-
+      await svcUploadEvidence({ template_id: it.template_id, year, name: it.name, file, bucket: storageBucket });
       await load();
     } catch (e: any) {
       console.error(e);
-      alert("อัปโหลดไม่สำเร็จ: " + (e?.message || "unknown"));
+      alert("อัปโหลดไฟล์ไม่สำเร็จ: " + (e?.message || "unknown"));
     } finally {
       setSavingId(null);
     }
-  };
-
-  /** บันทึกข้อความ (textarea) → auto-ติ๊ก */
-  const saveText = async (it: Item) => {
-    if (!uid) return;
-    setSavingId(it.template_id);
-    try {
-      const text = (drafts[it.template_id] ?? it.input_text ?? "").trim();
-
-      // ensure row (ติ๊กอัตโนมัติเมื่อพิมพ์)
-      const ensureRes = await supabase
-        .from("checklists_v2")
-        .upsert(
-          [
-            {
-              user_id: uid,
-              template_id: it.template_id,
-              year_version: year,
-              name: it.name,
-              has_record: true, // ✅ auto-check เมื่อมีการบันทึกข้อความ
-              updated_at: new Date().toISOString(),
-            },
-          ],
-          { onConflict: "user_id,template_id,year_version" }
-        );
-      if (ensureRes.error) throw ensureRes.error;
-
-      const { error: updErr } = await supabase
-        .from("checklists_v2")
-        .update({
-          input_text: text,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", uid)
-        .eq("template_id", it.template_id)
-        .eq("year_version", year);
-      if (updErr) throw updErr;
-
-      await load();
-    } catch (e: any) {
-      console.error(e);
-      alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  /** ดูไฟล์ (Signed URL – bucket private) */
-  const viewEvidence = async (it: Item) => {
-    if (!it.file_key) {
-      alert("ยังไม่มีไฟล์ในข้อนี้");
-      return;
-    }
-    const { data, error } = await supabase
-      .storage
-      .from(storageBucket)
-      .createSignedUrl(it.file_key, 60 * 5, { download: false }); // 5 นาที
-    if (error || !data?.signedUrl) {
-      console.error(error);
-      alert("เปิดไฟล์ไม่สำเร็จ: " + (error?.message || "unknown"));
-      return;
-    }
-    window.open(data.signedUrl, "_blank");
   };
 
   /** เปลี่ยนไฟล์ (ลบเก่า → อัปใหม่) */
-  const replaceEvidence = async (it: Item, file: File) => {
-    if (!uid) return;
+  const onReplaceEvidence = async (it: ChecklistItem, file: File) => {
     setSavingId(it.template_id);
     try {
-      if (it.file_key) {
-        const { error: delErr } = await supabase.storage.from(storageBucket).remove([it.file_key]);
-        if (delErr) {
-          console.warn("ลบไฟล์เก่าไม่สำเร็จ แต่จะอัปใหม่ต่อ:", delErr.message);
-        }
-      }
-
-      const ext = file.name.split(".").pop() || "bin";
-      const key = `${uid}/${year}/${it.template_id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase
-        .storage
-        .from(storageBucket)
-        .upload(key, file, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: file.type || undefined,
-        });
-      if (upErr) throw upErr;
-
-      const { error: updErr } = await supabase
-        .from("checklists_v2")
-        .upsert(
-          [
-            {
-              user_id: uid,
-              template_id: it.template_id,
-              year_version: year,
-              name: it.name,
-              has_record: true,
-              has_evidence: true,
-              file_key: key,
-              file_path: file.name,
-              updated_at: new Date().toISOString(),
-            },
-          ],
-          { onConflict: "user_id,template_id,year_version" }
-        );
-      if (updErr) throw updErr;
-
+      await svcReplaceEvidence({
+        template_id: it.template_id,
+        year,
+        name: it.name,
+        file,
+        oldKey: it.file_key ?? undefined,
+        bucket: storageBucket,
+      });
       await load();
     } catch (e: any) {
       console.error(e);
@@ -481,32 +237,46 @@ export default function ChecklistGroupPage({
   };
 
   /** ลบไฟล์ */
-  const removeEvidence = async (it: Item) => {
-    if (!uid || !it.file_key) return;
+  const onRemoveEvidence = async (it: ChecklistItem) => {
+    if (!it.file_key) return;
     if (!confirm("ยืนยันลบไฟล์แนบข้อนี้?")) return;
-
     setSavingId(it.template_id);
     try {
-      const { error: delErr } = await supabase.storage.from(storageBucket).remove([it.file_key]);
-      if (delErr) throw delErr;
-
-      const { error: updErr } = await supabase
-        .from("checklists_v2")
-        .update({
-          has_evidence: false,
-          file_key: null,
-          file_path: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", uid)
-        .eq("template_id", it.template_id)
-        .eq("year_version", year);
-      if (updErr) throw updErr;
-
+      await svcRemoveEvidence({ template_id: it.template_id, year, key: it.file_key, bucket: storageBucket });
       await load();
     } catch (e: any) {
       console.error(e);
       alert("ลบไฟล์ไม่สำเร็จ: " + (e?.message || "unknown"));
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  /** ดูไฟล์ (Signed URL) */
+  const onViewEvidence = async (it: ChecklistItem) => {
+    if (!it.file_key) {
+      alert("ยังไม่มีไฟล์ในข้อนี้");
+      return;
+    }
+    try {
+      const url = await svcSignedUrl({ key: it.file_key, bucket: storageBucket, expiresInSec: 60 * 5 });
+      window.open(url, "_blank");
+    } catch (e: any) {
+      console.error(e);
+      alert("เปิดไฟล์ไม่สำเร็จ: " + (e?.message || "unknown"));
+    }
+  };
+
+  /** บันทึกข้อความ (auto-check) */
+  const onSaveText = async (it: ChecklistItem) => {
+    setSavingId(it.template_id);
+    try {
+      const text = (drafts[it.template_id] ?? it.input_text ?? "").trim();
+      await svcSaveText({ template_id: it.template_id, year, name: it.name, text });
+      await load();
+    } catch (e: any) {
+      console.error(e);
+      alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
     } finally {
       setSavingId(null);
     }
@@ -601,10 +371,7 @@ export default function ChecklistGroupPage({
       {!loading && items.length === 0 && (
         <div className="text-slate-500">
           ยังไม่มีหัวข้อในหมวดนี้
-          <div className="text-xs mt-1">
-            (debug: categoryKey = <code>{categoryKey}</code>, dbKey ={" "}
-            <code>{CATEGORY_ALIAS[categoryKey] ?? categoryKey}</code>)
-          </div>
+          <div className="text-xs mt-1">(debug: categoryKey = <code>{categoryKey}</code>)</div>
         </div>
       )}
 
@@ -646,7 +413,7 @@ export default function ChecklistGroupPage({
 
                         <button
                           type="button"
-                          onClick={() => viewEvidence(it)}
+                          onClick={() => onViewEvidence(it)}
                           className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-500 underline"
                           title="ดูไฟล์"
                         >
@@ -664,7 +431,7 @@ export default function ChecklistGroupPage({
                             className="hidden"
                             onChange={(e) => {
                               const f = e.target.files?.[0];
-                              if (f) replaceEvidence(it, f);
+                              if (f) onReplaceEvidence(it, f);
                             }}
                             disabled={savingId === it.template_id}
                           />
@@ -672,7 +439,7 @@ export default function ChecklistGroupPage({
 
                         <button
                           type="button"
-                          onClick={() => removeEvidence(it)}
+                          onClick={() => onRemoveEvidence(it)}
                           className="inline-flex items-center gap-1 text-red-600 hover:text-red-500 underline"
                           title="ลบไฟล์"
                         >
@@ -693,7 +460,7 @@ export default function ChecklistGroupPage({
                     <input
                       type="checkbox"
                       checked={!!it.has_record}
-                      onChange={(e) => toggleItem(it, e.target.checked)}
+                      onChange={(e) => onToggleItem(it, e.target.checked)}
                       disabled={savingId === it.template_id}
                     />
                     ติ๊กแล้ว
@@ -708,7 +475,7 @@ export default function ChecklistGroupPage({
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) uploadEvidence(it, f);
+                        if (f) onUploadEvidence(it, f);
                       }}
                       disabled={savingId === it.template_id}
                     />
@@ -727,7 +494,7 @@ export default function ChecklistGroupPage({
                 />
                 <div className="mt-2 flex justify-end">
                   <button
-                    onClick={() => saveText(it)}
+                    onClick={() => onSaveText(it)}
                     disabled={savingId === it.template_id}
                     className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-500"
                   >
