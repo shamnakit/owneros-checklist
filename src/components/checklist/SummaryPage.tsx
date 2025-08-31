@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
-import { Trophy, Info, Target } from "lucide-react";
+import { Trophy, Info, Target, Download } from "lucide-react";
 
 type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 
@@ -52,6 +52,12 @@ function tierThai(t: TotalRow["tier_label"]) {
   if (t === "Developing") return "Developing";
   return "Early Stage";
 }
+// CSV helpers
+const csvEsc = (v: any) => {
+  if (v === null || v === undefined) return "";
+  const s = String(v).replace(/"/g, '""');
+  return /[",\n]/.test(s) ? `"${s}"` : s;
+};
 
 function SummaryPageImpl() {
   const { uid } = useUserProfile();
@@ -122,13 +128,58 @@ function SummaryPageImpl() {
     return Math.max(0, Math.min(100, Math.round(p)));
   }, [total]);
 
-  // อ่านผล org-level เทียบกับเป้าหมาย (ไม่มี %Progress รวมจาก RPC ก็แสดงเฉพาะ Score% รวม + ตารางรายหมวดด้านล่าง)
+  // Badge org-level (จาก Score% รวมที่มี)
   const orgBadge = useMemo(() => {
-    // ด้วยข้อมูลที่มี เราฟันธงได้เฉพาะ Score%; ส่วน %Progress รวมใช้รายหมวดด้านล่างแทน
     if (scorePctOverall >= ORG_EXCELLENT.scorePct) return { label: "เข้าเป้า Excellent (Score)", className: "bg-emerald-100 text-emerald-700" };
     if (scorePctOverall >= ORG_PASS.scorePct) return { label: "ผ่านขั้นต่ำ (Score)", className: "bg-blue-100 text-blue-700" };
     return { label: "ยังไม่ผ่าน (Score)", className: "bg-amber-100 text-amber-700" };
   }, [scorePctOverall]);
+
+  // === Export CSV ===
+  const handleExportCSV = () => {
+    // ส่วนหัว metadata
+    const meta: string[][] = [
+      ["Report", "OwnerOS Summary v1.6 Balanced"],
+      ["Year", String(year)],
+      ["GeneratedAt", new Date().toISOString()],
+      [],
+    ];
+
+    // หัวตาราง
+    const header = ["CategoryKey", "CategoryNameTH", "ScoreObtained", "ScoreMax", "ScorePct(%)", "ProgressPct(%)", "SectionStatus"];
+
+    // เนื้อหา: ต่อหมวด
+    const body: string[][] = MAIN_CAT_KEYS.map((k) => {
+      const r = rows[k];
+      const max = Number(r?.max_score_category ?? 0);
+      const score = Number(r?.score ?? 0);
+      const scorePct = max > 0 ? Math.round((score / max) * 100) : 0;
+      const progressPct = Math.max(0, Math.min(100, Math.round(Number(r?.evidence_rate_pct ?? 0))));
+      const passed = scorePct >= SECTION_FLOOR.scorePct && progressPct >= SECTION_FLOOR.progressPct;
+      return [
+        k,
+        CAT_LABEL[k],
+        isFinite(score) ? String(score) : "",
+        isFinite(max) ? String(max) : "",
+        String(scorePct),
+        String(progressPct),
+        passed ? "PASS" : "FAIL",
+      ];
+    });
+
+    const rowsAll = [...meta, header, ...body];
+    const csv = rowsAll.map((row) => row.map(csvEsc).join(",")).join("\r\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }); // \ufeff = BOM เพื่อภาษาไทยใน Excel
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    a.download = `owneros_summary_${year}_${ts}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -193,9 +244,20 @@ function SummaryPageImpl() {
       {err && <Card className="p-4 border-red-300 text-red-700 bg-red-50">เกิดข้อผิดพลาด: {err}</Card>}
       {loading && <Card className="p-4">กำลังโหลดข้อมูล…</Card>}
 
-      {/* Table per-category: Score% + %Progress + pass/fail */}
+      {/* Table per-category + Export */}
       {!loading && (
         <Card className="p-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b">
+            <div className="font-medium text-slate-700">รายละเอียดรายหมวด</div>
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-500"
+              title="ส่งออก CSV"
+            >
+              <Download size={16} /> Export CSV
+            </button>
+          </div>
+
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50 text-slate-700">
