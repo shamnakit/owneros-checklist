@@ -3,12 +3,12 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
 
-// ✅ ใช้รูปแบบ config ของ Pages Router โดยไม่ใส่ "as const"
+// ใช้รูปแบบ config ของ Pages Router
 export const config = {
   api: {
-    bodyParser: false,
-    responseLimit: false,
-  },
+    bodyParser: false,   // ไม่รับ multipart ที่นี่
+    responseLimit: false // กัน response ใหญ่
+  }
 };
 
 type TotalRow = {
@@ -59,6 +59,11 @@ const esc = (v: any) => {
   return /[",\n]/.test(s) ? `"${s}"` : s;
 };
 
+const toNum = (x: any): number => {
+  const v = Number(x);
+  return Number.isFinite(v) ? v : 0;
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "GET") {
@@ -70,6 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const STORAGE_BUCKET = process.env.BINDER_BUCKET || "binders";
 
+    // เช็ค ENV ให้ชัด
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       const missing = [
         !SUPABASE_URL ? "NEXT_PUBLIC_SUPABASE_URL" : null,
@@ -79,6 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
+    // สร้าง client หลังเช็ค ENV แล้ว
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -110,21 +117,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabase.from("vw_checked_without_evidence").select("*").eq("user_id", userId).eq("year_version", year),
     ]);
 
-    if (e1) {
-      console.error("[export-binder] vw_score_total error:", e1);
-      res.status(500).json({ error: "Query vw_score_total failed", detail: e1.message });
-      return;
-    }
+    // ถ้า categories ล้ม ให้จบ (เพราะใช้ทำ fallback ด้วย)
     if (e2) {
       console.error("[export-binder] vw_score_by_category error:", e2);
       res.status(500).json({ error: "Query vw_score_by_category failed", detail: e2.message });
       return;
     }
+
+    // ==== Fallback สำหรับ vw_score_total ====
+    let total: TotalRow | undefined = (totalRows as TotalRow[] | null)?.[0];
+
+    if (e1 || !total) {
+      console.warn("[export-binder] vw_score_total failed or empty. Fallback to compute from categories:", e1?.message);
+      const catsArr: CatRow[] = Array.isArray(cats) ? (cats as CatRow[]) : [];
+      const core = catsArr.filter(c => c.category !== "addon");
+
+      const total_score = core.reduce((s, r) => s + toNum(r.score), 0);
+      const max_score   = core.reduce((s, r) => s + toNum(r.max_score_category), 0);
+      const scorePct    = max_score > 0 ? (total_score / max_score) * 100 : 0;
+      const progressPct = core.length > 0
+        ? core.reduce((s, r) => s + toNum(r.evidence_rate_pct), 0) / core.length
+        : 0;
+
+      let tier_label: TotalRow["tier_label"] = "Early Stage";
+      if (scorePct >= 85 && progressPct >= 90) tier_label = "Excellent";
+      else if (scorePct >= 70 && progressPct >= 80) tier_label = "Developing";
+
+      total = {
+        user_id: String(userId),
+        year_version: Number(year),
+        total_score,
+        max_score,
+        tier_label,
+      };
+    } else {
+      // normalize ตัวเลขที่อาจมาเป็น string
+      (total as any).total_score = toNum((total as any).total_score);
+      (total as any).max_score   = toNum((total as any).max_score);
+    }
+
+    // e3 = optional
     if (e3) {
       console.warn("[export-binder] vw_checked_without_evidence error (ignored):", e3.message);
     }
-
-    const total: TotalRow | undefined = (totalRows as TotalRow[] | null)?.[0];
     const warns: WarnRow[] = Array.isArray(warnsRaw) ? (warnsRaw as WarnRow[]) : [];
 
     // 2) สร้าง Workbook
@@ -141,7 +176,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ws1.addRows([
       { field: "Company", value: companyName },
       { field: "Year", value: year },
-      { field: "Total Score", value: total ? `${total.total_score} / ${total.max_score}` : "-" },
+      { field: "Total Score", value: total ? `${toNum(total.total_score)} / ${toNum(total.max_score)}` : "-" },
       { field: "Tier", value: total ? thaiTier(total.tier_label) : "-" },
       { field: "Generated At", value: new Date().toISOString() },
     ]);
@@ -160,12 +195,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ];
     ws2.getRow(1).font = { bold: true };
     ((cats as CatRow[]) || []).forEach((r) => {
-      if (r.category === "addon") return;
+      if (r.category === "addon") return; // ตัด Add-on ออก
       ws2.addRow({
         category: CAT_LABEL[r.category],
-        score: r.score,
-        max: r.max_score_category,
-        evidence: r.evidence_rate_pct,
+        score: toNum(r.score),
+        max: toNum(r.max_score_category),
+        evidence: toNum(r.evidence_rate_pct),
       });
     });
 
@@ -181,11 +216,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ws3.addRow({
         category: CAT_LABEL[w.category],
         name: w.name,
-        points: w.score_points,
+        points: toNum(w.score_points),
       });
     });
 
-    // 3) สร้างไฟล์
+    // 3) สร้างไฟล์ (ArrayBuffer/Uint8Array)
     const arrayBuffer = await wb.xlsx.writeBuffer();
 
     if (upload) {
