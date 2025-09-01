@@ -248,7 +248,7 @@ function DashboardPageImpl() {
         companyName,
         upload: uploadToStorage ? "1" : "0",
       });
-      const url = `/api/export-binder?${params.toString()}`;
+      const url = `/api/export/export-binder?${params.toString()}`;
       const res = await fetch(url, { method: "GET" });
 
       if (!res.ok) {
