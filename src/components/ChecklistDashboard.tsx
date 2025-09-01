@@ -1,21 +1,11 @@
-// File: src/components/ChecklistDashboard.tsx
+// src/components/ChecklistDashboard.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-
-// ✅ ใช้ service + helper เดียวกับหน้าหมวด
 import type { CategoryKey, ChecklistItem } from "@/services/checklistService";
-import {
-  loadItems,
-  calcSummary,
-} from "@/services/checklistService";
+import { loadItems, calcSummary, listYears } from "@/services/checklistService";
+import { getLastYear, setLastYear } from "@/utils/yearPref";
 
-// (ถ้ามี YearSwitcher แล้ว ให้ปรับ path import ให้ตรงโปรเจกต์)
-import YearSwitcher from "@/components/common/YearSwitcher";
-
-/** -----------------------------
- * กลุ่มหมวดทั้งหมด + ชื่อไทย + slug
- * ------------------------------ */
 const GROUPS: { key: CategoryKey; title: string; slug: CategoryKey }[] = [
   { key: "strategy", title: "กลยุทธ์องค์กร", slug: "strategy" },
   { key: "structure", title: "โครงสร้างองค์กร", slug: "structure" },
@@ -28,22 +18,48 @@ const GROUPS: { key: CategoryKey; title: string; slug: CategoryKey }[] = [
 type GroupProgress = {
   key: CategoryKey;
   title: string;
-  pct: number;           // %Progress ของหมวด
-  total: number;         // คะแนนรวมของหมวด (sum score_points)
-  scored: number;        // คะแนนที่ได้ (ตาม requireEvidence)
-  completed: number;     // ข้อที่ติ๊ก + มีไฟล์
-  checkedNoFile: number; // ข้อที่ติ๊กแต่ไม่มีไฟล์
-  notStarted: number;    // ยังไม่เริ่ม
-  withFile: number;      // จำนวนข้อที่มีไฟล์
+  pct: number;
+  total: number;
+  scored: number;
+  completed: number;
+  checkedNoFile: number;
+  notStarted: number;
+  withFile: number;
 };
 
 export default function ChecklistDashboard() {
   const router = useRouter();
-  const year = useMemo(
-    () => Number(router.query.year ?? new Date().getFullYear()),
-    [router.query.year]
-  );
 
+  // ===== Years =====
+  const [years, setYears] = useState<number[]>([]);
+  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [yearLoading, setYearLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const ys = await listYears(); // ปีที่มีข้อมูลในระบบ
+        if (!mounted) return;
+        const sorted = [...ys].sort((a, b) => b - a);
+        const last = getLastYear();
+        const initial = last && sorted.includes(last) ? last : sorted[0] ?? new Date().getFullYear();
+        setYears(sorted);
+        setYear(initial);
+        setLastYear(initial); // บันทึกซ้ำไว้เป็นค่าเริ่มต้น
+      } catch {
+        const now = new Date().getFullYear();
+        setYears([now]);
+        setYear(now);
+        setLastYear(now);
+      } finally {
+        if (mounted) setYearLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  // ===== Load each group =====
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Record<CategoryKey, ChecklistItem[]>>({
     strategy: [],
@@ -54,18 +70,15 @@ export default function ChecklistDashboard() {
     sales: [],
   });
 
-  // ✅ โหลดข้อมูลทุกหมวดพร้อมกัน
   useEffect(() => {
     let mounted = true;
     setLoading(true);
-
     (async () => {
       try {
         const results = await Promise.all(
           GROUPS.map((g) => loadItems({ year, category: g.key }))
         );
         if (!mounted) return;
-
         const next: Record<CategoryKey, ChecklistItem[]> = {
           strategy: [],
           structure: [],
@@ -74,27 +87,20 @@ export default function ChecklistDashboard() {
           finance: [],
           sales: [],
         };
-        GROUPS.forEach((g, idx) => {
-          next[g.key] = results[idx] ?? [];
-        });
+        GROUPS.forEach((g, i) => (next[g.key] = results[i] ?? []));
         setRows(next);
-      } catch (e) {
-        console.error("โหลดข้อมูลภาพรวมผิดพลาด:", e);
       } finally {
         if (mounted) setLoading(false);
       }
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [year]);
 
-  // ✅ คำนวณ progress ต่อหมวด (นโยบาย: ต้องมีหลักฐานจึงนับคะแนน)
+  // ===== Summaries =====
   const groupProgress: GroupProgress[] = useMemo(() => {
     return GROUPS.map((g) => {
       const items = rows[g.key] || [];
-      const s = calcSummary(items, true);
+      const s = calcSummary(items, true); // requireEvidence = true
       return {
         key: g.key,
         title: g.title,
@@ -109,29 +115,49 @@ export default function ChecklistDashboard() {
     });
   }, [rows]);
 
-  // ✅ สรุปค่าเฉลี่ยรวม
   const avgPct = useMemo(() => {
     if (!groupProgress.length) return 0;
     const sum = groupProgress.reduce((acc, g) => acc + (g.pct || 0), 0);
     return Math.round(sum / groupProgress.length);
   }, [groupProgress]);
 
+  const handleChangeYear = (n: number) => {
+    setYear(n);
+    setLastYear(n); // จำไว้ให้หน้า Group ใช้ต่อ
+  };
+
   return (
     <main className="flex-1 bg-slate-50 p-10">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Checklist ระบบองค์กร</h2>
-          <p className="text-slate-500 mt-1">
-            ภาพรวมสถานะ 6 หมวด (นับเฉพาะข้อที่มีหลักฐานแนบ)
-          </p>
+          <p className="text-slate-500 mt-1">ภาพรวมสถานะ 6 หมวด (นับเฉพาะข้อที่มีหลักฐานแนบ)</p>
         </div>
+
         <div className="flex items-center gap-4">
-          {/* วงกลม % รวมแบบง่าย */}
           <div className="flex items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-sm border border-slate-200">
             <div className="text-sm text-slate-500">ความครบถ้วนรวม</div>
             <div className="text-2xl font-bold text-emerald-600">{avgPct}%</div>
           </div>
-          <YearSwitcher year={year} />
+
+          {/* Year Switcher แบบง่ายใน Dashboard เท่านั้น */}
+          <div className="rounded-xl bg-white px-3 py-2 shadow-sm border border-slate-200">
+            {yearLoading ? (
+              <div className="text-sm text-slate-500">กำลังโหลดปี…</div>
+            ) : (
+              <select
+                value={year}
+                onChange={(e) => handleChangeYear(Number(e.target.value))}
+                className="text-sm outline-none"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    ปี {y}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </div>
 
@@ -142,17 +168,13 @@ export default function ChecklistDashboard() {
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {groupProgress.map((g) => {
-            const href = `/checklist/${g.key}?year=${year}`;
+            // ไม่ต้องส่ง year ในลิงก์ — หน้า Group จะไปดึงจาก localStorage เอง
+            const href = `/checklist/${g.key}`;
             return (
-              <div
-                key={g.key}
-                className="bg-white p-6 rounded-xl shadow-sm border border-slate-200"
-              >
+              <div key={g.key} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-lg">
-                      {GROUPS.find((x) => x.key === g.key)?.title}
-                    </h3>
+                    <h3 className="font-semibold text-lg">{g.title}</h3>
                     <div className="mt-1 text-sm text-slate-500">
                       คะแนน: {g.scored.toLocaleString()} / {g.total.toLocaleString()}
                     </div>
@@ -160,7 +182,6 @@ export default function ChecklistDashboard() {
                   <div className="text-2xl font-bold text-emerald-600">{g.pct}%</div>
                 </div>
 
-                {/* Progress bar */}
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-2 rounded-full bg-emerald-500 transition-all"
@@ -168,7 +189,6 @@ export default function ChecklistDashboard() {
                   />
                 </div>
 
-                {/* Sub-stats */}
                 <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-600">
                   <div className="rounded-lg bg-slate-50 p-2">
                     <div className="font-medium text-slate-700">เสร็จ + มีไฟล์</div>
@@ -185,10 +205,7 @@ export default function ChecklistDashboard() {
                 </div>
 
                 <div className="mt-5">
-                  <Link
-                    href={href}
-                    className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                  >
+                  <Link href={href} className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
                     เข้าดู Checklist
                   </Link>
                 </div>

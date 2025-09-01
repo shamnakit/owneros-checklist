@@ -1,9 +1,12 @@
 // src/pages/checklist/[group].tsx
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { useRouter } from "next/router";
 import MainLayout from "@/components/layouts/MainLayout";
 import ChecklistGroupPage from "@/components/checklist/ChecklistGroupPage";
 import type { CategoryKey } from "@/services/checklistService";
+import { listYears } from "@/services/checklistService";
+import { getLastYear, setLastYear } from "@/utils/yearPref";
 
 /**
  * รองรับทั้ง slug แบบใหม่ (strategy|structure|sop|hr|finance|sales)
@@ -22,10 +25,7 @@ const SLUG_MAP: Record<
   sales:     { no: 6, key: "sales",     title: "Checklist หมวด 6: ลูกค้าและการตลาด/การขาย" },
 };
 
-const LEGACY_MAP: Record<
-  `group${1 | 2 | 3 | 4 | 5 | 6}`,
-  CategoryKey
-> = {
+const LEGACY_MAP: Record<`group${1|2|3|4|5|6}`, CategoryKey> = {
   group1: "strategy",
   group2: "structure",
   group3: "sop",
@@ -46,24 +46,47 @@ function GroupRoutePageImpl() {
   const router = useRouter();
   const catKey = resolveCategoryKey(router.query.group);
 
-  // อ่านปีจาก query (เผื่อใช้ต่อใน child ผ่าน useRouter)
-  const year = Number(router.query.year ?? new Date().getFullYear());
+  // ถ้า URL ยังไม่มี ?year= ให้เติมให้เองจาก localStorage -> ปีล่าสุดในระบบ -> ปีปัจจุบัน
+  useEffect(() => {
+    if (!catKey) return;
+
+    const qYear = Number(router.query.year);
+    if (Number.isFinite(qYear) && qYear > 0) {
+      // มีปีอยู่แล้ว → จดจำไว้เป็น lastYear
+      setLastYear(qYear);
+      return;
+    }
+
+    (async () => {
+      let y = getLastYear();
+      if (!y) {
+        try {
+          const ys = await listYears();
+          y = ys.sort((a, b) => b - a)[0] ?? new Date().getFullYear();
+        } catch {
+          y = new Date().getFullYear();
+        }
+      }
+      setLastYear(y);
+      router.replace(
+        { pathname: router.pathname, query: { ...router.query, year: y } },
+        undefined,
+        { shallow: true }
+      );
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catKey]);
 
   if (!catKey) {
-    // ถ้า slug ไม่ถูกต้องให้เด้งกลับหน้า overview
+    // slug ไม่ถูกต้อง → เด้งกลับ overview
     if (typeof window !== "undefined") {
-      const search = new URLSearchParams();
-      if (!Number.isNaN(year)) search.set("year", String(year));
-      const qs = search.toString();
-      window.location.replace(`/checklist${qs ? `?${qs}` : ""}`);
+      window.location.replace("/checklist");
     }
     return null;
   }
 
   const cfg = SLUG_MAP[catKey];
-
-  // นโยบาย %ความครบถ้วน: ต้องมีไฟล์แนบด้วยจึงนับคะแนน → requireEvidence=true
-  const requireEvidence = true;
+  const requireEvidence = true; // นโยบาย: ต้องมีไฟล์แนบถึงนับคะแนน
 
   return (
     <ChecklistGroupPage
@@ -73,7 +96,7 @@ function GroupRoutePageImpl() {
       breadcrumb={`Checklist › หมวด ${cfg.no}`}
       requireEvidence={requireEvidence}
       storageBucket="evidence"
-      // หมายเหตุ: ปีอ่านจาก useRouter ภายใน ChecklistGroupPage ได้อยู่แล้วผ่าน query ?year=
+      // หมายเหตุ: ปีถูกเติมเข้ามาใน query แล้วจาก useEffect ด้านบน
     />
   );
 }
