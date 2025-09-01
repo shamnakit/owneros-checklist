@@ -3,12 +3,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import ExcelJS from "exceljs";
 import { createClient } from "@supabase/supabase-js";
 
-// ใช้รูปแบบ config ของ Pages Router
 export const config = {
   api: {
-    bodyParser: false,   // ไม่รับ multipart ที่นี่
-    responseLimit: false // กัน response ใหญ่
-  }
+    bodyParser: false,
+    responseLimit: false,
+  },
 };
 
 type TotalRow = {
@@ -52,17 +51,7 @@ function thaiTier(t: TotalRow["tier_label"]) {
   if (t === "Developing") return "Developing";
   return "Early Stage";
 }
-
-const esc = (v: any) => {
-  if (v == null) return "";
-  const s = String(v).replace(/"/g, '""');
-  return /[",\n]/.test(s) ? `"${s}"` : s;
-};
-
-const toNum = (x: any): number => {
-  const v = Number(x);
-  return Number.isFinite(v) ? v : 0;
-};
+const toNum = (x: any) => (Number.isFinite(Number(x)) ? Number(x) : 0);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -74,8 +63,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
     const STORAGE_BUCKET = process.env.BINDER_BUCKET || "binders";
-
-    // เช็ค ENV ให้ชัด
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       const missing = [
         !SUPABASE_URL ? "NEXT_PUBLIC_SUPABASE_URL" : null,
@@ -85,7 +72,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    // สร้าง client หลังเช็ค ENV แล้ว
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
@@ -106,38 +92,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    // 1) ดึงข้อมูลจากวิว
-    const [
-      { data: totalRows, error: e1 },
-      { data: cats, error: e2 },
-      { data: warnsRaw, error: e3 },
-    ] = await Promise.all([
+    // === Query views (แบบทนทาน) ===
+    const [{ data: totalRows, error: e1 }] = await Promise.all([
       supabase.from("vw_score_total").select("*").eq("user_id", userId).eq("year_version", year).limit(1),
-      supabase.from("vw_score_by_category").select("*").eq("user_id", userId).eq("year_version", year),
-      supabase.from("vw_checked_without_evidence").select("*").eq("user_id", userId).eq("year_version", year),
     ]);
 
-    // ถ้า categories ล้ม ให้จบ (เพราะใช้ทำ fallback ด้วย)
-    if (e2) {
-      console.error("[export-binder] vw_score_by_category error:", e2);
-      res.status(500).json({ error: "Query vw_score_by_category failed", detail: e2.message });
-      return;
+    // categories / warnings แยก try…catch เพื่อไม่ให้ล้มทั้งงาน
+    let catsArr: CatRow[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("vw_score_by_category")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("year_version", year);
+      if (error) throw error;
+      catsArr = (Array.isArray(data) ? data : []) as CatRow[];
+    } catch (err: any) {
+      console.warn("[export-binder] vw_score_by_category failed, continue without categories:", err?.message);
+      catsArr = [];
     }
 
-    // ==== Fallback สำหรับ vw_score_total ====
+    let warnsArr: WarnRow[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("vw_checked_without_evidence")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("year_version", year);
+      if (error) throw error;
+      warnsArr = (Array.isArray(data) ? data : []) as WarnRow[];
+    } catch (err: any) {
+      console.warn("[export-binder] vw_checked_without_evidence failed, continue without warnings:", err?.message);
+      warnsArr = [];
+    }
+
+    // ==== สร้าง total (มี fallback) ====
     let total: TotalRow | undefined = (totalRows as TotalRow[] | null)?.[0];
-
     if (e1 || !total) {
-      console.warn("[export-binder] vw_score_total failed or empty. Fallback to compute from categories:", e1?.message);
-      const catsArr: CatRow[] = Array.isArray(cats) ? (cats as CatRow[]) : [];
-      const core = catsArr.filter(c => c.category !== "addon");
-
+      console.warn("[export-binder] vw_score_total failed or empty. Fallback compute from categories:", e1?.message);
+      const core = catsArr.filter((c) => c.category !== "addon");
       const total_score = core.reduce((s, r) => s + toNum(r.score), 0);
-      const max_score   = core.reduce((s, r) => s + toNum(r.max_score_category), 0);
-      const scorePct    = max_score > 0 ? (total_score / max_score) * 100 : 0;
-      const progressPct = core.length > 0
-        ? core.reduce((s, r) => s + toNum(r.evidence_rate_pct), 0) / core.length
-        : 0;
+      const max_score = core.reduce((s, r) => s + toNum(r.max_score_category), 0);
+      const scorePct = max_score > 0 ? (total_score / max_score) * 100 : 0;
+      const progressPct =
+        core.length > 0 ? core.reduce((s, r) => s + toNum(r.evidence_rate_pct), 0) / core.length : 0;
 
       let tier_label: TotalRow["tier_label"] = "Early Stage";
       if (scorePct >= 85 && progressPct >= 90) tier_label = "Excellent";
@@ -151,23 +149,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         tier_label,
       };
     } else {
-      // normalize ตัวเลขที่อาจมาเป็น string
       (total as any).total_score = toNum((total as any).total_score);
-      (total as any).max_score   = toNum((total as any).max_score);
+      (total as any).max_score = toNum((total as any).max_score);
     }
 
-    // e3 = optional
-    if (e3) {
-      console.warn("[export-binder] vw_checked_without_evidence error (ignored):", e3.message);
-    }
-    const warns: WarnRow[] = Array.isArray(warnsRaw) ? (warnsRaw as WarnRow[]) : [];
-
-    // 2) สร้าง Workbook
+    // === Workbook ===
     const wb = new ExcelJS.Workbook();
     wb.creator = "OwnerOS";
     wb.created = new Date();
 
-    /** Sheet 1: Summary */
+    // Sheet 1: Summary
     const ws1 = wb.addWorksheet("Summary", { properties: { tabColor: { argb: "2E7D32" } } });
     ws1.columns = [
       { header: "Field", key: "field", width: 24 },
@@ -185,7 +176,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ws1.getColumn(1).alignment = { vertical: "middle" };
     ws1.getColumn(2).alignment = { vertical: "middle" };
 
-    /** Sheet 2: Categories */
+    // Sheet 2: Categories
     const ws2 = wb.addWorksheet("Categories");
     ws2.columns = [
       { header: "Category", key: "category", width: 20 },
@@ -194,17 +185,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { header: "Evidence Rate (%)", key: "evidence", width: 18 },
     ];
     ws2.getRow(1).font = { bold: true };
-    ((cats as CatRow[]) || []).forEach((r) => {
-      if (r.category === "addon") return; // ตัด Add-on ออก
-      ws2.addRow({
-        category: CAT_LABEL[r.category],
-        score: toNum(r.score),
-        max: toNum(r.max_score_category),
-        evidence: toNum(r.evidence_rate_pct),
-      });
-    });
 
-    /** Sheet 3: Warnings */
+    const coreCats = catsArr.filter((r) => r.category !== "addon");
+    if (coreCats.length === 0) {
+      ws2.addRow({
+        category: "N/A (vw_score_by_category unavailable)",
+        score: "",
+        max: "",
+        evidence: "",
+      });
+    } else {
+      coreCats.forEach((r) => {
+        ws2.addRow({
+          category: CAT_LABEL[r.category],
+          score: toNum(r.score),
+          max: toNum(r.max_score_category),
+          evidence: toNum(r.evidence_rate_pct),
+        });
+      });
+    }
+
+    // Sheet 3: Warnings
     const ws3 = wb.addWorksheet("Warnings");
     ws3.columns = [
       { header: "Category", key: "category", width: 18 },
@@ -212,19 +213,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       { header: "Score Points", key: "points", width: 14 },
     ];
     ws3.getRow(1).font = { bold: true };
-    (warns || []).forEach((w) => {
-      ws3.addRow({
-        category: CAT_LABEL[w.category],
-        name: w.name,
-        points: toNum(w.score_points),
-      });
-    });
 
-    // 3) สร้างไฟล์ (ArrayBuffer/Uint8Array)
+    if (warnsArr.length === 0) {
+      ws3.addRow({
+        category: "N/A",
+        name: "No data or view unavailable",
+        points: "",
+      });
+    } else {
+      warnsArr.forEach((w) => {
+        ws3.addRow({
+          category: CAT_LABEL[w.category],
+          name: w.name,
+          points: toNum(w.score_points),
+        });
+      });
+    }
+
+    // สร้างไฟล์
     const arrayBuffer = await wb.xlsx.writeBuffer();
 
     if (upload) {
-      // 4) อัปโหลดขึ้น Storage แล้วคืนลิงก์
+      // อัปโหลดขึ้น Storage
       try {
         await supabase.storage.createBucket(STORAGE_BUCKET, { public: false }).catch(() => {});
         const filename = `binder_${companyName.replace(/\s+/g, "_")}_${year}_${Date.now()}.xlsx`;
@@ -259,7 +269,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // 5) ส่งดาวน์โหลดตรง
+    // ดาวน์โหลดทันที
     const safeName = `Binder_${companyName.replace(/[^\w\-]+/g, "_")}_${year}.xlsx`;
     res.setHeader(
       "Content-Type",
