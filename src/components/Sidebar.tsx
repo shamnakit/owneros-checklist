@@ -29,14 +29,16 @@ function getActiveKey(pathname: string): string {
   return "";
 }
 
+// เปลี่ยนเฉพาะรายการลิงก์ลูก
 const ALL_CHECKLIST_CHILDREN = [
-  { key: "checklist:group1", href: "/checklist/group1", label: "กลยุทธ์และทิศทางองค์กร", icon: Target, perm: "view_checklist_group1" },
-  { key: "checklist:group2", href: "/checklist/group2", label: "โครงสร้างและการกำกับดูแล", icon: ChartNoAxesCombined, perm: "view_checklist_group2" },
-  { key: "checklist:group3", href: "/checklist/group3", label: "กระบวนการและคู่มือการทำงาน", icon: BookText, perm: "view_checklist_group3" },
-  { key: "checklist:group4", href: "/checklist/group4", label: "บุคลากรและการพัฒนา HR", icon: Users, perm: "view_checklist_group4" },
-  { key: "checklist:group5", href: "/checklist/group5", label: "การเงินและการวัดผล", icon: Wallet, perm: "view_checklist_group5" },
-  { key: "checklist:group6", href: "/checklist/group6", label: "ลูกค้าและการตลาด/การขาย", icon: ShoppingCart, perm: "view_checklist_group6" },
-] as const;
+  { key: "checklist:strategy",  href: "/checklist/strategy",  label: "กลยุทธ์และทิศทางองค์กร",    icon: Target,              perm: "view_checklist_group1" },
+  { key: "checklist:structure", href: "/checklist/structure", label: "โครงสร้างและการกำกับดูแล",  icon: ChartNoAxesCombined, perm: "view_checklist_group2" },
+  { key: "checklist:sop",       href: "/checklist/sop",       label: "กระบวนการและคู่มือการทำงาน", icon: BookText,            perm: "view_checklist_group3" },
+  { key: "checklist:hr",        href: "/checklist/hr",        label: "บุคลากรและการพัฒนา HR",      icon: Users,               perm: "view_checklist_group4" },
+  { key: "checklist:finance",   href: "/checklist/finance",   label: "การเงินและการวัดผล",         icon: Wallet,              perm: "view_checklist_group5" },
+  { key: "checklist:sales",     href: "/checklist/sales",     label: "ลูกค้าและการตลาด/การขาย",    icon: ShoppingCart,        perm: "view_checklist_group6" },
+];
+
 
 function defaultPermissionsByRole(role: Role): Set<string> {
   switch (role) {
