@@ -2,7 +2,13 @@
 import { supabase } from "@/utils/supabaseClient";
 
 /** ---------- Types ---------- */
-export type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
+export type CategoryKey =
+  | "strategy"
+  | "structure"
+  | "sop"
+  | "hr"
+  | "finance"
+  | "sales";
 
 export interface ChecklistItem {
   template_id: string;
@@ -27,20 +33,29 @@ export interface Summary {
 }
 
 /** ---------- Helpers (pure) ---------- */
-export function getStatus(it: Pick<ChecklistItem, "has_record" | "has_evidence">) {
+export function getStatus(
+  it: Pick<ChecklistItem, "has_record" | "has_evidence">
+) {
   if (!it.has_record) return "red" as const;
   if (it.has_record && !it.has_evidence) return "yellow" as const;
   return "green" as const;
 }
 
-export function calcSummary(items: ChecklistItem[], requireEvidence: boolean): Summary {
+export function calcSummary(
+  items: ChecklistItem[],
+  requireEvidence: boolean
+): Summary {
   const total = items.reduce((s, it) => s + Number(it.score_points || 0), 0);
   const scored = items
-    .filter((it) => (requireEvidence ? it.has_record && it.has_evidence : it.has_record))
+    .filter((it) =>
+      requireEvidence ? it.has_record && it.has_evidence : it.has_record
+    )
     .reduce((s, it) => s + Number(it.score_points || 0), 0);
   const pct = total > 0 ? Math.round((scored / total) * 100) : 0;
-  const completed = items.filter((it) => it.has_record && it.has_evidence).length;
-  const checkedNoFile = items.filter((it) => it.has_record && !it.has_evidence).length;
+  const completed = items.filter((it) => it.has_record && it.has_evidence)
+    .length;
+  const checkedNoFile = items.filter((it) => it.has_record && !it.has_evidence)
+    .length;
   const notStarted = items.filter((it) => !it.has_record).length;
   const withFile = items.filter((it) => it.has_evidence).length;
   return { pct, total, scored, completed, checkedNoFile, notStarted, withFile };
@@ -56,7 +71,8 @@ export function fmtDate(s?: string | null) {
 /** ---------- Auth ---------- */
 export async function getAuthUid() {
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user?.id) throw new Error("ไม่พบผู้ใช้ (auth.uid) — โปรดล็อกอิน");
+  if (error || !data?.user?.id)
+    throw new Error("ไม่พบผู้ใช้ (auth.uid) — โปรดล็อกอิน");
   return data.user.id as string;
 }
 
@@ -64,11 +80,16 @@ export async function getAuthUid() {
 export async function listYears(): Promise<number[]> {
   const { data, error } = await supabase.rpc("fn_available_years_for_me");
   if (error) throw error;
-  const ys = (data as any[]).map((r) => Number((r as any).year_version)).filter(Boolean);
+  const ys = (data as any[])
+    .map((r) => Number((r as any).year_version))
+    .filter(Boolean);
   return ys.length ? ys : [new Date().getFullYear()];
 }
 
-export async function loadItems(params: { year: number; category: CategoryKey }): Promise<ChecklistItem[]> {
+export async function loadItems(params: {
+  year: number;
+  category: CategoryKey;
+}): Promise<ChecklistItem[]> {
   const { year, category } = params;
   const { data, error } = await supabase.rpc("fn_checklist_items_for_me", {
     p_year: year,
@@ -123,7 +144,13 @@ export async function toggleRecord(payload: {
 }): Promise<void> {
   const uid = await getAuthUid();
   if (payload.next) {
-    await ensureRow({ uid, template_id: payload.template_id, year: payload.year, name: payload.name, autoCheck: true });
+    await ensureRow({
+      uid,
+      template_id: payload.template_id,
+      year: payload.year,
+      name: payload.name,
+      autoCheck: true,
+    });
   } else {
     const { error } = await supabase
       .from("checklists_v2")
@@ -142,7 +169,13 @@ export async function saveText(payload: {
   text: string;
 }): Promise<void> {
   const uid = await getAuthUid();
-  await ensureRow({ uid, template_id: payload.template_id, year: payload.year, name: payload.name, autoCheck: true });
+  await ensureRow({
+    uid,
+    template_id: payload.template_id,
+    year: payload.year,
+    name: payload.name,
+    autoCheck: true,
+  });
   const { error } = await supabase
     .from("checklists_v2")
     .update({
@@ -166,17 +199,25 @@ export async function uploadEvidence(payload: {
   bucket?: string;
 }): Promise<{ key: string; fileName: string }> {
   const uid = await getAuthUid();
-  await ensureRow({ uid, template_id: payload.template_id, year: payload.year, name: payload.name, autoCheck: true });
+  await ensureRow({
+    uid,
+    template_id: payload.template_id,
+    year: payload.year,
+    name: payload.name,
+    autoCheck: true,
+  });
 
   const bucket = payload.bucket ?? DEFAULT_BUCKET;
   const ext = payload.file.name.split(".").pop() || "bin";
   const key = `${uid}/${payload.year}/${payload.template_id}/${Date.now()}.${ext}`;
 
-  const { error: upErr } = await supabase.storage.from(bucket).upload(key, payload.file, {
-    cacheControl: "3600",
-    upsert: false,
-    contentType: payload.file.type || undefined,
-  });
+  const { error: upErr } = await supabase.storage
+    .from(bucket)
+    .upload(key, payload.file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: payload.file.type || undefined,
+    });
   if (upErr) throw upErr;
 
   const { error: updErr } = await supabase
@@ -203,13 +244,15 @@ export async function replaceEvidence(payload: {
   oldKey?: string | null;
   bucket?: string;
 }): Promise<{ key: string; fileName: string }> {
-  const uid = await getAuthUid();
   const bucket = payload.bucket ?? DEFAULT_BUCKET;
 
   if (payload.oldKey) {
-    await supabase.storage.from(bucket).remove([payload.oldKey]).catch((e) => {
-      console.warn("remove old file failed (continue):", e?.message || e);
-    });
+    await supabase.storage
+      .from(bucket)
+      .remove([payload.oldKey])
+      .catch((e) => {
+        console.warn("remove old file failed (continue):", e?.message || e);
+      });
   }
   return uploadEvidence({
     template_id: payload.template_id,
@@ -229,7 +272,9 @@ export async function removeEvidence(payload: {
   const uid = await getAuthUid();
   const bucket = payload.bucket ?? DEFAULT_BUCKET;
 
-  const { error: delErr } = await supabase.storage.from(bucket).remove([payload.key]);
+  const { error: delErr } = await supabase.storage
+    .from(bucket)
+    .remove([payload.key]);
   if (delErr) throw delErr;
 
   const { error: updErr } = await supabase
@@ -246,12 +291,16 @@ export async function removeEvidence(payload: {
   if (updErr) throw updErr;
 }
 
-export async function signedUrl(payload: { key: string; bucket?: string; expiresInSec?: number }): Promise<string> {
+export async function signedUrl(payload: {
+  key: string;
+  bucket?: string;
+  expiresInSec?: number;
+}): Promise<string> {
   const bucket = payload.bucket ?? DEFAULT_BUCKET;
   const expiresInSec = payload.expiresInSec ?? 60 * 5;
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(payload.key, expiresInSec, {
-    download: false,
-  });
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(payload.key, expiresInSec, { download: false });
   if (error || !data?.signedUrl) throw error || new Error("no signed url");
   return data.signedUrl;
 }
@@ -260,8 +309,8 @@ export async function signedUrl(payload: { key: string; bucket?: string; expires
 export type TemplateRow = {
   id?: string;
   template_id?: string | null;
-  name: string;                  // ชื่อจริงในตาราง
-  description?: string | null;   // ถ้าไม่มีคอลัมน์นี้ ให้ลบฟิลด์นี้ออก
+  name: string; // ชื่อจริงในตาราง
+  description?: string | null; // ถ้าไม่มีคอลัมน์นี้ ให้ลบฟิลด์นี้ออก
   category: "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
   score_points: number;
   order_no?: number | null;
@@ -272,8 +321,8 @@ export type TemplateRow = {
 export type Checklist = TemplateRow & { title?: string };
 
 type AdminChecklistInput = Partial<TemplateRow> & {
-  title?: string;        // alias ของ name
-  description?: string;  // ถ้า UI ส่งมาก็รับไว้
+  title?: string; // alias ของ name
+  description?: string; // ถ้า UI ส่งมาก็รับไว้
 };
 
 export async function getChecklists(): Promise<Checklist[]> {
@@ -286,7 +335,9 @@ export async function getChecklists(): Promise<Checklist[]> {
   return (data || []).map((r: any) => ({ ...r, title: r.name })) as Checklist[];
 }
 
-export async function createChecklist(payload: AdminChecklistInput): Promise<Checklist> {
+export async function createChecklist(
+  payload: AdminChecklistInput
+): Promise<Checklist> {
   const row: TemplateRow = {
     name: (payload.title ?? payload.name ?? "").toString(),
     description: payload.description ?? null,
@@ -296,21 +347,37 @@ export async function createChecklist(payload: AdminChecklistInput): Promise<Che
     is_active: payload.is_active ?? true,
     template_id: payload.template_id ?? null,
   };
-  const { data, error } = await supabase.from("checklist_templates").insert(row).select().single();
+  const { data, error } = await supabase
+    .from("checklist_templates")
+    .insert(row)
+    .select()
+    .single();
   if (error) throw error;
   const created = data as TemplateRow;
   return { ...created, title: created.name };
 }
 
-export async function updateChecklist(id: string, patch: Partial<AdminChecklistInput>): Promise<void> {
+export async function updateChecklist(
+  id: string,
+  patch: Partial<AdminChecklistInput>
+): Promise<void> {
   const upd: any = { ...patch };
-  if (upd.title != null) { upd.name = upd.title; delete upd.title; }
+  if (upd.title != null) {
+    upd.name = upd.title;
+    delete upd.title;
+  }
   if (upd.score_points != null) upd.score_points = Number(upd.score_points);
-  const { error } = await supabase.from("checklist_templates").update(upd).eq("id", id);
+  const { error } = await supabase
+    .from("checklist_templates")
+    .update(upd)
+    .eq("id", id);
   if (error) throw error;
 }
 
 export async function deleteChecklist(id: string): Promise<void> {
-  const { error } = await supabase.from("checklist_templates").delete().eq("id", id);
+  const { error } = await supabase
+    .from("checklist_templates")
+    .delete()
+    .eq("id", id);
   if (error) throw error;
 }
