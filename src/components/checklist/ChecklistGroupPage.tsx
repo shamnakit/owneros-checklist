@@ -1,8 +1,8 @@
 // src/components/checklist/ChecklistGroupPage.tsx
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import {
   loadItems,
-  listYears,
   toggleRecord,
   saveText as svcSaveText,
   uploadEvidence as svcUploadEvidence,
@@ -32,16 +32,9 @@ export type ChecklistGroupPageProps = {
 };
 
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
-
 const DEFAULT_BUCKET = "evidence";
 
-/* ----------------------------------------------------------------
- * OVERRIDES: ตั้งชื่อหัวข้อย่อยพร้อมคำอธิบายสำหรับทุกหมวด (1–6)
- * ระบบจะเติมลำดับอัตโนมัติ: {groupNo}.{index+1}• {title} – {desc}
- * ถ้าจำนวนรายการจริงไม่เท่ากับลิสต์นี้:
- *  - น้อยกว่า: ใช้เท่าที่มี
- *  - มากกว่า: รายการเกินจะใช้ชื่อเดิมจากฐานข้อมูล
- * ---------------------------------------------------------------- */
+/** ---------- ชื่อ/คำอธิบาย override ต่อหมวด ---------- */
 type TitleDesc = { title: string; desc?: string };
 
 const STRATEGY_OVERRIDES: TitleDesc[] = [
@@ -105,7 +98,7 @@ const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
   sales: SALES_OVERRIDES,
 };
 
-const badge = (text: string, active = false) =>
+const badge = (active = false) =>
   `px-3 py-1.5 rounded-full text-sm ${active ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`;
 
 export default function ChecklistGroupPage({
@@ -116,9 +109,12 @@ export default function ChecklistGroupPage({
   requireEvidence = false,
   storageBucket = DEFAULT_BUCKET,
 }: ChecklistGroupPageProps) {
-  const thisYear = new Date().getFullYear();
-  const [years, setYears] = useState<number[]>([thisYear]);
-  const [year, setYear] = useState<number>(thisYear);
+  const router = useRouter();
+  // ✅ ดึงปีจาก query เท่านั้น (ไม่มี dropdown แล้ว)
+  const year = useMemo(() => {
+    const y = Number(router.query.year ?? new Date().getFullYear());
+    return Number.isFinite(y) ? y : new Date().getFullYear();
+  }, [router.query.year]);
 
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,24 +123,6 @@ export default function ChecklistGroupPage({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-
-  /** โหลดรายชื่อปี */
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const ys = await listYears();
-        if (!mounted) return;
-        setYears(ys);
-        setYear((y) => (ys.includes(y) ? y : ys[0]));
-      } catch (e: any) {
-        console.error(e);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   /** โหลดรายการ checklist ของหมวด */
   const load = async () => {
@@ -192,7 +170,7 @@ export default function ChecklistGroupPage({
     }
   }, [items, filter]);
 
-  /** ติ๊ก/ยกเลิก (manual) */
+  /** ติ๊ก/ยกเลิก */
   const onToggleItem = async (it: ChecklistItem, next: boolean) => {
     setSavingId(it.template_id);
     try {
@@ -206,7 +184,7 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** อัปโหลดหลักฐาน (auto-check + evidence=true) */
+  /** อัปโหลด/เปลี่ยน/ลบ/ดูไฟล์ */
   const onUploadEvidence = async (it: ChecklistItem, file: File) => {
     setSavingId(it.template_id);
     try {
@@ -219,8 +197,6 @@ export default function ChecklistGroupPage({
       setSavingId(null);
     }
   };
-
-  /** เปลี่ยนไฟล์ (ลบเก่า → อัปใหม่) */
   const onReplaceEvidence = async (it: ChecklistItem, file: File) => {
     setSavingId(it.template_id);
     try {
@@ -240,8 +216,6 @@ export default function ChecklistGroupPage({
       setSavingId(null);
     }
   };
-
-  /** ลบไฟล์ */
   const onRemoveEvidence = async (it: ChecklistItem) => {
     if (!it.file_key) return;
     if (!confirm("ยืนยันลบไฟล์แนบข้อนี้?")) return;
@@ -256,8 +230,6 @@ export default function ChecklistGroupPage({
       setSavingId(null);
     }
   };
-
-  /** ดูไฟล์ (Signed URL) */
   const onViewEvidence = async (it: ChecklistItem) => {
     if (!it.file_key) {
       alert("ยังไม่มีไฟล์ในข้อนี้");
@@ -272,7 +244,7 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** บันทึกข้อความ (auto-check) */
+  /** บันทึกข้อความ */
   const onSaveText = async (it: ChecklistItem) => {
     setSavingId(it.template_id);
     try {
@@ -287,7 +259,7 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** helper: แสดงชื่อหัวข้อ (รองรับ override + ลำดับ) */
+  /** helper: ชื่อหัวข้อ (รองรับ override + ลำดับ) */
   const getDisplayName = (origName: string, index: number) => {
     const list = TITLE_OVERRIDES[categoryKey];
     const order = `${groupNo}.${index + 1}• `;
@@ -299,72 +271,61 @@ export default function ChecklistGroupPage({
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <main className="flex-1 bg-slate-50 p-6 md:p-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm text-slate-500">{breadcrumb || `Checklist › หมวด ${groupNo}`}</div>
-          <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+          <h1 className="mt-1 text-2xl font-bold text-slate-800">{title}</h1>
+          <div className="mt-1 text-sm text-slate-500">ปี {year}</div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-500">ปี:</label>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="border rounded-md px-2 py-1"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+
+        {/* Summary cards */}
+        <div className="flex items-center gap-4">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs text-slate-500">ความครบถ้วน (นับเฉพาะมีไฟล์)</div>
+            <div className="text-3xl font-bold text-emerald-600 text-right">{summary.pct}%</div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="text-xs text-slate-500">คะแนน</div>
+            <div className="text-right text-lg font-semibold">
+              {summary.scored.toLocaleString()} / {summary.total.toLocaleString()}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="p-4 mb-6 rounded-xl bg-white border">
-        <div className="flex items-center justify-between">
-          <div className="text-slate-700 font-medium">
-            ความคืบหน้าหมวดนี้: {summary.pct}% {requireEvidence ? "(นับเมื่อมีหลักฐาน)" : "(ติ๊กก็นับ)"}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <span>ครบพร้อมไฟล์: {summary.completed}</span>
-            <span>• ติ๊กแล้วไม่มีไฟล์: {summary.checkedNoFile}</span>
-            <span>• ยังไม่ทำ: {summary.notStarted}</span>
-          </div>
+      {/* Stat strip */}
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
+          <div className="text-xs text-slate-500">เสร็จ + มีไฟล์</div>
+          <div className="mt-1 text-xl font-bold">{summary.completed}</div>
         </div>
-        <div className="mt-2 w-full bg-gray-200/70 h-2 rounded-full overflow-hidden">
-          <div
-            className="h-2 rounded-full"
-            style={{ width: `${summary.pct}%`, background: "linear-gradient(90deg,#60a5fa,#34d399)" }}
-          />
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
+          <div className="text-xs text-slate-500">ติ๊กแต่ไม่มีไฟล์</div>
+          <div className="mt-1 text-xl font-bold">{summary.checkedNoFile}</div>
         </div>
-        <div className="mt-2 text-xs text-slate-500">ครบพร้อมไฟล์: {summary.withFile} รายการ</div>
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
+          <div className="text-xs text-slate-500">ยังไม่เริ่ม</div>
+          <div className="mt-1 text-xl font-bold">{summary.notStarted}</div>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
+          <div className="text-xs text-slate-500">มีไฟล์แล้ว</div>
+          <div className="mt-1 text-xl font-bold">{summary.withFile}</div>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2 mb-4">
-        <button className={badge("ทั้งหมด", filter === "all")} onClick={() => setFilter("all")}>
-          ทั้งหมด
-        </button>
-        <button className={badge("ยังไม่ทำ", filter === "not_started")} onClick={() => setFilter("not_started")}>
-          ยังไม่ทำ
-        </button>
-        <button
-          className={badge("ติ๊กแล้วไม่มีไฟล์", filter === "checked_no_file")}
-          onClick={() => setFilter("checked_no_file")}
-        >
-          ติ๊กแล้วไม่มีไฟล์
-        </button>
-        <button className={badge("ทำแล้วมีไฟล์", filter === "completed")} onClick={() => setFilter("completed")}>
-          ทำแล้วมีไฟล์
-        </button>
+      <div className="mb-4 flex gap-2">
+        <button className={badge(filter === "all")} onClick={() => setFilter("all")}>ทั้งหมด</button>
+        <button className={badge(filter === "not_started")} onClick={() => setFilter("not_started")}>ยังไม่ทำ</button>
+        <button className={badge(filter === "checked_no_file")} onClick={() => setFilter("checked_no_file")}>ติ๊กแล้วไม่มีไฟล์</button>
+        <button className={badge(filter === "completed")} onClick={() => setFilter("completed")}>ทำแล้วมีไฟล์</button>
       </div>
 
       {/* Error / Loading */}
       {errorMsg && (
-        <div className="p-4 mb-4 rounded-xl border border-red-300 text-red-700 bg-red-50">{errorMsg}</div>
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-red-700">{errorMsg}</div>
       )}
       {loading && (
         <div className="flex items-center gap-2 text-slate-600">
@@ -374,9 +335,8 @@ export default function ChecklistGroupPage({
 
       {/* Items */}
       {!loading && items.length === 0 && (
-        <div className="text-slate-500">
-          ยังไม่มีหัวข้อในหมวดนี้
-          <div className="text-xs mt-1">(debug: categoryKey = <code>{categoryKey}</code>)</div>
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600">
+          ยังไม่มีหัวข้อของปีนี้
         </div>
       )}
 
@@ -397,7 +357,7 @@ export default function ChecklistGroupPage({
           return (
             <li
               key={it.template_id}
-              className={`bg-white p-4 rounded-xl shadow border ${
+              className={`bg-white p-4 rounded-xl shadow-sm border ${
                 status === "green" ? "border-emerald-200" : status === "yellow" ? "border-amber-200" : "border-slate-200"
               }`}
             >
@@ -411,7 +371,7 @@ export default function ChecklistGroupPage({
                       คะแนนข้อนี้: +{it.score_points} • อัปเดตล่าสุด: {fmtDate(it.updated_at)}
                     </div>
 
-                    {/* Maturity Display */}
+                    {/* Maturity */}
                     <div className="mt-1 text-xs">
                       <span className="text-slate-600">ระดับ Maturity: </span>
                       {(() => {
@@ -427,20 +387,20 @@ export default function ChecklistGroupPage({
 
                     {/* ชื่อไฟล์ + ปุ่มดู/เปลี่ยน/ลบ */}
                     {it.has_evidence && it.file_path ? (
-                      <div className="text-xs mt-1 flex items-center gap-3">
+                      <div className="mt-1 flex items-center gap-3 text-xs">
                         <span className="text-emerald-700">ไฟล์: {it.file_path}</span>
 
                         <button
                           type="button"
                           onClick={() => onViewEvidence(it)}
-                          className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-500 underline"
+                          className="inline-flex items-center gap-1 underline text-blue-600 hover:text-blue-500"
                           title="ดูไฟล์"
                         >
                           <Eye size={14} /> ดูไฟล์
                         </button>
 
                         <label
-                          className="inline-flex items-center gap-1 text-slate-700 hover:text-slate-600 underline cursor-pointer"
+                          className="inline-flex cursor-pointer items-center gap-1 underline text-slate-700 hover:text-slate-600"
                           title="เปลี่ยนไฟล์"
                         >
                           <Upload size={14} /> เปลี่ยนไฟล์
@@ -459,14 +419,14 @@ export default function ChecklistGroupPage({
                         <button
                           type="button"
                           onClick={() => onRemoveEvidence(it)}
-                          className="inline-flex items-center gap-1 text-red-600 hover:text-red-500 underline"
+                          className="inline-flex items-center gap-1 underline text-red-600 hover:text-red-500"
                           title="ลบไฟล์"
                         >
                           <Trash2 size={14} /> ลบไฟล์
                         </button>
                       </div>
                     ) : status === "yellow" ? (
-                      <div className="text-xs text-amber-700 mt-1">
+                      <div className="mt-1 text-xs text-amber-700">
                         ติ๊กแล้วแต่ยังไม่มีหลักฐาน — อัปโหลดไฟล์เพื่อปลดล็อกคะแนนเต็ม
                       </div>
                     ) : null}
@@ -475,7 +435,7 @@ export default function ChecklistGroupPage({
 
                 {/* actions */}
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 text-sm select-none">
+                  <label className="flex select-none items-center gap-2 text-sm">
                     <input
                       type="checkbox"
                       checked={!!it.has_record}
@@ -485,7 +445,7 @@ export default function ChecklistGroupPage({
                     ติ๊กแล้ว
                   </label>
 
-                  <label className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 cursor-pointer">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm hover:bg-slate-200">
                     <Upload size={16} />
                     <span>แนบไฟล์</span>
                     <input
@@ -505,7 +465,7 @@ export default function ChecklistGroupPage({
               {/* textarea */}
               <div className="mt-3">
                 <textarea
-                  className="w-full border rounded-lg p-3 text-sm"
+                  className="w-full rounded-lg border p-3 text-sm"
                   rows={3}
                   placeholder="พิมพ์บันทึก/สรุปหลักฐาน…"
                   value={drafts[it.template_id] ?? it.input_text ?? ""}
@@ -515,7 +475,7 @@ export default function ChecklistGroupPage({
                   <button
                     onClick={() => onSaveText(it)}
                     disabled={savingId === it.template_id}
-                    className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-500"
+                    className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
                   >
                     บันทึก
                   </button>
@@ -525,6 +485,6 @@ export default function ChecklistGroupPage({
           );
         })}
       </ul>
-    </div>
+    </main>
   );
 }
