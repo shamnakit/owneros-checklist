@@ -433,26 +433,43 @@ function DashboardPageImpl() {
         </div>
       )}
 
-      {/* Category – Bars + Detail rows */}
+      {/* Category – Bars + Progress Cards */}
       {!loading && (
         <div className="rounded-2xl border bg-white shadow-sm">
-          <div className="p-6">
-            <h3 className="font-semibold mb-4">ความคืบหน้าตามหมวด (ปี {year})</h3>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={categoryBars}>
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="value" fill="#16a34a" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="p-6 space-y-6">
+            <div>
+              <h3 className="font-semibold mb-4">ความคืบหน้าตามหมวด (ปี {year})</h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={categoryBars}>
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#16a34a" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
 
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Category Progress Cards (ตาม mock) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {categoryBars.map((item) => (
-                <div key={item.key} className="flex items-center justify-between border rounded-xl p-3">
-                  <div>
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-xs text-gray-600">Evidence rate: {fmtPct(item.evidenceRate)}</div>
+                <div key={item.key} className="rounded-2xl border overflow-hidden">
+                  {/* header color by category */}
+                  <div
+                    className="px-4 py-2 text-white font-semibold"
+                    style={{ background: item.key === 'strategy' ? '#2563eb' : item.key === 'structure' ? '#a855f7' : item.key === 'sop' ? '#f59e0b' : item.key === 'hr' ? '#ec4899' : item.key === 'finance' ? '#16a34a' : '#f59e0b' }}
+                  >
+                    {item.name}
+                  </div>
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm text-gray-600">Progress</span>
+                      <span className="text-lg font-bold">{fmtPct(item.value)}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm text-gray-600">Evidence Rate</span>
+                      <span className="text-sm font-medium">{fmtPct(item.evidenceRate)}</span>
+                    </div>
+
                     {(item.raw?.max_score_category ?? 0) === 0 ? (
                       <div className="text-xs text-red-600">ยังไม่ได้ตั้งคะแนนใน template</div>
                     ) : item.warnings > 0 ? (
@@ -460,10 +477,13 @@ function DashboardPageImpl() {
                     ) : (
                       <div className="text-xs text-emerald-700 flex items-center gap-1"><CheckCircle2 size={14} /> หลักฐานครบ</div>
                     )}
+
+                    <div className="pt-2">
+                      <Link href={`/checklist?tab=${item.key}&year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                        View Details <ArrowRight size={14} />
+                      </Link>
+                    </div>
                   </div>
-                  <Link href={`/checklist?tab=${item.key}&year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                    ไปกรอก/อัปโหลดต่อ <ArrowRight size={14} />
-                  </Link>
                 </div>
               ))}
             </div>
