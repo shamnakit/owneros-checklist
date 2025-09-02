@@ -1,6 +1,7 @@
-// /src/pages/dashboard.tsx – Bizsystem Dashboard (v2.1)
-// CEO‑first layout: Hero, Quadrant, Radar (year‑over‑year), Category Cards, Trend, Gap & Action, Add‑on Suggestions
-// NOTE: ใช้ Tailwind ล้วน ๆ (ไม่พึ่ง shadcn) + Recharts สำหรับกราฟ
+// /src/pages/dashboard.tsx – Bizsystem Dashboard (v2.6)
+// Reordered layout per request:
+// 1) Radar → 2) Category Progress Cards → 3) Progress vs Quality → 4) Gap → 5) Suggestions → 6) Trend
+// Added graphic icons (lucide-react) to make UI more engaging.
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -24,7 +25,22 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { AlertTriangle, ArrowRight, CheckCircle2, Download } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Download,
+  Target,
+  BarChart3,
+  Activity,
+  TrendingUp,
+  Lightbulb,
+  Building2,
+  Users,
+  Wallet,
+  ShoppingCart,
+  BookText,
+} from "lucide-react";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
 
@@ -80,14 +96,15 @@ const COLOR: Record<CategoryKey, string> = {
 
 /** ---------- Helpers ---------- */
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
-const fmtPct = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%`;
+const fmtPct0 = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%`;
+const fmtPct1 = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 const toPct = (n: number, d: number) => (d ? (Number(n) / Number(d)) * 100 : 0);
 const thaiTier = (t: TotalRow["tier_label"]) => (t === "Excellent" ? "Excellent" : t === "Developing" ? "Developing" : "Early Stage");
 
 /** ---------- Component ---------- */
 function DashboardPageImpl() {
   const { profile } = useUserProfile();
-  const uid = profile?.id || null;
+  const uid = (profile as any)?.id || null;
   const companyName = profile?.company_name || "บริษัทของฉัน";
 
   const thisYear = new Date().getFullYear();
@@ -190,7 +207,7 @@ function DashboardPageImpl() {
       }
     })();
 
-    return () => {
+  return () => {
       mounted = false;
     };
   }, [uid, year, compareYear]);
@@ -221,7 +238,6 @@ function DashboardPageImpl() {
   /** ===== Derived Data ===== */
   const totalA = total[year];
   const totalB = total[compareYear];
-  const indA = industryAvg[year];
 
   const radarData = useMemo(() => {
     const a = cats[year] || [];
@@ -263,13 +279,6 @@ function DashboardPageImpl() {
   }, [cats, year]);
   const quadrantPoint = useMemo(() => [{ x: clampPct(overallScorePct), y: clampPct(overallProgressPct) }], [overallScorePct, overallProgressPct]);
 
-  // Benchmark
-  const diffText = useMemo(() => {
-    if (!totalA || !indA) return "";
-    const diff = Math.round(Number(totalA.total_score) - Number(indA.avg_score));
-    return `${diff >= 0 ? "+" : ""}${diff}`;
-  }, [totalA, indA]);
-
   // Top gaps
   const topGaps = useMemo(() => (warns[year] || []).slice(0, 3).map((w) => ({ title: w.name, category: String(w.category).toUpperCase(), id: w.checklist_id })), [warns, year]);
 
@@ -306,7 +315,7 @@ function DashboardPageImpl() {
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `Binder_${companyName.replace(/[^\w\-]+/g, "_")}_${year}.xlsx`;
+      a.download = `Binder_${companyName.replace(/[^A-Za-z0-9\-]+/g, "_")}_${year}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -351,48 +360,99 @@ function DashboardPageImpl() {
       {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">เกิดข้อผิดพลาด: {errorMsg}</div>}
       {loading && <div className="rounded-xl border p-4">กำลังโหลดข้อมูล…</div>}
 
-      {/* Hero – Score & Tier & Benchmark */}
-      {!loading && totalA && (
+      {/* 1) Radar Chart */}
+      {!loading && (
         <div className="rounded-2xl border bg-white shadow-sm">
-          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-            <div>
-              <div className="text-4xl font-bold">
-                {Math.round(Number(totalA.total_score)).toLocaleString()} / {Number(totalA.max_score).toLocaleString()}
-              </div>
-              <p className="text-gray-600">
-                {fmtPct(toPct(Number(totalA.total_score), Math.max(1, Number(totalA.max_score))))} ความพร้อม • ปี {year}
-              </p>
-            </div>
-            <div className="text-center">
-              <span className={`px-4 py-2 rounded-2xl font-semibold ${
-                totalA.tier_label === "Excellent" ? "bg-emerald-100 text-emerald-700" : totalA.tier_label === "Developing" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
-              }`}>
-                Tier: {thaiTier(totalA.tier_label)}
-              </span>
-              {totalB && (
-                <p className="text-sm text-gray-500 mt-1">เทียบปี {compareYear}: {Math.round(Number(totalB.total_score)).toLocaleString()} / {Number(totalB.max_score).toLocaleString()} ({thaiTier(totalB.tier_label)})</p>
+          <div className="p-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Target className="text-sky-600" size={18} />
+              <h3 className="font-semibold">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
+              {total[year] && (
+                <span className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                  total[year]?.tier_label === "Excellent" ? "bg-emerald-100 text-emerald-700" : total[year]?.tier_label === "Developing" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
+                }`}>
+                  Tier: {thaiTier(total[year]!.tier_label)}
+                </span>
               )}
             </div>
-            <div className="text-sm md:text-right text-gray-700">
-              {indA ? (
-                <div>
-                  Industry Diff: <span className={Number(diffText) >= 0 ? "text-emerald-700" : "text-red-700"}>{diffText}</span>
-                </div>
-              ) : (
-                <div className="text-gray-500">ยังไม่มีข้อมูลเฉลี่ยอุตสาหกรรม</div>
-              )}
+            <ResponsiveContainer width="100%" height={360}>
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                <PolarGrid />
+                <PolarAngleAxis dataKey="category" />
+                <PolarRadiusAxis />
+                <Radar name={`${year}`} dataKey="scoreA" stroke="#16a34a" fill="#16a34a" fillOpacity={0.6} />
+                <Radar name={`${compareYear}`} dataKey="scoreB" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* 2) Category Progress Cards */}
+      {!loading && (
+        <div className="rounded-2xl border bg-white shadow-sm">
+          <div className="p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="text-emerald-600" size={18} />
+              <h3 className="font-semibold">ความคืบหน้าตามหมวด (ปี {year})</h3>
+            </div>
+
+            {/* Mini bar overview */}
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={categoryBars}>
+                <XAxis dataKey="name" />
+                <YAxis domain={[0, 100]} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#16a34a" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {categoryBars.map((item) => {
+                const Icon = item.key === "strategy" ? Target : item.key === "structure" ? Building2 : item.key === "sop" ? BookText : item.key === "hr" ? Users : item.key === "finance" ? Wallet : ShoppingCart;
+                return (
+                  <div key={item.key} className="rounded-2xl border overflow-hidden">
+                    <div className="px-4 py-2 text-white font-semibold flex items-center gap-2" style={{ background: COLOR[item.key as CategoryKey] }}>
+                      <Icon size={16} /> {item.name}
+                    </div>
+                    <div className="p-4 space-y-2">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm text-gray-600">Progress</span>
+                        <span className="text-lg font-bold">{fmtPct0(item.value)}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-sm text-gray-600">Evidence Rate</span>
+                        <span className="text-sm font-medium">{fmtPct0(item.evidenceRate)}</span>
+                      </div>
+                      {(item.raw?.max_score_category ?? 0) === 0 ? (
+                        <div className="text-xs text-red-600">ยังไม่ได้ตั้งคะแนนใน template</div>
+                      ) : item.warnings > 0 ? (
+                        <div className="text-xs text-yellow-700 flex items-center gap-1"><AlertTriangle size={14} /> หลักฐานไม่ครบ {item.warnings} รายการ</div>
+                      ) : (
+                        <div className="text-xs text-emerald-700 flex items-center gap-1"><CheckCircle2 size={14} /> หลักฐานครบ</div>
+                      )}
+                      <div className="pt-2">
+                        <Link href={`/checklist?tab=${item.key}&year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                          View Details <ArrowRight size={14} />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Quadrant – Progress vs Quality */}
+      {/* 3) Progress vs Quality */}
       {!loading && (
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="p-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Progress vs Quality (ปี {year})</h3>
-              <div className="text-sm text-gray-600">Score: {fmtPct(overallScorePct)} · Progress: {fmtPct(overallProgressPct)}</div>
+              <div className="flex items-center gap-2"><Activity className="text-purple-600" size={18} /><h3 className="font-semibold">Progress vs Quality (ปี {year})</h3></div>
+              <div className="text-sm text-gray-600">Score: {fmtPct1(overallScorePct)} · Progress: {fmtPct1(overallProgressPct)}</div>
             </div>
             <ResponsiveContainer width="100%" height={280}>
               <ScatterChart>
@@ -415,87 +475,60 @@ function DashboardPageImpl() {
         </div>
       )}
 
-      {/* Radar – Year compare */}
-      {!loading && (
-        <div className="rounded-2xl border bg-white shadow-sm">
-          <div className="p-6">
-            <h3 className="font-semibold mb-2">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
-            <ResponsiveContainer width="100%" height={350}>
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                <PolarGrid />
-                <PolarAngleAxis dataKey="category" />
-                <PolarRadiusAxis />
-                <Radar name={`${year}`} dataKey="scoreA" stroke="#16a34a" fill="#16a34a" fillOpacity={0.6} />
-                <Radar name={`${compareYear}`} dataKey="scoreB" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
-              </RadarChart>
-            </ResponsiveContainer>
+      {/* 4) Gap Analysis */}
+      <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="text-red-600" size={18} />
+            <h3 className="font-semibold">Gap & Action Panel</h3>
           </div>
-        </div>
-      )}
-
-      {/* Category – Bars + Progress Cards */}
-      {!loading && (
-        <div className="rounded-2xl border bg-white shadow-sm">
-          <div className="p-6 space-y-6">
-            <div>
-              <h3 className="font-semibold mb-4">ความคืบหน้าตามหมวด (ปี {year})</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={categoryBars}>
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#16a34a" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Category Progress Cards (ตาม mock) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {categoryBars.map((item) => (
-                <div key={item.key} className="rounded-2xl border overflow-hidden">
-                  {/* header color by category */}
-                  <div
-                    className="px-4 py-2 text-white font-semibold"
-                    style={{ background: item.key === 'strategy' ? '#2563eb' : item.key === 'structure' ? '#a855f7' : item.key === 'sop' ? '#f59e0b' : item.key === 'hr' ? '#ec4899' : item.key === 'finance' ? '#16a34a' : '#f59e0b' }}
-                  >
-                    {item.name}
-                  </div>
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-sm text-gray-600">Progress</span>
-                      <span className="text-lg font-bold">{fmtPct(item.value)}</span>
-                    </div>
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-sm text-gray-600">Evidence Rate</span>
-                      <span className="text-sm font-medium">{fmtPct(item.evidenceRate)}</span>
-                    </div>
-
-                    {(item.raw?.max_score_category ?? 0) === 0 ? (
-                      <div className="text-xs text-red-600">ยังไม่ได้ตั้งคะแนนใน template</div>
-                    ) : item.warnings > 0 ? (
-                      <div className="text-xs text-yellow-700 flex items-center gap-1"><AlertTriangle size={14} /> หลักฐานไม่ครบ {item.warnings} รายการ</div>
-                    ) : (
-                      <div className="text-xs text-emerald-700 flex items-center gap-1"><CheckCircle2 size={14} /> หลักฐานครบ</div>
-                    )}
-
-                    <div className="pt-2">
-                      <Link href={`/checklist?tab=${item.key}&year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                        View Details <ArrowRight size={14} />
-                      </Link>
+          {(topGaps.length && !loading) ? (
+            <ul className="space-y-2">
+              {topGaps.map((g) => (
+                <li key={g.id} className="flex items-center justify-between border rounded-xl p-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="text-red-600" size={18} />
+                    <div>
+                      <div className="font-medium">{g.title}</div>
+                      <div className="text-xs text-gray-500">หมวด: {g.category}</div>
                     </div>
                   </div>
-                </div>
+                  <Link href={`/checklist?year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                    Assign to team <ArrowRight size={14} />
+                  </Link>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          ) : (
+            <div className="text-sm text-gray-500">ไม่พบช่องว่างสำคัญ</div>
+          )}
         </div>
-      )}
+      </div>
 
-      {/* Trend – Multi-year */}
+      {/* 5) Suggestions */}
+      <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Lightbulb className="text-amber-500" size={18} />
+            <h3 className="font-semibold">Suggestions (Add‑on)</h3>
+          </div>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {addonSuggestions.map((s, idx) => (
+              <li key={idx} className="border rounded-xl p-3">
+                <div className="font-medium">{s.title}</div>
+                <div className="text-xs text-gray-600 mb-2">{s.desc}</div>
+                <Link href={s.href} className="text-sm text-blue-600 hover:underline flex items-center gap-1">ดูรายละเอียด <ArrowRight size={14} /></Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* 6) Trend */}
       {trend.length > 0 && (
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="p-6">
-            <h3 className="font-semibold mb-2">Trend Over Time</h3>
+            <div className="flex items-center gap-2 mb-2"><TrendingUp className="text-sky-600" size={18} /><h3 className="font-semibold">Trend Over Time</h3></div>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={trend}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -508,50 +541,6 @@ function DashboardPageImpl() {
           </div>
         </div>
       )}
-
-      {/* Gap & Action + Suggestions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="rounded-2xl border bg-white shadow-sm md:col-span-2">
-          <div className="p-6">
-            <h3 className="font-semibold mb-3">Gap & Action Panel</h3>
-            {topGaps.length ? (
-              <ul className="space-y-2">
-                {topGaps.map((g) => (
-                  <li key={g.id} className="flex items-center justify-between border rounded-xl p-3">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="text-red-600" size={18} />
-                      <div>
-                        <div className="font-medium">{g.title}</div>
-                        <div className="text-xs text-gray-500">หมวด: {g.category}</div>
-                      </div>
-                    </div>
-                    <Link href={`/checklist?year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
-                      Assign to team <ArrowRight size={14} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="text-sm text-gray-500">ไม่พบช่องว่างสำคัญ</div>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-white shadow-sm">
-          <div className="p-6">
-            <h3 className="font-semibold mb-3">Suggestions (Add‑on)</h3>
-            <ul className="space-y-3">
-              {addonSuggestions.map((s, idx) => (
-                <li key={idx} className="border rounded-xl p-3">
-                  <div className="font-medium">{s.title}</div>
-                  <div className="text-xs text-gray-600 mb-2">{s.desc}</div>
-                  <Link href={s.href} className="text-sm text-blue-600 hover:underline flex items-center gap-1">ดูรายละเอียด <ArrowRight size={14} /></Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
