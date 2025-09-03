@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import dynamic from "next/dynamic";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
+import { initPostHog, track } from "@/lib/analytics/posthog";
 
 // ปิด SSR ของ Layout + มี fallback ตอนโหลด
 const MainLayout = dynamic(() => import("@/components/layouts/MainLayout"), {
@@ -13,7 +14,20 @@ const MainLayout = dynamic(() => import("@/components/layouts/MainLayout"), {
 });
 
 export default function MyApp({ Component, pageProps }: AppProps) {
-  const { pathname } = useRouter();
+  const router = useRouter();
+  const { pathname } = router;
+
+  // ✅ Init PostHog ครั้งเดียวตอนโหลดแอป
+  useEffect(() => {
+    initPostHog();
+  }, []);
+
+  // ✅ Track pageview เมื่อเส้นทางเปลี่ยน
+  useEffect(() => {
+    const cb = () => track("$pageview", { path: router.asPath });
+    router.events.on("routeChangeComplete", cb);
+    return () => router.events.off("routeChangeComplete", cb);
+  }, [router]);
 
   // ⛑️ Patch fetch → ใส่ Accept header ให้ทุก request ที่ยิงไป /rest/v1/
   useEffect(() => {
@@ -39,12 +53,13 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   /** ✅ ระบุเส้นทางที่ไม่ต้องใช้ MainLayout (ไม่มี Sidebar) */
   const NO_LAYOUT_PATHS = ["/", "/landing", "/login"];
-  const useLayout = !NO_LAYOUT_PATHS.some((p) =>
-    pathname === p || pathname.startsWith(p + "/")
-  );
+  const useLayout =
+    !NO_LAYOUT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
 
   const Layout = useLayout
-    ? ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>
+    ? ({ children }: { children: React.ReactNode }) => (
+        <MainLayout>{children}</MainLayout>
+      )
     : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
   return (
