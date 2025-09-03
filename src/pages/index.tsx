@@ -107,7 +107,9 @@ export default function LandingIndexPage() {
             <nav className="hidden md:flex items-center gap-8 text-sm text-slate-600">
               <a href="#benefits" className="hover:text-slate-900">ประโยชน์</a>
               <a href="#demo" className="hover:text-slate-900">ตัวอย่าง</a>
-              <a href="#how" className="hover:text-slate-900">วิธีเริ่ม</a>
+              <a href="#testimonials" className="hover:text-slate-900">ลูกค้า</a>
+              <a href="#pricing" className="hover:text-slate-900">ราคา</a>
+              <a href="#faq" className="hover:text-slate-900">คำถาม</a>
             </nav>
             <a
               href="/login"
@@ -266,6 +268,53 @@ export default function LandingIndexPage() {
           </div>
         </section>
 
+        {/* Testimonials */}
+        <section id="testimonials" className="py-12 lg:py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold mb-8">เสียงจากผู้ใช้งาน</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <TestimonialCard quote="ทำให้เห็นภาพรวมองค์กรในเวลาไม่กี่นาที จัดลำดับสิ่งที่ต้องทำได้ทันที" author="คุณกิตติ – เจ้าของโรงงานอาหาร" />
+              <TestimonialCard quote="รายงาน Export เอาไปคุยกับบอร์ดได้เลย ประหยัดเวลาเตรียมเอกสารมาก" author="คุณนภ – ผู้บริหารซอฟต์แวร์เฮาส์" />
+              <TestimonialCard quote="คะแนน + คำแนะนำช่วยให้ทีมโฟกัสที่ gap สำคัญ ส่งผลต่อยอดขายจริง" author="คุณพร – ผู้จัดการฝ่ายขาย" />
+            </div>
+          </div>
+        </section>
+
+        {/* Logos (social proof) */}
+        <section className="py-10 bg-slate-50">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="text-center text-sm text-slate-600 mb-6">ไว้วางใจโดยทีมงานจากอุตสาหกรรมต่าง ๆ</div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 opacity-70">
+              {["acme","globex","initech","umbrella","soylent","stark"].map((k)=> (
+                <div key={k} className="h-10 rounded-lg bg-white border border-slate-200" />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Pricing Teaser */}
+        <section id="pricing" className="py-12 lg:py-16">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold text-center mb-8">เริ่มฟรี – อัปเกรดเมื่อพร้อม</h2>
+            <div className="grid md:grid-cols-3 gap-6">
+              <PricingCard tier="Free" price="0" desc="ทำแบบทดสอบ + Dashboard พื้นฐาน" items={["SME Health Check","Radar + คะแนนหมวด","เริ่มใช้งานได้ทันที"]} ctaLabel="เริ่มใช้ฟรี" href="/login" />
+              <PricingCard tier="Pro" highlight price="1,490" desc="รายเดือน • สำหรับทีมที่ต้องใช้รายงาน" items={["Export Binder (PDF/Excel)","Evidence Upload & Approve","Nudge & Suggestion"]} ctaLabel="อัปเกรดเป็น Pro" href="/login" />
+              <PricingCard tier="Premium" price="สอบถาม" desc="สำหรับองค์กรที่ต้องการฟีเจอร์ครบ" items={["Multi‑user & Roles","Advanced Insights","Priority Support"]} ctaLabel="พูดคุยกับทีม" href="/login" />
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="faq" className="py-12 lg:py-16 bg-slate-50">
+          <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold mb-6">คำถามที่พบบ่อย</h2>
+            <FAQItem q="ฟรีจริงไหม ต้องใส่บัตรเครดิตหรือไม่?" a="ฟรี 100% สำหรับการทำแบบทดสอบและดู Dashboard พื้นฐาน ไม่ต้องใส่บัตรเครดิต" />
+            <FAQItem q="คะแนน 650 คำนวณอย่างไร" a="อิง 6 หมวดหลักของการบริหารองค์กร โดยแปลงเป็นคะแนนถ่วงน้ำหนักและเทียบกับฐานข้อมูล SME ไทย" />
+            <FAQItem q="Export Binder คืออะไร" a="รายงานสรุปพร้อมแนบหลักฐานสำหรับคุยกับบอร์ด/ธนาคาร/นักลงทุน ฟีเจอร์นี้อยู่ในแผน Pro" />
+            <FAQItem q="ข้อมูลปลอดภัยหรือไม่" a="เราเก็บเฉพาะเมทาดาต้าที่จำเป็นและไม่เก็บเนื้อหาเอกสารในระบบ analytics พร้อมมาตรการเข้ารหัสระดับองค์กร" />
+          </div>
+        </section>
+
         {/* Footer */}
         <footer className="py-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-sm text-slate-600 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -282,7 +331,52 @@ export default function LandingIndexPage() {
   );
 }
 
-function BenefitCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+function TestimonialCard({quote, author}:{quote:string; author:string}){
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-slate-800">“{quote}”</p>
+      <div className="mt-3 text-sm text-slate-600">— {author}</div>
+    </div>
+  );
+}
+
+function PricingCard({tier, price, desc, items, ctaLabel, href, highlight}:{
+  tier:string; price:string; desc:string; items:string[]; ctaLabel:string; href:string; highlight?:boolean;
+}){
+  return (
+    <div className={`rounded-2xl border ${highlight?"border-blue-600 ring-2 ring-blue-100":"border-slate-200"} bg-white p-6 shadow-sm flex flex-col`}>
+      <div className="text-sm font-medium text-slate-600">{tier}</div>
+      <div className="mt-1 text-3xl font-bold">{price}{price!=="สอบถาม" && <span className="text-base font-normal text-slate-500"> บาท/เดือน</span>}</div>
+      <div className="mt-1 text-sm text-slate-600">{desc}</div>
+      <ul className="mt-4 space-y-2 text-sm text-slate-700 list-disc list-inside">
+        {items.map((it)=> <li key={it}>{it}</li>)}
+      </ul>
+      <a href={href} className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl ${highlight?"bg-blue-600 text-white hover:bg-blue-700":"border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"} px-4 py-2`}>{ctaLabel}<ArrowRight className="h-4 w-4"/></a>
+    </div>
+  );
+}
+
+function FAQItem({q,a}:{q:string;a:string}){
+  return (
+    <details className="group border-b border-slate-200 py-4">
+      <summary className="cursor-pointer list-none flex items-center justify-between text-slate-900 font-medium">
+        {q}
+        <span className="transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <p className="mt-2 text-slate-600 text-sm">{a}</p>
+    </details>
+  );
+}
+
+function BenefitCard({
+  icon,
+  title,
+  desc,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
@@ -294,7 +388,15 @@ function BenefitCard({ icon, title, desc }: { icon: React.ReactNode; title: stri
   );
 }
 
-function StepCard({ no, title, desc }: { no: number; title: string; desc: string }) {
+function StepCard({
+  no,
+  title,
+  desc,
+}: {
+  no: number;
+  title: string;
+  desc: string;
+}) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white text-sm font-semibold">
