@@ -15,7 +15,7 @@ const MainLayout = dynamic(() => import("@/components/layouts/MainLayout"), {
 export default function MyApp({ Component, pageProps }: AppProps) {
   const { pathname } = useRouter();
 
-  // ⛑️ แพตช์ fetch: ใส่ Accept ให้ทุกคำขอไป /rest/v1/
+  // ⛑️ Patch fetch → ใส่ Accept header ให้ทุก request ที่ยิงไป /rest/v1/
   useEffect(() => {
     if (typeof window === "undefined") return;
     const orig = window.fetch;
@@ -37,11 +37,15 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     };
   }, []);
 
-  // ✅ ใช้ MainLayout ทุกหน้ายกเว้น /login
-  const isLogin = pathname === "/login";
-  const Layout = isLogin
-    ? ({ children }: { children: React.ReactNode }) => <>{children}</>
-    : ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>;
+  /** ✅ ระบุเส้นทางที่ไม่ต้องใช้ MainLayout (ไม่มี Sidebar) */
+  const NO_LAYOUT_PATHS = ["/", "/landing", "/login"];
+  const useLayout = !NO_LAYOUT_PATHS.some((p) =>
+    pathname === p || pathname.startsWith(p + "/")
+  );
+
+  const Layout = useLayout
+    ? ({ children }: { children: React.ReactNode }) => <MainLayout>{children}</MainLayout>
+    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
   return (
     <UserProfileProvider>
