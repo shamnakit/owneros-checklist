@@ -1,24 +1,9 @@
-// pages/index.tsx
+// pages/index.tsx (FIXED FULL)
 import Head from "next/head";
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  BadgeCheck,
-  BarChart3,
-  CheckCircle2,
-  PlayCircle,
-  ShieldCheck,
-  Users2,
-} from "lucide-react";
-import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  ResponsiveContainer,
-} from "recharts";
+import { ArrowRight, BadgeCheck, BarChart3, CheckCircle2, PlayCircle, ShieldCheck, Users2, X } from "lucide-react";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts";
 
 const sampleData = [
   { cat: "Strategy", value: 68 },
@@ -36,11 +21,7 @@ const Progress = ({ label, value }: { label: string; value: number }) => (
       <span className="font-medium">{value}%</span>
     </div>
     <div className="h-2 w-full rounded-full bg-slate-100">
-      <div
-        className="h-2 rounded-full bg-blue-600"
-        style={{ width: `${value}%` }}
-        aria-label={`${label} ${value}%`}
-      />
+      <div className="h-2 rounded-full bg-blue-600" style={{ width: `${value}%` }} aria-label={`${label} ${value}%`} />
     </div>
   </div>
 );
@@ -50,8 +31,16 @@ export default function LandingIndexPage() {
   const description =
     "เช็กความพร้อมของธุรกิจใน 6 หมวดสำคัญ พร้อมคะแนนทันที เปรียบเทียบกับ SME ไทย และคำแนะนำแบบ Actionable";
   const og = {
-    url: "https://yourdomain.com/", // TODO: แก้เป็นโดเมนจริง
+    url: "https://yourdomain.com/", // TODO: ใส่โดเมนจริง
     image: "/og/landing-sme-health-check.png", // TODO: ใส่รูปจริง
+  };
+
+  const [interestOpen, setInterestOpen] = useState(false);
+  const [initialPlan, setInitialPlan] = useState<"Pro" | "Premium">("Pro");
+
+  const openInterest = (plan: "Pro" | "Premium") => {
+    setInitialPlan(plan);
+    setInterestOpen(true);
   };
 
   const handleCta = (where: string) => {
@@ -75,28 +64,10 @@ export default function LandingIndexPage() {
         <meta name="twitter:title" content={title} />
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={og.image} />
-        {/* JSON-LD (Optional) */}
-        <script
-          type="application/ld+json"
-          // eslint-disable-next-line react/no-danger
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'WebSite',
-              name: 'Bizsystem',
-              url: og.url,
-              potentialAction: {
-                '@type': 'SearchAction',
-                target: `${og.url}?q={search_term_string}`,
-                'query-input': 'required name=search_term_string',
-              },
-            }),
-          }}
-        />
       </Head>
 
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900">
-        {/* Topbar (no sidebar) */}
+        {/* Topbar */}
         <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -111,11 +82,7 @@ export default function LandingIndexPage() {
               <a href="#pricing" className="hover:text-slate-900">ราคา</a>
               <a href="#faq" className="hover:text-slate-900">คำถาม</a>
             </nav>
-            <a
-              href="/login"
-              onClick={() => handleCta("header")}
-              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700"
-            >
+            <a href="/login" onClick={() => handleCta("header")} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700">
               เริ่มทำแบบทดสอบฟรี <ArrowRight className="h-4 w-4" />
             </a>
           </div>
@@ -136,18 +103,10 @@ export default function LandingIndexPage() {
                 พร้อมคะแนนทันที เทียบกับ SME ไทย และคำแนะนำถัดไปแบบ Actionable
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <a
-                  href="/login"
-                  onClick={() => handleCta("hero-primary")}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700"
-                >
+                <a href="/login" onClick={() => handleCta("hero-primary")} className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700">
                   เริ่มทำแบบทดสอบฟรี <ArrowRight className="h-5 w-5" />
                 </a>
-                <a
-                  href="#demo"
-                  onClick={() => handleCta("hero-secondary")}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 py-3 text-slate-800 hover:bg-slate-50"
-                >
+                <a href="#demo" onClick={() => handleCta("hero-secondary")} className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 py-3 text-slate-800 hover:bg-slate-50">
                   ดูตัวอย่างผลลัพธ์ <PlayCircle className="h-5 w-5" />
                 </a>
               </div>
@@ -245,29 +204,6 @@ export default function LandingIndexPage() {
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="how" className="py-12 lg:py-16">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold mb-8">เริ่มต้นง่ายใน 3 ขั้น</h2>
-            <div className="grid md:grid-cols-3 gap-6">
-              <StepCard no={1} title="สมัครเข้าใช้งาน" desc="ล็อกอินด้วยอีเมลหรือ Google – ใช้เวลาไม่ถึง 1 นาที" />
-              <StepCard no={2} title="ทำแบบทดสอบ 6 หมวด" desc="ติ๊กเช็กลิสต์สั้น ๆ ต่อหมวด เพื่อประเมินระบบองค์กร" />
-              <StepCard no={3} title="รับรายงานทันที" desc="ดูคะแนน/เรดาร์/คำแนะนำ และอัปเกรดเพื่อ Export Binder" />
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Repeat */}
-        <section className="py-16 bg-gradient-to-br from-blue-50 to-indigo-50 border-t border-slate-200">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-            <h3 className="text-2xl font-bold mb-2">เริ่มต้นฟรีวันนี้ – รู้จุดแข็งจุดอ่อนองค์กรคุณใน 7 นาที</h3>
-            <p className="text-slate-600 mb-6">ไม่มีค่าใช้จ่าย • ไม่ต้องใส่บัตรเครดิต • ยกเลิกได้ตลอดเวลา</p>
-            <a href="/login" onClick={() => handleCta("footer")} className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700">
-              ทำแบบทดสอบเลย <ArrowRight className="h-5 w-5" />
-            </a>
-          </div>
-        </section>
-
         {/* Testimonials */}
         <section id="testimonials" className="py-12 lg:py-16">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -280,26 +216,14 @@ export default function LandingIndexPage() {
           </div>
         </section>
 
-        {/* Logos (social proof) */}
-        <section className="py-10 bg-slate-50">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="text-center text-sm text-slate-600 mb-6">ไว้วางใจโดยทีมงานจากอุตสาหกรรมต่าง ๆ</div>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-6 opacity-70">
-              {["acme","globex","initech","umbrella","soylent","stark"].map((k)=> (
-                <div key={k} className="h-10 rounded-lg bg-white border border-slate-200" />
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing Teaser */}
+        {/* Pricing Teaser (Interest Capture) */}
         <section id="pricing" className="py-12 lg:py-16">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold text-center mb-8">เริ่มฟรี – อัปเกรดเมื่อพร้อม</h2>
+            <h2 className="text-2xl font-bold text-center mb-8">เริ่มฟรี – สนใจแพ็กเกจขั้นสูง? ฝากคอนแทคไว้</h2>
             <div className="grid md:grid-cols-3 gap-6">
-              <PricingCard tier="Free" price="0" desc="ทำแบบทดสอบ + Dashboard พื้นฐาน" items={["SME Health Check","Radar + คะแนนหมวด","เริ่มใช้งานได้ทันที"]} ctaLabel="เริ่มใช้ฟรี" href="/login" />
-              <PricingCard tier="Pro" highlight price="1,490" desc="รายเดือน • สำหรับทีมที่ต้องใช้รายงาน" items={["Export Binder (PDF/Excel)","Evidence Upload & Approve","Nudge & Suggestion"]} ctaLabel="อัปเกรดเป็น Pro" href="/login" />
-              <PricingCard tier="Premium" price="สอบถาม" desc="สำหรับองค์กรที่ต้องการฟีเจอร์ครบ" items={["Multi‑user & Roles","Advanced Insights","Priority Support"]} ctaLabel="พูดคุยกับทีม" href="/login" />
+              <PricingTeaser tier="Free" desc="ทำแบบทดสอบ + Dashboard พื้นฐาน" button="เริ่มใช้ฟรี" onClick={() => (window.location.href = "/login")} highlight={false} />
+              <PricingTeaser tier="Pro" desc="Export Binder / Evidence / Suggestion" button="สนใจ Pro (ฝากคอนแทค)" onClick={() => openInterest("Pro")} highlight={true} />
+              <PricingTeaser tier="Premium" desc="Multi-user / Advanced Insights / Priority Support" button="สนใจ Premium (ฝากคอนแทค)" onClick={() => openInterest("Premium")} highlight={false} />
             </div>
           </div>
         </section>
@@ -310,8 +234,19 @@ export default function LandingIndexPage() {
             <h2 className="text-2xl font-bold mb-6">คำถามที่พบบ่อย</h2>
             <FAQItem q="ฟรีจริงไหม ต้องใส่บัตรเครดิตหรือไม่?" a="ฟรี 100% สำหรับการทำแบบทดสอบและดู Dashboard พื้นฐาน ไม่ต้องใส่บัตรเครดิต" />
             <FAQItem q="คะแนน 650 คำนวณอย่างไร" a="อิง 6 หมวดหลักของการบริหารองค์กร โดยแปลงเป็นคะแนนถ่วงน้ำหนักและเทียบกับฐานข้อมูล SME ไทย" />
-            <FAQItem q="Export Binder คืออะไร" a="รายงานสรุปพร้อมแนบหลักฐานสำหรับคุยกับบอร์ด/ธนาคาร/นักลงทุน ฟีเจอร์นี้อยู่ในแผน Pro" />
-            <FAQItem q="ข้อมูลปลอดภัยหรือไม่" a="เราเก็บเฉพาะเมทาดาต้าที่จำเป็นและไม่เก็บเนื้อหาเอกสารในระบบ analytics พร้อมมาตรการเข้ารหัสระดับองค์กร" />
+            <FAQItem q="Export Binder คืออะไร" a="รายงานสรุปพร้อมแนบหลักฐานสำหรับคุยกับบอร์ด/ธนาคาร/นักลงทุน (จะเปิดขายในแพ็กเกจ Pro)" />
+            <FAQItem q="ข้อมูลปลอดภัยหรือไม่" a="เราเก็บเฉพาะเมทาดาต้าที่จำเป็น พร้อมมาตรการเข้ารหัสและสิทธิ์การเข้าถึงตามมาตรฐานองค์กร" />
+          </div>
+        </section>
+
+        {/* CTA Repeat */}
+        <section className="py-16 bg-gradient-to-br from-blue-50 to-indigo-50 border-t border-slate-200">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+            <h3 className="text-2xl font-bold mb-2">เริ่มต้นฟรีวันนี้ – รู้จุดแข็งจุดอ่อนองค์กรคุณใน 7 นาที</h3>
+            <p className="text-slate-600 mb-6">ไม่มีค่าใช้จ่าย • ไม่ต้องใส่บัตรเครดิต • ยกเลิกได้ตลอดเวลา</p>
+            <a href="/login" onClick={() => handleCta("footer")} className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700">
+              ทำแบบทดสอบเลย <ArrowRight className="h-5 w-5" />
+            </a>
           </div>
         </section>
 
@@ -327,11 +262,35 @@ export default function LandingIndexPage() {
           </div>
         </footer>
       </div>
+
+      {/* Interest Modal */}
+      <InterestModal open={interestOpen} onClose={() => setInterestOpen(false)} initialPlan={initialPlan} />
     </>
   );
 }
 
-function TestimonialCard({quote, author}:{quote:string; author:string}){
+// ==== Components ====
+function BenefitCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">{icon}</div>
+      <h3 className="text-base font-semibold mb-1">{title}</h3>
+      <p className="text-sm text-slate-600">{desc}</p>
+    </div>
+  );
+}
+
+function StepCard({ no, title, desc }: { no: number; title: string; desc: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white text-sm font-semibold">{no}</div>
+      <h3 className="text-base font-semibold mb-1">{title}</h3>
+      <p className="text-sm text-slate-600">{desc}</p>
+    </div>
+  );
+}
+
+function TestimonialCard({ quote, author }: { quote: string; author: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <p className="text-slate-800">“{quote}”</p>
@@ -340,23 +299,19 @@ function TestimonialCard({quote, author}:{quote:string; author:string}){
   );
 }
 
-function PricingCard({tier, price, desc, items, ctaLabel, href, highlight}:{
-  tier:string; price:string; desc:string; items:string[]; ctaLabel:string; href:string; highlight?:boolean;
-}){
+function PricingTeaser({ tier, desc, button, onClick, highlight }: { tier: string; desc: string; button: string; onClick: () => void; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl border ${highlight?"border-blue-600 ring-2 ring-blue-100":"border-slate-200"} bg-white p-6 shadow-sm flex flex-col`}>
+    <div className={`rounded-2xl border ${highlight ? "border-blue-600 ring-2 ring-blue-100" : "border-slate-200"} bg-white p-6 shadow-sm flex flex-col`}>
       <div className="text-sm font-medium text-slate-600">{tier}</div>
-      <div className="mt-1 text-3xl font-bold">{price}{price!=="สอบถาม" && <span className="text-base font-normal text-slate-500"> บาท/เดือน</span>}</div>
       <div className="mt-1 text-sm text-slate-600">{desc}</div>
-      <ul className="mt-4 space-y-2 text-sm text-slate-700 list-disc list-inside">
-        {items.map((it)=> <li key={it}>{it}</li>)}
-      </ul>
-      <a href={href} className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl ${highlight?"bg-blue-600 text-white hover:bg-blue-700":"border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"} px-4 py-2`}>{ctaLabel}<ArrowRight className="h-4 w-4"/></a>
+      <button onClick={onClick} className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl ${highlight ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"} px-4 py-2`}>
+        {button} <ArrowRight className="h-4 w-4" />
+      </button>
     </div>
   );
 }
 
-function FAQItem({q,a}:{q:string;a:string}){
+function FAQItem({ q, a }: { q: string; a: string }) {
   return (
     <details className="group border-b border-slate-200 py-4">
       <summary className="cursor-pointer list-none flex items-center justify-between text-slate-900 font-medium">
@@ -368,42 +323,95 @@ function FAQItem({q,a}:{q:string;a:string}){
   );
 }
 
-function BenefitCard({
-  icon,
-  title,
-  desc,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-        {icon}
-      </div>
-      <h3 className="text-base font-semibold mb-1">{title}</h3>
-      <p className="text-sm text-slate-600">{desc}</p>
-    </div>
-  );
-}
+// Modal to collect interest contacts
+function InterestModal({ open, onClose, initialPlan }: { open: boolean; onClose: () => void; initialPlan: "Pro" | "Premium" }) {
+  const [plan, setPlan] = useState<"Pro" | "Premium" | "Free">(initialPlan);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [company, setCompany] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
-function StepCard({
-  no,
-  title,
-  desc,
-}: {
-  no: number;
-  title: string;
-  desc: string;
-}) {
+  React.useEffect(() => {
+    setPlan(initialPlan);
+  }, [initialPlan]);
+
+  if (!open) return null;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (typeof window !== "undefined" && (window as any).posthog) {
+        (window as any).posthog.capture("pricing_interest", { plan, name, email, phone, company });
+      }
+      const list = JSON.parse(localStorage.getItem("pricing_interest") || "[]");
+      list.push({ ts: Date.now(), plan, name, email, phone, company });
+      localStorage.setItem("pricing_interest", JSON.stringify(list));
+      try {
+        await fetch("/api/interest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plan, name, email, phone, company }) });
+      } catch {}
+      setSubmitted(true);
+    } catch {
+      setSubmitted(true);
+    }
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-white text-sm font-semibold">
-        {no}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal>
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">ลงทะเบียนความสนใจแพ็กเกจ {plan}</h3>
+          <button className="rounded-full p-1 hover:bg-slate-100" onClick={onClose} aria-label="Close">
+            <X className="h-5 w-5 text-slate-600" />
+          </button>
+        </div>
+
+        {submitted ? (
+          <div className="mt-4">
+            <p className="text-slate-700">รับเรื่องเรียบร้อยแล้ว ทีมงานจะติดต่อกลับโดยเร็วที่สุด ขอบคุณครับ 🙏</p>
+            <div className="mt-6 text-right">
+              <button className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700" onClick={onClose}>ปิดหน้าต่าง</button>
+            </div>
+          </div>
+        ) : (
+          <form className="mt-4 space-y-4" onSubmit={submit}>
+            <div>
+              <label className="text-sm text-slate-700">แพ็กเกจที่สนใจ</label>
+              <select className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value={plan} onChange={(e) => setPlan(e.target.value as any)}>
+                <option value="Pro">Pro</option>
+                <option value="Premium">Premium</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-slate-700">ชื่อ-นามสกุล</label>
+                <input className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} required />
+              </div>
+              <div>
+                <label className="text-sm text-slate-700">เบอร์โทร</label>
+                <input className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm text-slate-700">อีเมล</label>
+              <input type="email" className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div>
+              <label className="text-sm text-slate-700">บริษัท</label>
+              <input className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" value={company} onChange={(e) => setCompany(e.target.value)} />
+            </div>
+
+            {/* honeypot */}
+            <input type="text" className="hidden" autoComplete="off" tabIndex={-1} aria-hidden />
+
+            <div className="pt-2 text-right">
+              <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
+                ส่งข้อมูลความสนใจ
+              </button>
+            </div>
+          </form>
+        )}
       </div>
-      <h3 className="text-base font-semibold mb-1">{title}</h3>
-      <p className="text-sm text-slate-600">{desc}</p>
     </div>
   );
 }
