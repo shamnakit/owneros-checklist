@@ -1,4 +1,5 @@
-// src/lib/analytics/posthog.ts
+// src/lib/analytics/posthog.client.ts
+
 import type { PostHog } from "posthog-js";
 
 /** ทำให้แน่ใจว่าไฟล์นี้เป็น ES module แม้ตอน build จะ tree-shake บางอย่าง */

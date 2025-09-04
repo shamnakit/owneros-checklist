@@ -5,31 +5,35 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import dynamic from "next/dynamic";
 import { UserProfileProvider } from "@/contexts/UserProfileContext";
-import { initPostHog, track } from "@/lib/analytics/posthog";
+import { initPostHog, track } from "@/lib/analytics/posthog.client";
 
-// ปิด SSR ของ Layout + มี fallback ตอนโหลด
+// ── Layouts (ปิด SSR + มี fallback ตอนโหลด)
 const MainLayout = dynamic(() => import("@/components/layouts/MainLayout"), {
   ssr: false,
   loading: () => <div className="p-4 text-gray-500">Loading layout…</div>,
+});
+const AdminLayout = dynamic(() => import("@/layouts/AdminLayout"), {
+  ssr: false,
+  loading: () => <div className="p-4 text-gray-500">Loading admin…</div>,
 });
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const { pathname } = router;
 
-  // ✅ Init PostHog ครั้งเดียวตอนโหลดแอป
+  /** ✅ Init PostHog ครั้งเดียวตอนโหลดแอป */
   useEffect(() => {
     initPostHog();
   }, []);
 
-  // ✅ Track pageview เมื่อเส้นทางเปลี่ยน
+  /** ✅ Track pageview เมื่อเส้นทางเปลี่ยน */
   useEffect(() => {
     const cb = () => track("$pageview", { path: router.asPath });
     router.events.on("routeChangeComplete", cb);
     return () => router.events.off("routeChangeComplete", cb);
   }, [router]);
 
-  // ⛑️ Patch fetch → ใส่ Accept header ให้ทุก request ที่ยิงไป /rest/v1/
+  /** ⛑️ Patch fetch → ใส่ Accept header ให้ทุก request ที่ยิงไป /rest/v1/ */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const orig = window.fetch;
@@ -51,16 +55,30 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     };
   }, []);
 
-  /** ✅ ระบุเส้นทางที่ไม่ต้องใช้ MainLayout (ไม่มี Sidebar) */
-  const NO_LAYOUT_PATHS = ["/", "/landing", "/login"];
-  const useLayout =
-    !NO_LAYOUT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  // ── Routing rules for layouts
+  const isAdmin = pathname.startsWith("/admin");
+  const isAdminLogin = pathname === "/admin/login";
 
-  const Layout = useLayout
-    ? ({ children }: { children: React.ReactNode }) => (
-        <MainLayout>{children}</MainLayout>
-      )
-    : ({ children }: { children: React.ReactNode }) => <>{children}</>;
+  /** ระบุเส้นทางที่ "ไม่" ใช้ MainLayout (ไม่มี Sidebar ผู้ใช้ทั่วไป) */
+  const NO_LAYOUT_PATHS = ["/", "/landing", "/login", "/admin/login"];
+
+  /** ใช้ MainLayout เมื่อไม่ใช่หน้า no-layout และไม่ใช่ฝั่ง admin */
+  const useMainLayout =
+    !NO_LAYOUT_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/")) &&
+    !isAdmin; // ป้องกัน admin โดน MainLayout
+
+  let Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => <>{children}</>;
+
+  if (isAdmin && !isAdminLogin) {
+    // ✅ ทุกหน้า /admin/* (ยกเว้น /admin/login) ใช้ AdminLayout
+    Layout = ({ children }) => <AdminLayout>{children}</AdminLayout>;
+  } else if (useMainLayout) {
+    // ✅ เพจผู้ใช้ทั่วไป ใช้ MainLayout
+    Layout = ({ children }) => <MainLayout>{children}</MainLayout>;
+  } else {
+    // ✅ หน้า public หรือ /admin/login → ไม่มี layout
+    Layout = ({ children }) => <>{children}</>;
+  }
 
   return (
     <UserProfileProvider>
