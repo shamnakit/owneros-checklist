@@ -1,8 +1,10 @@
-// /src/pages/dashboard.tsx – Bizsystem Dashboard (v2.6)
-// Reordered layout per request:
-// 1) Radar → 2) Category Progress Cards → 3) Progress vs Quality → 4) Gap → 5) Suggestions → 6) Trend
-// Added graphic icons (lucide-react) to make UI more engaging.
+// /src/pages/dashboard.tsx – Bizsystem Dashboard (v2.9)
+// 0) Business Health Card (Hybrid 70% Score + 30% Progress + Grade)
+// Order: 0) Health → 1) Radar → 2) Category Progress → 3) Progress vs Quality → 4) Gap → 5) Suggestions → 6) Trend
+// Fix: Rename local Bar -> StatBar, Recharts Bar -> RBar (alias)
+// Analytics: PostHog events (Dashboard Viewed, Score Recomputed, Export Binder*)
 
+import posthog from "posthog-js";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -14,7 +16,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
   BarChart,
-  Bar,
+  Bar as RBar,
   XAxis,
   YAxis,
   Tooltip,
@@ -39,7 +41,6 @@ import {
   Users,
   Wallet,
   ShoppingCart,
-  BookText,
 } from "lucide-react";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
@@ -51,7 +52,7 @@ type CatRow = {
   category: CategoryKey | string;
   score: number; // คะแนนได้จริง
   max_score_category: number; // คะแนนเต็มหมวด
-  evidence_rate_pct: number; // 0..100
+  evidence_rate_pct: number; // 0..100 (ใช้เป็น Progress/Y)
 };
 
 type TotalRow = {
@@ -84,22 +85,25 @@ const CAT_LABEL: Record<CategoryKey, string> = {
 
 const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance", "sales"];
 
-// สีประจำหมวด (โทนตาม mock)
+// สีประจำหมวด
 const COLOR: Record<CategoryKey, string> = {
   strategy: "#2563eb", // blue-600
   structure: "#a855f7", // purple-500
   sop: "#f59e0b", // amber-500
   hr: "#ec4899", // pink-500
   finance: "#16a34a", // green-600
-  sales: "#f59e0b", // amber-500 (ทอง)
+  sales: "#f59e0b", // amber-500
 };
 
 /** ---------- Helpers ---------- */
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
-const fmtPct0 = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%`;
-const fmtPct1 = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+const fmtPct0 = (v: number) =>
+  `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%`;
+const fmtPct1 = (v: number) =>
+  `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 const toPct = (n: number, d: number) => (d ? (Number(n) / Number(d)) * 100 : 0);
-const thaiTier = (t: TotalRow["tier_label"]) => (t === "Excellent" ? "Excellent" : t === "Developing" ? "Developing" : "Early Stage");
+const thaiTier = (t: TotalRow["tier_label"]) =>
+  t === "Excellent" ? "Excellent" : t === "Developing" ? "Developing" : "Early Stage";
 
 /** ---------- Component ---------- */
 function DashboardPageImpl() {
@@ -120,6 +124,14 @@ function DashboardPageImpl() {
   const [warns, setWarns] = useState<Record<number, WarnRow[]>>({});
   const [industryAvg, setIndustryAvg] = useState<Record<number, IndustryAvgRow | undefined>>({});
   const [trend, setTrend] = useState<Array<{ year: number; value: number }>>([]);
+
+  // --- Analytics: page view (health section) ---
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      posthog?.capture("Dashboard Viewed", { section: "health", year, compareYear });
+    } catch {}
+  }, [year, compareYear]);
 
   // โหลดปีที่ใช้งาน
   useEffect(() => {
@@ -207,7 +219,7 @@ function DashboardPageImpl() {
       }
     })();
 
-  return () => {
+    return () => {
       mounted = false;
     };
   }, [uid, year, compareYear]);
@@ -239,6 +251,7 @@ function DashboardPageImpl() {
   const totalA = total[year];
   const totalB = total[compareYear];
 
+  // Radar data (คะแนน “ได้จริง” รายหมวด ปี A vs ปี B)
   const radarData = useMemo(() => {
     const a = cats[year] || [];
     const b = cats[compareYear] || [];
@@ -251,6 +264,7 @@ function DashboardPageImpl() {
     }));
   }, [cats, year, compareYear]);
 
+  // Bar cards per category
   const categoryBars = useMemo(() => {
     const a = cats[year] || [];
     const w = warns[year] || [];
@@ -262,7 +276,7 @@ function DashboardPageImpl() {
       return {
         key: cat,
         name: CAT_LABEL[cat],
-        value: row ? Math.round(toPct(Number(row.score), Math.max(1, Number(row.max_score_category)))) : 0,
+        value: row ? Math.round(toPct(Number(row.score), Math.max(1, Number(row.max_score_category)))) : 0, // % ต่อหมวด
         evidenceRate: Number(row?.evidence_rate_pct ?? 0),
         warnings: warnCount.get(cat) || 0,
         raw: row,
@@ -270,28 +284,67 @@ function DashboardPageImpl() {
     });
   }, [cats, warns, year]);
 
-  // Quadrant (Quality vs Progress)
-  const overallScorePct = useMemo(() => (totalA ? toPct(Number(totalA.total_score), Math.max(1, Number(totalA.max_score))) : 0), [totalA]);
+  // Overall Score% (คุณภาพ) และ Progress% (ความครบถ้วน)
+  const overallScorePct = useMemo(
+    () => (totalA ? toPct(Number(totalA.total_score), Math.max(1, Number(totalA.max_score))) : 0),
+    [totalA]
+  );
   const overallProgressPct = useMemo(() => {
     const a = cats[year] || [];
     if (!a.length) return 0;
     return a.reduce((s, r) => s + Number(r.evidence_rate_pct || 0), 0) / a.length;
   }, [cats, year]);
-  const quadrantPoint = useMemo(() => [{ x: clampPct(overallScorePct), y: clampPct(overallProgressPct) }], [overallScorePct, overallProgressPct]);
+
+  // Hybrid score (0–100)
+  const overallHybrid = useMemo(
+    () => Math.round(((overallScorePct * 0.7) + (overallProgressPct * 0.3)) * 10) / 10,
+    [overallScorePct, overallProgressPct]
+  );
+
+  // --- Analytics: recompute score ---
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (loading) return;
+    try {
+      posthog?.capture("Score Recomputed", {
+        year,
+        overallHybrid,
+        overallScorePct,
+        overallProgressPct,
+      });
+    } catch {}
+  }, [loading, year, overallHybrid, overallScorePct, overallProgressPct]);
+
+  // Grade mapping (Soft & Positive)
+  const gradeInfo = useMemo(() => toGrade(overallHybrid), [overallHybrid]);
+
+  // Quadrant (Quality vs Progress)
+  const quadrantPoint = useMemo(
+    () => [{ x: clampPct(overallScorePct), y: clampPct(overallProgressPct) }],
+    [overallScorePct, overallProgressPct]
+  );
 
   // Top gaps
-  const topGaps = useMemo(() => (warns[year] || []).slice(0, 3).map((w) => ({ title: w.name, category: String(w.category).toUpperCase(), id: w.checklist_id })), [warns, year]);
+  const topGaps = useMemo(
+    () => (warns[year] || []).slice(0, 3).map((w) => ({ title: w.name, category: String(w.category).toUpperCase(), id: w.checklist_id })),
+    [warns, year]
+  );
 
   // Suggestions (rule ง่าย ๆ)
   const addonSuggestions = useMemo(() => {
     const list: Array<{ title: string; desc: string; href: string }> = [];
     const byKey: Record<string, number> = {};
     categoryBars.forEach((b) => (byKey[b.key] = b.evidenceRate));
-    if ((byKey["sop"] ?? 100) < 60) list.push({ title: "Policy & SOP Acknowledgement", desc: "เก็บนโยบาย/คู่มือ + บันทึกการอ่าน/ยอมรับ เพื่อดัน Evidence", href: "/modules/policy" });
-    if ((byKey["finance"] ?? 100) < 60) list.push({ title: "River KPI", desc: "Dashboard KPI รายเดือน + Budget vs Actual", href: "/modules/river-kpi" });
-    if ((byKey["strategy"] ?? 100) < 60) list.push({ title: "Goal Execution Tracker", desc: "ปักเป้าหมายรายหมวด + ติดตาม % บรรลุ", href: "/modules/goal" });
-    if ((byKey["structure"] ?? 100) < 60) list.push({ title: "Risk Register", desc: "บริหารความเสี่ยง L×I + DOA/CoI/Whistleblowing", href: "/modules/risk" });
-    if (!list.length) list.push({ title: "Filing Module (IPO/Prospectus)", desc: "รวมหลักฐานสร้าง Binder พร้อมยื่น/นักลงทุน", href: "/modules/filing" });
+    if ((byKey["sop"] ?? 100) < 60)
+      list.push({ title: "Policy & SOP Acknowledgement", desc: "เก็บนโยบาย/คู่มือ + บันทึกการอ่าน/ยอมรับ เพื่อดัน Evidence", href: "/modules/policy" });
+    if ((byKey["finance"] ?? 100) < 60)
+      list.push({ title: "River KPI", desc: "Dashboard KPI รายเดือน + Budget vs Actual", href: "/modules/river-kpi" });
+    if ((byKey["strategy"] ?? 100) < 60)
+      list.push({ title: "Goal Execution Tracker", desc: "ปักเป้าหมายรายหมวด + ติดตาม % บรรลุ", href: "/modules/goal" });
+    if ((byKey["structure"] ?? 100) < 60)
+      list.push({ title: "Risk Register", desc: "บริหารความเสี่ยง L×I + DOA/CoI/Whistleblowing", href: "/modules/risk" });
+    if (!list.length)
+      list.push({ title: "Filing Module (IPO/Prospectus)", desc: "รวมหลักฐานสร้าง Binder พร้อมยื่น/นักลงทุน", href: "/modules/filing" });
     return list.slice(0, 2);
   }, [categoryBars]);
 
@@ -299,6 +352,9 @@ function DashboardPageImpl() {
   const handleExport = async (uploadToStorage = false) => {
     if (!uid) return;
     try {
+      // pre-capture
+      try { posthog?.capture("Export Binder", { year, uploadToStorage, companyName }); } catch {}
+
       const params = new URLSearchParams({ userId: uid, year: String(year), companyName, upload: uploadToStorage ? "1" : "0" });
       const url = `/api/export/export-binder?${params.toString()}`;
       const res = await fetch(url, { method: "GET" });
@@ -310,18 +366,23 @@ function DashboardPageImpl() {
         const j = await res.json();
         if (j?.url) window.open(j.url, "_blank");
         else alert("Export เสร็จ แต่ไม่ได้ลิงก์ไฟล์");
+
+        try { posthog?.capture("Export Binder Result", { year, uploadToStorage: true, ok: true }); } catch {}
         return;
       }
       const blob = await res.blob();
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `Binder_${companyName.replace(/[^A-Za-z0-9\-]+/g, "_")}_${year}.xlsx`;
+      a.download = `Binder_${companyName.replace(/[^A-Za-z0-9\\-]+/g, "_")}_${year}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
+
+      try { posthog?.capture("Export Binder Result", { year, uploadToStorage: false, ok: true }); } catch {}
     } catch (e: any) {
       console.error(e);
       alert("Export ไม่สำเร็จ: " + (e?.message || "unknown"));
+      try { posthog?.capture("Export Binder Error", { year, uploadToStorage, message: e?.message || String(e) }); } catch {}
     }
   };
 
@@ -356,6 +417,42 @@ function DashboardPageImpl() {
         </div>
       </div>
 
+      {/* 0) Business Health Card (Hybrid + Grade) */}
+      {!loading && (
+        <div className="rounded-2xl border bg-white shadow-sm">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-lg font-semibold">Business Health (Hybrid)</div>
+              <GradeBadge label={gradeInfo.grade} colorClass={gradeInfo.color} />
+            </div>
+
+            <div className="grid grid-cols-12 gap-6">
+              {/* Gauge */}
+              <div className="col-span-12 md:col-span-4 flex items-center justify-center">
+                <CircularGauge value={overallHybrid} trackColor="#e5e7eb" barColor={gradeInfo.hex} size={138} strokeWidth={12} />
+              </div>
+
+              {/* Breakdown */}
+              <div className="col-span-12 md:col-span-8">
+                <div className="text-4xl font-bold leading-tight text-zinc-900">
+                  {format1(overallHybrid)}<span className="text-xl font-semibold text-zinc-500"> / 100</span>
+                </div>
+                <div className="mt-1 text-sm text-zinc-500">Hybrid = 70% Score + 30% Progress</div>
+
+                <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800">
+                  {gradeInfo.message}
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3">
+                  <StatBar label="Score (คุณภาพ)" value={overallScorePct} colorClass="bg-emerald-500" />
+                  <StatBar label="Progress (ความครบถ้วน)" value={overallProgressPct} colorClass="bg-sky-500" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Error/Loading */}
       {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">เกิดข้อผิดพลาด: {errorMsg}</div>}
       {loading && <div className="rounded-xl border p-4">กำลังโหลดข้อมูล…</div>}
@@ -368,9 +465,15 @@ function DashboardPageImpl() {
               <Target className="text-sky-600" size={18} />
               <h3 className="font-semibold">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
               {total[year] && (
-                <span className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                  total[year]?.tier_label === "Excellent" ? "bg-emerald-100 text-emerald-700" : total[year]?.tier_label === "Developing" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
-                }`}>
+                <span
+                  className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                    total[year]?.tier_label === "Excellent"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : total[year]?.tier_label === "Developing"
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
                   Tier: {thaiTier(total[year]!.tier_label)}
                 </span>
               )}
@@ -403,17 +506,31 @@ function DashboardPageImpl() {
                 <XAxis dataKey="name" />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <Bar dataKey="value" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                <RBar dataKey="value" fill="#16a34a" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
 
             {/* Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {categoryBars.map((item) => {
-                const Icon = item.key === "strategy" ? Target : item.key === "structure" ? Building2 : item.key === "sop" ? BookText : item.key === "hr" ? Users : item.key === "finance" ? Wallet : ShoppingCart;
+                const Icon =
+                  item.key === "strategy"
+                    ? Target
+                    : item.key === "structure"
+                    ? Building2
+                    : item.key === "sop"
+                    ? ShoppingCart
+                    : item.key === "hr"
+                    ? Users
+                    : item.key === "finance"
+                    ? Wallet
+                    : ShoppingCart;
                 return (
                   <div key={item.key} className="rounded-2xl border overflow-hidden">
-                    <div className="px-4 py-2 text-white font-semibold flex items-center gap-2" style={{ background: COLOR[item.key as CategoryKey] }}>
+                    <div
+                      className="px-4 py-2 text-white font-semibold flex items-center gap-2"
+                      style={{ background: COLOR[item.key as CategoryKey] }}
+                    >
                       <Icon size={16} /> {item.name}
                     </div>
                     <div className="p-4 space-y-2">
@@ -425,15 +542,22 @@ function DashboardPageImpl() {
                         <span className="text-sm text-gray-600">Evidence Rate</span>
                         <span className="text-sm font-medium">{fmtPct0(item.evidenceRate)}</span>
                       </div>
-                      {(item.raw?.max_score_category ?? 0) === 0 ? (
+                      {item.raw?.max_score_category === 0 ? (
                         <div className="text-xs text-red-600">ยังไม่ได้ตั้งคะแนนใน template</div>
                       ) : item.warnings > 0 ? (
-                        <div className="text-xs text-yellow-700 flex items-center gap-1"><AlertTriangle size={14} /> หลักฐานไม่ครบ {item.warnings} รายการ</div>
+                        <div className="text-xs text-yellow-700 flex items-center gap-1">
+                          <AlertTriangle size={14} /> หลักฐานไม่ครบ {item.warnings} รายการ
+                        </div>
                       ) : (
-                        <div className="text-xs text-emerald-700 flex items-center gap-1"><CheckCircle2 size={14} /> หลักฐานครบ</div>
+                        <div className="text-xs text-emerald-700 flex items-center gap-1">
+                          <CheckCircle2 size={14} /> หลักฐานครบ
+                        </div>
                       )}
                       <div className="pt-2">
-                        <Link href={`/checklist?tab=${item.key}&year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                        <Link
+                          href={`/checklist?tab=${item.key}&year=${year}`}
+                          className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                        >
                           View Details <ArrowRight size={14} />
                         </Link>
                       </div>
@@ -451,8 +575,13 @@ function DashboardPageImpl() {
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="p-6">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2"><Activity className="text-purple-600" size={18} /><h3 className="font-semibold">Progress vs Quality (ปี {year})</h3></div>
-              <div className="text-sm text-gray-600">Score: {fmtPct1(overallScorePct)} · Progress: {fmtPct1(overallProgressPct)}</div>
+              <div className="flex items-center gap-2">
+                <Activity className="text-purple-600" size={18} />
+                <h3 className="font-semibold">Progress vs Quality (ปี {year})</h3>
+              </div>
+              <div className="text-sm text-gray-600">
+                Score: {fmtPct1(overallScorePct)} · Progress: {fmtPct1(overallProgressPct)}
+              </div>
             </div>
             <ResponsiveContainer width="100%" height={280}>
               <ScatterChart>
@@ -482,7 +611,7 @@ function DashboardPageImpl() {
             <AlertTriangle className="text-red-600" size={18} />
             <h3 className="font-semibold">Gap & Action Panel</h3>
           </div>
-          {(topGaps.length && !loading) ? (
+          {topGaps.length && !loading ? (
             <ul className="space-y-2">
               {topGaps.map((g) => (
                 <li key={g.id} className="flex items-center justify-between border rounded-xl p-3">
@@ -510,14 +639,16 @@ function DashboardPageImpl() {
         <div className="p-6">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="text-amber-500" size={18} />
-            <h3 className="font-semibold">Suggestions (Add‑on)</h3>
+            <h3 className="font-semibold">Suggestions (Add-on)</h3>
           </div>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {addonSuggestions.map((s, idx) => (
               <li key={idx} className="border rounded-xl p-3">
                 <div className="font-medium">{s.title}</div>
                 <div className="text-xs text-gray-600 mb-2">{s.desc}</div>
-                <Link href={s.href} className="text-sm text-blue-600 hover:underline flex items-center gap-1">ดูรายละเอียด <ArrowRight size={14} /></Link>
+                <Link href={s.href} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                  ดูรายละเอียด <ArrowRight size={14} />
+                </Link>
               </li>
             ))}
           </ul>
@@ -528,7 +659,10 @@ function DashboardPageImpl() {
       {trend.length > 0 && (
         <div className="rounded-2xl border bg-white shadow-sm">
           <div className="p-6">
-            <div className="flex items-center gap-2 mb-2"><TrendingUp className="text-sky-600" size={18} /><h3 className="font-semibold">Trend Over Time</h3></div>
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="text-sky-600" size={18} />
+              <h3 className="font-semibold">Trend Over Time</h3>
+            </div>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={trend}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -546,3 +680,96 @@ function DashboardPageImpl() {
 }
 
 export default dynamic(() => Promise.resolve(DashboardPageImpl), { ssr: false });
+
+/** ---------- Local UI sub-components (no external deps) ---------- */
+
+function StatBar({ label, value, colorClass }: { label: string; value: number; colorClass: string }) {
+  const v = clampPct(value);
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-sm text-zinc-600">
+        <span>{label}</span>
+        <span className="font-medium text-zinc-900">{fmtPct1(v)}</span>
+
+      </div>
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200">
+        <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${v}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function CircularGauge({
+  value,
+  trackColor = "#eee",
+  barColor = "#10b981",
+  size = 128,
+  strokeWidth = 12,
+}: {
+  value: number;
+  trackColor?: string;
+  barColor?: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const v = clampPct(value);
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (v / 100) * c;
+  const center = size / 2;
+
+  return (
+    <svg width={size} height={size} className="block">
+      {/* Track */}
+      <circle cx={center} cy={center} r={r} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
+      {/* Bar */}
+      <circle
+        cx={center}
+        cy={center}
+        r={r}
+        stroke={barColor}
+        strokeWidth={strokeWidth}
+        fill="none"
+        strokeLinecap="round"
+        strokeDasharray={`${c} ${c}`}
+        strokeDashoffset={offset}
+        transform={`rotate(-90 ${center} ${center})`}
+        className="transition-all duration-500"
+      />
+      {/* Text */}
+      <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" className="fill-zinc-900 text-[28px] font-bold">
+        {fmtPct1(v)}
+      </text>
+      <text x="50%" y={center + 20} dominantBaseline="middle" textAnchor="middle" className="fill-zinc-500 text-xs font-medium">
+        / 100
+      </text>
+    </svg>
+  );
+}
+
+function GradeBadge({ label, colorClass }: { label: string; colorClass: string }) {
+  return (
+    <div className={`inline-flex items-center rounded-xl px-2.5 py-1.5 text-sm font-semibold text-white ${colorClass}`}>
+      <span className="mr-1">🎓</span>
+      {label}
+    </div>
+  );
+}
+
+/** ---------- Helpers (format & grade) ---------- */
+
+function format1(n: number) {
+  return Number.isFinite(n) ? (Math.round(n * 10) / 10).toString() : "0";
+}
+
+function toGrade(score0to100: number): { grade: string; message: string; color: string; hex: string } {
+  const s = clampPct(score0to100);
+
+  // เกรดแบบ Soft & Positive (ไม่มี F)
+  if (s >= 90) return { grade: "A", message: "ยอดเยี่ยมมาก • พร้อมขยายตัว", color: "bg-gradient-to-r from-emerald-500 to-emerald-600", hex: "#10b981" };
+  if (s >= 80) return { grade: "B+", message: "แข็งแรง • เหลือเก็บรายละเอียด", color: "bg-gradient-to-r from-teal-500 to-sky-600", hex: "#14b8a6" };
+  if (s >= 70) return { grade: "B", message: "ดี • มีพื้นฐานครบ ควรเสริมบางจุด", color: "bg-gradient-to-r from-sky-500 to-blue-600", hex: "#0ea5e9" };
+  if (s >= 62) return { grade: "C", message: "เริ่มมีระบบแล้ว • ค่อย ๆ อัปเกรดต่อ", color: "bg-gradient-to-r from-amber-400 to-amber-500", hex: "#f59e0b" };
+  if (s >= 50) return { grade: "D", message: "ช่วงวางรากฐาน • ก้าวแรกที่ดี", color: "bg-gradient-to-r from-rose-400 to-rose-500", hex: "#fb7185" };
+  return { grade: "E", message: "กำลังเริ่มต้น • ยังมีโอกาสโตอีกเยอะ", color: "bg-gradient-to-r from-rose-500 to-rose-600", hex: "#f43f5e" };
+}
