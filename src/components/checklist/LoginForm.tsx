@@ -52,7 +52,7 @@ export default function LoginForm() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-10 rounded shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">🔐 OwnerOS Login</h1>
+        <h1 className="text-2xl font-bold mb-6 text-center">🔐 BizZyztem Login</h1>
         <input
           type="email"
           placeholder="อีเมลของคุณ"

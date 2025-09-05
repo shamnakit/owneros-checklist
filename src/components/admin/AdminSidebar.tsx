@@ -55,7 +55,7 @@ export default function AdminSidebar() {
         <NavItem href="/admin/dataroom" label="Data Room" icon={Database} />
         <NavItem href="/admin/kpi" label="KPI & Scoring" icon={Gauge} />
         <NavItem href="/admin/audit" label="Audit Log" icon={ShieldCheck} />
-        <NavItem href="/admin/exports" label="Exports & Binder" icon={FileArchive} />
+        <NavItem href="/admin/exports" label="ดาวน์โหลดรายงาน" icon={FileArchive} />
         <NavItem href="/admin/billing" label="Billing" icon={CreditCard} />
         <NavItem href="/admin/settings" label="Settings" icon={Settings} />
       </nav>

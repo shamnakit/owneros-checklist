@@ -39,7 +39,6 @@ const ALL_CHECKLIST_CHILDREN = [
   { key: "checklist:sales",     href: "/checklist/sales",     label: "ลูกค้าและการตลาด/การขาย",    icon: ShoppingCart,        perm: "view_checklist_group6" },
 ];
 
-
 function defaultPermissionsByRole(role: Role): Set<string> {
   switch (role) {
     case "owner":
@@ -103,9 +102,12 @@ export default function Sidebar() {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
-      await logout();
+      await logout(); // ควรเป็น supabase.auth.signOut() ใน context
+    } catch (e) {
+      console.error("logout error:", e);
     } finally {
-      setLoggingOut(false);
+      // บังคับออกไปหน้า Landing (ตัวเลือก A = หน้า root ของแอป)
+      window.location.assign("/");
     }
   };
 

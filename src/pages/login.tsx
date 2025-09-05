@@ -1,4 +1,4 @@
-// src/pages/checklist/login.tsx
+// src/pages/login.tsx
 import LoginForm from "@/components/checklist/LoginForm";
 
 export default function LoginPage() {
