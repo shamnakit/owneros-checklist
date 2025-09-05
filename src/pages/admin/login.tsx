@@ -113,7 +113,7 @@ export default function AdminLoginPage() {
   return (
     <>
       <Head>
-        <title>Admin Login • bizzystem</title>
+        <title>Admin Login • Bizzystem</title>
       </Head>
 
       <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
@@ -143,8 +143,8 @@ export default function AdminLoginPage() {
         </div>
 
         {/* Right: Login Card */}
-        <div className="flex items-center justify-center p-6 lg:p-10 bg-zinc-50 dark:bg-zinc-950">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 ring-1 ring-black/5 shadow-sm p-6">
+       <div className="flex items-center justify-center p-6 lg:p-10 bg-zinc-100 dark:bg-zinc-100">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-white text-zinc-900 ring-1 ring-black/5 shadow-sm p-6">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600" />
               <div>
@@ -166,7 +166,7 @@ export default function AdminLoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     placeholder="you@bizzystem.com"
-                    className="w-full bg-transparent outline-none text-sm"
+                    className="w-full bg-transparent outline-none text-sm text-zinc-900 placeholder-zinc-500"
                     autoComplete="username"
                   />
                 </div>
