@@ -8,11 +8,11 @@ import { Lock, LogIn, Mail, KeyRound, Shield } from "lucide-react";
 /**
  * Admin Login Page (Platform Admin)
  * - URL: /admin/login
- * - ไม่มี Sidebar (กำหนดใน _app.tsx ให้ /admin/login ไม่ใช้ AdminLayout)
+ * - ไม่มี Sidebar (กำหนดใน _app.tsx แล้ว)
  * - Flow:
- *    1) ถ้ามี session อยู่แล้ว → เช็ก role=admin → เข้า /admin (หรือ callback ที่ปลอดภัย)
- *    2) Email/Password หรือ Google SSO
- *    3) หลังล็อกอินเช็ก role=admin ทันที ถ้าไม่ใช่ → แจ้งเตือน + signOut
+ *   1) ถ้ามี session → ดึง/สร้าง profiles แล้วเช็ก role=admin
+ *   2) Email/Password หรือ Google SSO
+ *   3) หลังล็อกอิน → เช็ก role=admin ก่อนเข้า /admin/*
  */
 
 // อนุญาต redirect เฉพาะ path ที่ขึ้นต้นด้วย /admin เพื่อกัน open-redirect
@@ -32,47 +32,58 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
-  // ถ้ามี session อยู่แล้ว → เช็ก role = admin → เด้งเข้า callback
-  useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+  // helper: ดึง role; ถ้าไม่พบแถว profiles จะ upsert ให้เป็น 'user' แล้วคืน role กลับมา
+  const fetchOrCreateRole = async (uid: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", uid)
+      .maybeSingle();
 
-      const { data: profile, error: pe } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-         .maybeSingle();
+    if (error) throw error;
+    if (data?.role) return data.role as string;
 
-         
-let role = profile?.role;
+    const { data: up, error: ue } = await supabase
+      .from("profiles")
+      .upsert({ id: uid, role: "user" })
+      .select("role")
+      .single();
 
-if (!role) {
-  // สร้างแถว default ถ้ายังไม่มี
-  const { data: up, error: ue } = await supabase
-    .from("profiles")
-    .upsert({ id: session.user.id, role: "user" })
-    .select("role")
-    .single();
-  if (ue) { setError("โหลดสิทธิ์ผู้ใช้ไม่สำเร็จ"); return; }
-  role = up.role;
-}
+    if (ue) throw ue;
+    return up.role as string;
+  };
 
-if (role === "admin") router.replace(callback);
-else { setError("บัญชีนี้ไม่มีสิทธิ์ Platform Admin"); await supabase.auth.signOut(); }
+  const checkAdminAndGo = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
 
-      if (pe) {
-        setError("โหลดสิทธิ์ผู้ใช้ไม่สำเร็จ");
-        return;
-      }
-      if (profile?.role === "admin") {
+    try {
+      const role = await fetchOrCreateRole(session.user.id);
+      if (role === "admin") {
         router.replace(callback);
       } else {
         setError("บัญชีนี้ไม่มีสิทธิ์ Platform Admin");
         await supabase.auth.signOut();
       }
+    } catch {
+      setError("โหลดสิทธิ์ผู้ใช้ไม่สำเร็จ");
+    }
+  };
+
+  // ถ้ามี session อยู่แล้ว → เช็ก role = admin → เด้งเข้า callback
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!mounted) return;
+      await checkAdminAndGo();
     })();
-  }, [callback, router]);
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callback]);
 
   const onEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,27 +93,7 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-
-      // ล็อกอินสำเร็จ → เช็ก role ก่อนเข้า admin
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("ไม่มี session หลังล็อกอิน");
-
-      const { data: profile, error: pe } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", session.user.id)
-        .single();
-
-      if (pe) throw pe;
-
-      if (profile?.role === "admin") {
-        await router.push(callback);
-      } else {
-        setError("บัญชีนี้ไม่มีสิทธิ์ Platform Admin");
-        await supabase.auth.signOut();
-      }
+      await checkAdminAndGo();
     } catch (err: any) {
       setError(err?.message || "เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
     } finally {
@@ -117,10 +108,10 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}${callback}` }, // ใช้ callback ที่ sanitize แล้ว
+        options: { redirectTo: `${window.location.origin}${callback}` }, // callback ผ่าน sanitize แล้ว
       });
       if (error) throw error;
-      // กลับมาจาก OAuth แล้วจะวนเข้า useEffect ด้านบนเพื่อตรวจ role
+      // กลับมาจาก OAuth แล้ว useEffect จะเรียก checkAdminAndGo ให้อัตโนมัติ
     } catch (err: any) {
       setError(err?.message || "Google SSO ล้มเหลว");
       setLoading(false);
@@ -159,9 +150,9 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
           </div>
         </div>
 
-        {/* Right: Login Card */}
-       <div className="flex items-center justify-center p-6 lg:p-10 bg-zinc-100 dark:bg-zinc-100">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-white text-zinc-900 ring-1 ring-black/5 shadow-sm p-6">
+        {/* Right: Login Card — โทนสว่างอ่านง่าย */}
+        <div className="flex items-center justify-center p-6 lg:p-10 bg-zinc-100">
+          <div className="w-full max-w-md rounded-2xl bg-white text-zinc-900 ring-1 ring-black/5 shadow-sm p-6">
             <div className="flex items-center gap-2">
               <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-600 to-fuchsia-600" />
               <div>
@@ -175,7 +166,7 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
             <form onSubmit={onEmailLogin} className="mt-6 space-y-3">
               <div>
                 <label className="text-xs text-zinc-500">อีเมล</label>
-                <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 px-3 py-2">
+                <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2">
                   <Mail className="h-4 w-4 text-zinc-400" />
                   <input
                     type="email"
@@ -191,7 +182,7 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
 
               <div>
                 <label className="text-xs text-zinc-500">รหัสผ่าน</label>
-                <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 px-3 py-2">
+                <div className="mt-1 flex items-center gap-2 rounded-xl border border-zinc-200 px-3 py-2">
                   <KeyRound className="h-4 w-4 text-zinc-400" />
                   <input
                     type="password"
@@ -199,7 +190,7 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder="••••••••"
-                    className="w-full bg-transparent outline-none text-sm"
+                    className="w-full bg-transparent outline-none text-sm text-zinc-900 placeholder-zinc-500"
                     autoComplete="current-password"
                   />
                 </div>
@@ -219,7 +210,7 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-4 py-2 text-sm hover:opacity-95 disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white px-4 py-2 text-sm hover:bg-violet-700 disabled:opacity-60"
               >
                 <LogIn className="h-4 w-4" /> เข้าสู่ระบบ
               </button>
@@ -228,7 +219,7 @@ else { setError("บัญชีนี้ไม่มีสิทธิ์ Platf
                 type="button"
                 onClick={onGoogle}
                 disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-60"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50 disabled:opacity-60"
               >
                 <img src="https://www.google.com/favicon.ico" className="h-4 w-4" alt="" />
                 Sign in with Google
