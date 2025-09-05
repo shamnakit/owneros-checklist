@@ -33,28 +33,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     return () => router.events.off("routeChangeComplete", cb);
   }, [router]);
 
-  /** ⛑️ Patch fetch → ใส่ Accept header ให้ทุก request ที่ยิงไป /rest/v1/ */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const orig = window.fetch;
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      try {
-        const url = typeof input === "string" ? input : input.toString();
-        if (url.includes("/rest/v1/")) {
-          const h = new Headers(init?.headers || {});
-          if (!h.has("Accept")) h.set("Accept", "application/json");
-          return orig(input, { ...init, headers: h });
-        }
-        return orig(input, init);
-      } catch {
-        return orig(input, init);
-      }
-    };
-    return () => {
-      window.fetch = orig;
-    };
-  }, []);
-
   // ── Routing rules for layouts
   const isAdmin = pathname.startsWith("/admin");
   const isAdminLogin = pathname === "/admin/login";
