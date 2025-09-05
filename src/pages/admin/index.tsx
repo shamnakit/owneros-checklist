@@ -1,4 +1,4 @@
-// src/pages/admin/analytics/index.tsx
+// src/pages/admin/index.tsx
 import React, { useMemo } from "react";
 import Head from "next/head";
 import AdminTabs from "@/components/admin/AdminTabs";

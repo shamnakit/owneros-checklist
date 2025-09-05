@@ -1,4 +1,4 @@
-// pages/admin/analytics.tsx
+// pages/admin/analytics/index.tsx
 // Mockup Dashboard: PostHog-style analytics for Bizsystem
 // - TailwindCSS UI, Recharts charts
 // - Fake data generators now; easy to wire to PostHog later
