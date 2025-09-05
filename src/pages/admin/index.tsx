@@ -1,23 +1,12 @@
 // src/pages/admin/index.tsx
 import React, { useMemo } from "react";
 import Head from "next/head";
-import AdminTabs from "@/components/admin/AdminTabs";
+import Link from "next/link";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell,
 } from "recharts";
-import { ArrowRight, TrendingUp, Users, FileText, Activity } from "lucide-react";
+import { ArrowRight, TrendingUp, Users, FileText, Activity, BarChart2 } from "lucide-react";
 
 // ------- Mock Data -------
 function useMockData() {
@@ -40,7 +29,6 @@ function useMockData() {
     value: Math.max(0, activations[i].value - 10 + (i % 5)),
   }));
 
-  // รวมเป็น timeline เดียวให้ Recharts ใช้สะดวก
   const timeline = days.map((label, i) => ({
     label,
     signups: signups[i].value,
@@ -79,59 +67,41 @@ function useMockData() {
       exportTotal: sum(expAttempts),
       conv,
     };
-  }, []); // mock คงที่
+  }, []); // mock fixed
 
   return { timeline, funnel, moduleAdoption, interest, totals };
 }
 
-// ------- Page -------
-export default function AnalyticsOverviewPage() {
+// ------- Page (Admin Overview) -------
+export default function AdminOverviewPage() {
   const { timeline, funnel, moduleAdoption, interest, totals } = useMockData();
   const pieColors = ["#7c3aed", "#22c55e", "#f59e0b", "#ef4444", "#0ea5e9"];
 
   return (
     <>
-      <Head>
-        <title>Analytics - Bizzystem</title>
-      </Head>
+      <Head><title>Admin Overview – Bizzystem</title></Head>
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Analytics</h1>
+          <h1 className="text-2xl font-semibold">Admin Overview</h1>
+          <Link
+            href="/admin/analytics"
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-4 py-2 hover:bg-neutral-800"
+          >
+            <BarChart2 className="w-4 h-4" /> Go to Analytics
+          </Link>
         </div>
 
-        <AdminTabs />
-
-        {/* KPI Cards */}
+        {/* KPI Cards (สรุปภาพรวม) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KPI
-            icon={<Users className="h-5 w-5" />}
-            label="Signups (14d)"
-            value={totals.signupTotal.toLocaleString()}
-            sub="Users registered"
-          />
-          <KPI
-            icon={<Activity className="h-5 w-5" />}
-            label="Activations (14d)"
-            value={totals.activationTotal.toLocaleString()}
-            sub={`${String.fromCharCode(0x2265)} 1 category`} // ≥ 1
-          />
-          <KPI
-            icon={<FileText className="h-5 w-5" />}
-            label="Export Attempts (14d)"
-            value={totals.exportTotal.toLocaleString()}
-            sub="Export clicked"
-          />
-          <KPI
-            icon={<TrendingUp className="h-5 w-5" />}
-            label="Signup → Interest"
-            value={(totals.conv * 100).toFixed(1) + "%"}
-            sub="Pro/Premium"
-          />
+          <KPI icon={<Users className="h-5 w-5" />} label="Signups (14d)" value={totals.signupTotal.toLocaleString()} sub="Users registered" />
+          <KPI icon={<Activity className="h-5 w-5" />} label="Activations (14d)" value={totals.activationTotal.toLocaleString()} sub={`${String.fromCharCode(0x2265)} 1 category`} />
+          <KPI icon={<FileText className="h-5 w-5" />} label="Export Attempts (14d)" value={totals.exportTotal.toLocaleString()} sub="Export clicked" />
+          <KPI icon={<TrendingUp className="h-5 w-5" />} label="Signup → Interest" value={(totals.conv * 100).toFixed(1) + "%"} sub="Pro/Premium" />
         </div>
 
-        {/* Events Over Time */}
-        <Card title="Events Over Time - Signups / Activations / Export">
+        {/* Events Over Time (ย่อ) */}
+        <Card title="Events Over Time – Signups / Activations / Export">
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={timeline}>
@@ -148,7 +118,7 @@ export default function AnalyticsOverviewPage() {
           </div>
         </Card>
 
-        {/* Activation Funnel */}
+        {/* Activation Funnel (ย่อ) */}
         <Card title="Activation Funnel">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {funnel.map((f, i) => (
@@ -194,32 +164,23 @@ export default function AnalyticsOverviewPage() {
             <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4 space-y-3">
               <div className="text-sm text-neutral-400">Top signals</div>
               <ul className="text-sm list-disc list-inside text-neutral-200 space-y-2">
-                <li>
-                  Pro interest is higher for users with {String.fromCharCode(0x2265)} 2 exports
-                </li>
-                <li>
-                  Premium often after team size {String.fromCharCode(0x2265)} 3 users
-                </li>
+                <li>Pro interest is higher for users with {String.fromCharCode(0x2265)} 2 exports</li>
+                <li>Premium often after team size {String.fromCharCode(0x2265)} 3 users</li>
                 <li>Factory vertical shows higher conversion</li>
               </ul>
             </div>
           </div>
         </Card>
 
-        {/* CTA */}
+        {/* CTA → ตั้งค่า/ดู Analytics ละเอียด */}
         <div className="rounded-2xl border border-dashed border-neutral-800 p-6 bg-neutral-900/40 flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-neutral-100 font-semibold">Connect real data from PostHog</div>
-            <div className="text-neutral-400 text-sm">
-              Set project key/host and call our API to replace mock data.
-            </div>
+            <div className="text-neutral-400 text-sm">Set project key/host and call our API to replace mock data.</div>
           </div>
-          <a
-            href="/admin/settings"
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-4 py-2 hover:bg-neutral-800"
-          >
-            Go to Analytics Settings <ArrowRight className="h-4 w-4" />
-          </a>
+          <Link href="/admin/analytics" className="inline-flex items-center gap-2 rounded-xl border border-neutral-700 px-4 py-2 hover:bg-neutral-800">
+            Go to Analytics <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </>
@@ -237,18 +198,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
     </div>
   );
 }
-
-function KPI({
-  icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  sub?: string;
-}) {
+function KPI({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5">
       <div className="flex items-center gap-3">
