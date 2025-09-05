@@ -42,7 +42,24 @@ export default function AdminLoginPage() {
         .from("profiles")
         .select("role")
         .eq("id", session.user.id)
-        .single();
+         .maybeSingle();
+
+         
+let role = profile?.role;
+
+if (!role) {
+  // สร้างแถว default ถ้ายังไม่มี
+  const { data: up, error: ue } = await supabase
+    .from("profiles")
+    .upsert({ id: session.user.id, role: "user" })
+    .select("role")
+    .single();
+  if (ue) { setError("โหลดสิทธิ์ผู้ใช้ไม่สำเร็จ"); return; }
+  role = up.role;
+}
+
+if (role === "admin") router.replace(callback);
+else { setError("บัญชีนี้ไม่มีสิทธิ์ Platform Admin"); await supabase.auth.signOut(); }
 
       if (pe) {
         setError("โหลดสิทธิ์ผู้ใช้ไม่สำเร็จ");
