@@ -25,7 +25,7 @@ export interface ChecklistRow {
   example?: string | null;
 }
 
-// Alias ให้โค้ดเดิมทำงานต่อได้
+// alias ให้ของเดิมทำงานต่อได้
 export type ChecklistItem = ChecklistRow;
 
 export interface Summary {
@@ -111,10 +111,7 @@ export async function listYears(): Promise<number[]> {
   return ys.length ? ys : [new Date().getFullYear()];
 }
 
-/**
- * ดึง "template" ต่อหมวดจาก checklist_templates (ไม่พึ่ง RPC)
- * เหมาะเมื่ออยากโชว์ Guideline/Example เพื่อช่วยกรอก
- */
+// ดึง template ต่อหมวด (ใช้ Guideline/Example)
 export async function fetchChecklistTemplatesByCategory(
   category: CategoryKey
 ): Promise<ChecklistRow[]> {
@@ -143,10 +140,7 @@ export async function fetchChecklistTemplatesByCategory(
   })) as ChecklistRow[];
 }
 
-/**
- * ดึง "สถานะของผู้ใช้" ต่อหมวด/ปี ผ่าน RPC
- * (ถ้าแก้ RPC ให้ select t.guideline, t.example มาด้วยก็จะเติมสองฟิลด์ให้)
- */
+// โหลดสถานะของผู้ใช้ (RPC)
 export async function loadItems(params: {
   year: number;
   category: CategoryKey;
@@ -176,7 +170,7 @@ export async function ensureRow(payload: {
   template_id: string;
   year: number;
   name: string;
-  autoCheck?: boolean; // default true
+  autoCheck?: boolean;
 }): Promise<void> {
   const uid = payload.uid ?? (await getAuthUid());
   const autoCheck = payload.autoCheck ?? true;
@@ -386,7 +380,7 @@ export type TemplateRow = {
 export type Checklist = TemplateRow & { title?: string };
 
 type AdminChecklistInput = Partial<TemplateRow> & {
-  title?: string; // alias ของ name
+  title?: string;
   description?: string;
 };
 
