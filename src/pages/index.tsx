@@ -1,6 +1,6 @@
 // pages/index.tsx
 import Head from "next/head";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -21,6 +21,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
 } from "recharts";
+import { track } from "@/lib/analytics/posthog.client";
 
 // ====== Sample data (roles on the ship) ======
 const sampleData = [
@@ -85,15 +86,18 @@ export default function LandingIndexPage() {
   const [interestOpen, setInterestOpen] = useState(false);
   const [initialPlan, setInitialPlan] = useState<"Pro" | "Premium">("Pro");
 
+  // visit_landing on mount
+  useEffect(() => {
+    track("visit_landing", { page: "landing" });
+  }, []);
+
   const openInterest = (plan: "Pro" | "Premium") => {
     setInitialPlan(plan);
     setInterestOpen(true);
   };
 
   const handleCta = (where: string) => {
-    if (typeof window !== "undefined" && (window as any).posthog) {
-      (window as any).posthog.capture("cta_clicked", { where, page: "landing" });
-    }
+    track("cta_start_click", { where, page: "landing" });
   };
 
   return (
@@ -644,18 +648,13 @@ function InterestModal({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (typeof window !== "undefined" && (window as any).posthog) {
-        (window as any).posthog.capture("pricing_interest", {
-          plan,
-          name,
-          email,
-          phone,
-          company,
-        });
-      }
+      // pricing_interest event
+      track("pricing_interest", { plan, name, email, phone, company });
+
       const list = JSON.parse(localStorage.getItem("pricing_interest") || "[]");
       list.push({ ts: Date.now(), plan, name, email, phone, company });
       localStorage.setItem("pricing_interest", JSON.stringify(list));
+
       try {
         await fetch("/api/interest", {
           method: "POST",
@@ -755,7 +754,13 @@ function InterestModal({
             </div>
 
             {/* honeypot */}
-            <input type="text" className="hidden" autoComplete="off" tabIndex={-1} aria-hidden />
+            <input
+              type="text"
+              className="hidden"
+              autoComplete="off"
+              tabIndex={-1}
+              aria-hidden
+            />
 
             <div className="pt-2 text-right">
               <button
