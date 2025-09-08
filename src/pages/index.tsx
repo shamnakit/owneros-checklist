@@ -162,7 +162,7 @@ export default function LandingIndexPage() {
                       <PolarGrid />
                       <PolarAngleAxis dataKey="cat" tick={{ fill: "#334155", fontSize: 12 }} />
                       <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 10 }} />
-                      <Radar name="คะแนน" dataKey="value" stroke="#2563eb" fill="#2563eb" fillOpacity={0.35} />
+                      <Radar name="คะแนน" dataKey="value" stroke="#2D7CFF" fill="#2D7CFF" fillOpacity={0.35} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
