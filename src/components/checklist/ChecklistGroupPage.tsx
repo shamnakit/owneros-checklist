@@ -17,13 +17,71 @@ import {
 } from "@/services/checklistService";
 import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle, Eye, Trash2 } from "lucide-react";
 
+/** ================= Moonship Accents (ไม่พึ่งไฟล์ theme อื่น) ================ */
+const ACCENT_BY_CATEGORY: Record<CategoryKey, string> = {
+  strategy: "#FFD54A",
+  structure: "#2DD4BF",
+  sop: "#7C3AED",
+  hr: "#22C55E",
+  finance: "#F59E0B",
+  sales: "#FF7A1A",
+};
+
+/** สถานะ Moonship แบบ GO/HOLD/NO-GO */
+type MissionStatus = "GO" | "HOLD" | "NO-GO";
+const toMissionStatus = (it: ChecklistItem): MissionStatus => {
+  if (it.has_record && it.has_evidence) return "GO";
+  if (it.has_record && !it.has_evidence) return "HOLD";
+  return "NO-GO";
+};
+
+/** ชิปสถานะ (สไตล์ Dark) */
+function StatusChip({ status }: { status: MissionStatus }) {
+  const base =
+    "inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border transition";
+  if (status === "GO")
+    return (
+      <span className={`${base} text-emerald-400 border-emerald-500/40 bg-emerald-500/10`}>● GO</span>
+    );
+  if (status === "HOLD")
+    return (
+      <span className={`${base} text-amber-300 border-amber-400/40 bg-amber-500/10`}>● HOLD</span>
+    );
+  return <span className={`${base} text-rose-300 border-rose-400/40 bg-rose-500/10`}>● NO-GO</span>;
+}
+
+/** ปุ่มฟิลเตอร์แบบชิป */
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-sm border transition ${
+        active
+          ? "border-sky-400/60 bg-sky-400/10 text-sky-200"
+          : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** ================== Props/State เดิม ================== */
 export type ChecklistGroupPageProps = {
   groupNo: 1 | 2 | 3 | 4 | 5 | 6;
   categoryKey: CategoryKey;
-  title: string;               // เช่น "Checklist หมวด 2: โครงสร้างและการกำกับดูแล"
-  breadcrumb?: string;         // เช่น "Checklist › หมวด 2"
-  requireEvidence?: boolean;   // default=false (ติ๊กก็นับ) ; ถ้า true จะนับเฉพาะมีไฟล์
-  storageBucket?: string;      // default="evidence"
+  title: string; // เช่น "Checklist หมวด 2: โครงสร้างและการกำกับดูแล"
+  breadcrumb?: string; // เช่น "Checklist › หมวด 2"
+  requireEvidence?: boolean; // default=false (ติ๊กก็นับ) ; ถ้า true จะนับเฉพาะมีไฟล์
+  storageBucket?: string; // default="evidence"
 };
 
 type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
@@ -93,8 +151,13 @@ const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
   sales: SALES_OVERRIDES,
 };
 
+/** ปุ่ม badge (ปรับเป็น Dark) */
 const badge = (active = false) =>
-  `px-3 py-1.5 rounded-full text-sm ${active ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-700 hover:bg-slate-300"}`;
+  `px-3 py-1.5 rounded-full text-sm border ${
+    active
+      ? "bg-sky-400/10 text-sky-200 border-sky-400/60"
+      : "bg-white/5 text-slate-200 border-white/10 hover:bg-white/10"
+  }`;
 
 export default function ChecklistGroupPage({
   groupNo,
@@ -265,24 +328,42 @@ export default function ChecklistGroupPage({
     return `${order}${origName}`;
   };
 
+  /** สี accent ของหมวด (ใช้กับขอบการ์ด/หัวเรื่อง) */
+  const accent = ACCENT_BY_CATEGORY[categoryKey] ?? "#A1A1AA";
+
   return (
-    <main className="flex-1 bg-slate-50 p-6 md:p-10">
+    <main className="flex-1 bg-[linear-gradient(180deg,#0B0F1A,#0F1E2E)] min-h-screen p-6 md:p-10 text-slate-100">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-sm text-slate-500">{breadcrumb || `Checklist › หมวด ${groupNo}`}</div>
-          <h1 className="mt-1 text-2xl font-bold text-slate-800">{title}</h1>
-          <div className="mt-1 text-sm text-slate-500">ปี {year}</div>
+          <div className="text-xs text-slate-400">{breadcrumb || `Checklist › หมวด ${groupNo}`}</div>
+          <h1
+            className="mt-1 text-2xl font-bold"
+            style={{ textShadow: "0 0 24px rgba(255,255,255,0.08)" }}
+          >
+            {title}
+          </h1>
+          <div className="mt-1 text-xs text-slate-400">ปี {year} · สถานะภารกิจหมวดนี้</div>
         </div>
 
         {/* Summary cards */}
         <div className="flex items-center gap-4">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div className="text-xs text-slate-500">ความครบถ้วน{requireEvidence ? " (นับเฉพาะมีไฟล์)" : ""}</div>
-            <div className="text-3xl font-bold text-emerald-600 text-right">{summary.pct}%</div>
+          <div
+            className="rounded-2xl border px-4 py-3 shadow-sm"
+            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}
+          >
+            <div className="text-[11px] text-slate-300">
+              ความครบถ้วน{requireEvidence ? " (นับเฉพาะมีไฟล์)" : ""} {/* Hints ธีมยาน */}
+            </div>
+            <div className="text-right text-3xl font-extrabold" style={{ color: accent }}>
+              {summary.pct}%
+            </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div className="text-xs text-slate-500">คะแนน</div>
+          <div
+            className="rounded-2xl border px-4 py-3 shadow-sm"
+            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}
+          >
+            <div className="text-[11px] text-slate-300">คะแนน</div>
             <div className="text-right text-lg font-semibold">
               {summary.scored.toLocaleString()} / {summary.total.toLocaleString()}
             </div>
@@ -292,98 +373,131 @@ export default function ChecklistGroupPage({
 
       {/* Stat strip */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
-          <div className="text-xs text-slate-500">เสร็จ + มีไฟล์</div>
-          <div className="mt-1 text-xl font-bold">{summary.completed}</div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
-          <div className="text-xs text-slate-500">ติ๊กแต่ไม่มีไฟล์</div>
-          <div className="mt-1 text-xl font-bold">{summary.checkedNoFile}</div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
-          <div className="text-xs text-slate-500">ยังไม่เริ่ม</div>
-          <div className="mt-1 text-xl font-bold">{summary.notStarted}</div>
-        </div>
-        <div className="rounded-xl bg-white p-4 shadow-sm border border-slate-200">
-          <div className="text-xs text-slate-500">มีไฟล์แล้ว</div>
-          <div className="mt-1 text-xl font-bold">{summary.withFile}</div>
-        </div>
+        {[
+          { label: "GO (เสร็จ + มีไฟล์)", value: summary.completed, tone: "emerald" },
+          { label: "HOLD (ติ๊กยังไม่มีไฟล์)", value: summary.checkedNoFile, tone: "amber" },
+          { label: "NO-GO (ยังไม่เริ่ม)", value: summary.notStarted, tone: "rose" },
+          { label: "จำนวนที่มีไฟล์", value: summary.withFile, tone: "sky" },
+        ].map((s, i) => (
+          <div
+            key={i}
+            className="rounded-xl p-4 shadow-sm border"
+            style={{
+              borderColor: "rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.05)",
+            }}
+          >
+            <div className="text-[11px] text-slate-300">{s.label}</div>
+            <div className="mt-1 text-xl font-bold">{s.value}</div>
+          </div>
+        ))}
       </div>
 
       {/* Filters */}
-      <div className="mb-4 flex gap-2">
-        <button className={badge(filter === "all")} onClick={() => setFilter("all")}>ทั้งหมด</button>
-        <button className={badge(filter === "not_started")} onClick={() => setFilter("not_started")}>ยังไม่ทำ</button>
-        <button className={badge(filter === "checked_no_file")} onClick={() => setFilter("checked_no_file")}>ติ๊กแล้วไม่มีไฟล์</button>
-        <button className={badge(filter === "completed")} onClick={() => setFilter("completed")}>ทำแล้วมีไฟล์</button>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
+          ทั้งหมด
+        </FilterChip>
+        <FilterChip active={filter === "not_started"} onClick={() => setFilter("not_started")}>
+          NO-GO (ยังไม่เริ่ม)
+        </FilterChip>
+        <FilterChip
+          active={filter === "checked_no_file"}
+          onClick={() => setFilter("checked_no_file")}
+        >
+          HOLD (ติ๊กแล้วไม่มีไฟล์)
+        </FilterChip>
+        <FilterChip active={filter === "completed"} onClick={() => setFilter("completed")}>
+          GO (เสร็จ + มีไฟล์)
+        </FilterChip>
+
+        <div className="ml-auto text-xs text-slate-400 flex items-center gap-3">
+          <span className="flex items-center gap-1">
+            <Circle size={12} /> Record
+          </span>
+          <span className="flex items-center gap-1">
+            <CheckCircle2 size={12} /> Evidence
+          </span>
+        </div>
       </div>
 
       {/* Error / Loading */}
       {errorMsg && (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-red-700">{errorMsg}</div>
+        <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-rose-200">
+          {errorMsg}
+        </div>
       )}
       {loading && (
-        <div className="flex items-center gap-2 text-slate-600">
-          <Loader2 className="animate-spin" size={18} /> กำลังเตรียมหัวข้อ...
+        <div className="flex items-center gap-2 text-slate-300">
+          <Loader2 className="animate-spin" size={18} /> กำลังเตรียมหัวข้อ…
         </div>
       )}
 
       {/* Items */}
       {!loading && items.length === 0 && (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-600">
+        <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-slate-300">
           ยังไม่มีหัวข้อของปีนี้
         </div>
       )}
 
       <ul className="space-y-4 pb-24">
         {visible.map((it, idx) => {
-          const status = getStatus(it);
+          // สถานะเดิม (green/yellow/else) ไว้ใช้สีไอคอนซ้าย
+          const legacyStatus = getStatus(it);
           const stateIcon =
-            status === "green" ? (
-              <CheckCircle2 className="text-emerald-600" size={18} />
-            ) : status === "yellow" ? (
-              <AlertTriangle className="text-amber-600" size={18} />
+            legacyStatus === "green" ? (
+              <CheckCircle2 className="text-emerald-400" size={18} />
+            ) : legacyStatus === "yellow" ? (
+              <AlertTriangle className="text-amber-300" size={18} />
             ) : (
               <Circle className="text-slate-400" size={18} />
             );
 
           const displayName = getDisplayName(it.name, idx);
+          const missionStatus = toMissionStatus(it);
 
           return (
             <li
               key={it.template_id}
-              className={`bg-white p-4 rounded-xl shadow-sm border ${
-                status === "green" ? "border-emerald-200" : status === "yellow" ? "border-amber-200" : "border-slate-200"
-              }`}
+              className="p-4 rounded-xl shadow-sm border"
+              style={{
+                borderColor:
+                  missionStatus === "GO"
+                    ? "rgba(16,185,129,0.35)"
+                    : missionStatus === "HOLD"
+                    ? "rgba(245,158,11,0.35)"
+                    : "rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.05)",
+              }}
             >
               {/* Header row */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   {stateIcon}
                   <div>
-                    <div className="font-semibold text-slate-800">{displayName}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>
+                      {displayName}
+                    </div>
+                    <div className="text-xs text-slate-300">
                       คะแนนข้อนี้: +{it.score_points} • อัปเดตล่าสุด: {fmtDate(it.updated_at)}
                     </div>
 
-                    {/* (ซ่อน maturity line ตามที่ขอ) */}
-
                     {/* ชื่อไฟล์ + ปุ่มดู/เปลี่ยน/ลบ */}
                     {it.has_evidence && it.file_path ? (
-                      <div className="mt-1 flex items-center gap-3 text-xs">
-                        <span className="text-emerald-700">ไฟล์: {it.file_path}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
+                        <span className="text-emerald-300/90">ไฟล์: {it.file_path}</span>
 
                         <button
                           type="button"
                           onClick={() => onViewEvidence(it)}
-                          className="inline-flex items-center gap-1 underline text-blue-600 hover:text-blue-500"
+                          className="inline-flex items-center gap-1 underline text-sky-300 hover:text-sky-200"
                           title="ดูไฟล์"
                         >
                           <Eye size={14} /> ดูไฟล์
                         </button>
 
                         <label
-                          className="inline-flex cursor-pointer items-center gap-1 underline text-slate-700 hover:text-slate-600"
+                          className="inline-flex cursor-pointer items-center gap-1 underline text-slate-200 hover:text-slate-100"
                           title="เปลี่ยนไฟล์"
                         >
                           <Upload size={14} /> เปลี่ยนไฟล์
@@ -402,23 +516,25 @@ export default function ChecklistGroupPage({
                         <button
                           type="button"
                           onClick={() => onRemoveEvidence(it)}
-                          className="inline-flex items-center gap-1 underline text-red-600 hover:text-red-500"
+                          className="inline-flex items-center gap-1 underline text-rose-300 hover:text-rose-200"
                           title="ลบไฟล์"
                         >
                           <Trash2 size={14} /> ลบไฟล์
                         </button>
                       </div>
-                    ) : status === "yellow" ? (
-                      <div className="mt-1 text-xs text-amber-700">
+                    ) : missionStatus === "HOLD" ? (
+                      <div className="mt-1 text-xs text-amber-200">
                         ติ๊กแล้วแต่ยังไม่มีหลักฐาน — อัปโหลดไฟล์เพื่อปลดล็อกคะแนนเต็ม
                       </div>
                     ) : null}
                   </div>
                 </div>
 
-                {/* actions */}
-                <div className="flex items-center gap-2">
-                  <label className="flex select-none items-center gap-2 text-sm">
+                {/* actions + ชิปสถานะ */}
+                <div className="flex items-center gap-3">
+                  <StatusChip status={missionStatus} />
+
+                  <label className="flex select-none items-center gap-2 text-sm text-slate-200">
                     <input
                       type="checkbox"
                       checked={!!it.has_record}
@@ -428,7 +544,7 @@ export default function ChecklistGroupPage({
                     ติ๊กแล้ว
                   </label>
 
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm hover:bg-slate-200">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">
                     <Upload size={16} />
                     <span>แนบไฟล์</span>
                     <input
@@ -448,9 +564,9 @@ export default function ChecklistGroupPage({
               {/* textarea */}
               <div className="mt-3">
                 <textarea
-                  className="w-full rounded-lg border p-3 text-sm"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-100 placeholder:text-slate-400"
                   rows={3}
-                  placeholder="พิมพ์บันทึก/สรุปหลักฐาน…"
+                  placeholder="พิมพ์บันทึก/สรุปหลักฐาน… (เพิ่ม Δv ให้ยานของคุณ)"
                   value={drafts[it.template_id] ?? it.input_text ?? ""}
                   onChange={(e) => setDrafts((d) => ({ ...d, [it.template_id]: e.target.value }))}
                 />
@@ -458,7 +574,8 @@ export default function ChecklistGroupPage({
                   <button
                     onClick={() => onSaveText(it)}
                     disabled={savingId === it.template_id}
-                    className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
+                    className="rounded bg-yellow-400/90 text-black px-3 py-1.5 text-sm hover:bg-yellow-300"
+                    style={{ boxShadow: `0 0 18px ${accent}40` }}
                   >
                     บันทึก
                   </button>

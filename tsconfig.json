@@ -1,36 +1,27 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
     "noEmit": true,
     "incremental": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "baseUrl": "src",
+
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "*"
-      ]
-    },
-    "target": "ES2017"
+      "@/*": ["src/*"]
+    }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    "src/pages/checklist/admin.tsx.disable"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
 }

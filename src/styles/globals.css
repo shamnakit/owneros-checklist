@@ -46,3 +46,50 @@
 }
 
 /* ใช้เดิม: hero-starfield, hero-vignette (มีอยู่แล้ว) */
+/* ===== Moonship Theme (Black-heavy + Starfield) ===== */
+:root {
+  --bg-space: #0B0F1A;
+  --bg-navy: #0F1E2E;
+  --text-starlight: #E6EDF5;
+
+  --c-strategy: #FFD54A;
+  --c-structure: #2DD4BF;
+  --c-sop: #7C3AED;
+  --c-hr: #22C55E;
+  --c-finance: #F59E0B;
+  --c-sales: #FF7A1A;
+
+  --c-go: #22C55E;
+  --c-hold: #F59E0B;
+  --c-nogo: #EF4444;
+}
+
+html, body, #__next {
+  background:
+    radial-gradient(1200px 800px at 10% 10%, rgba(255,255,255,0.06), transparent 60%),
+    radial-gradient(800px 600px at 80% 30%, rgba(255,255,255,0.04), transparent 60%),
+    linear-gradient(180deg, var(--bg-space), var(--bg-navy));
+  color: var(--text-starlight);
+}
+
+.bg-space {
+  background:
+    radial-gradient(1200px 800px at 10% 10%, rgba(255,255,255,0.06), transparent 60%),
+    radial-gradient(800px 600px at 80% 30%, rgba(255,255,255,0.04), transparent 60%),
+    linear-gradient(180deg, var(--bg-space), var(--bg-navy));
+}
+
+/* Card base + soft glow by category */
+.card-moon { @apply rounded-2xl border bg-white/5 backdrop-blur-sm; border-color: rgba(255,255,255,0.10); }
+.glow-strategy { box-shadow: 0 0 0 1px rgba(255,213,74,0.25), 0 8px 32px rgba(255,213,74,0.15); }
+.glow-structure{ box-shadow: 0 0 0 1px rgba(45,212,191,0.25), 0 8px 32px rgba(45,212,191,0.15); }
+.glow-sop      { box-shadow: 0 0 0 1px rgba(124,58,237,0.25), 0 8px 32px rgba(124,58,237,0.15); }
+.glow-hr       { box-shadow: 0 0 0 1px rgba(34,197,94,0.25),  0 8px 32px rgba(34,197,94,0.15); }
+.glow-finance  { box-shadow: 0 0 0 1px rgba(245,158,11,0.25), 0 8px 32px rgba(245,158,11,0.15); }
+.glow-sales    { box-shadow: 0 0 0 1px rgba(255,122,26,0.25), 0 8px 32px rgba(255,122,26,0.15); }
+
+/* Chips */
+.chip { @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
+.chip-go   { color: var(--c-go);   border-color: color-mix(in oklab, var(--c-go) 40%, white 60%); }
+.chip-hold { color: var(--c-hold); border-color: color-mix(in oklab, var(--c-hold) 40%, white 60%); }
+.chip-nogo { color: var(--c-nogo); border-color: color-mix(in oklab, var(--c-nogo) 40%, white 60%); }
