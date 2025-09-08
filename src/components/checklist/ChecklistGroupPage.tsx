@@ -1,4 +1,5 @@
 // src/components/checklist/ChecklistGroupPage.tsx
+'use client';
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
@@ -15,9 +16,17 @@ import {
   type ChecklistItem,
   type CategoryKey,
 } from "@/services/checklistService";
-import { Loader2, Upload, CheckCircle2, AlertTriangle, Circle, Eye, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+  Circle,
+  Eye,
+  Trash2,
+} from "lucide-react";
 
-/** ================= Moonship Accents (ไม่พึ่งไฟล์ theme อื่น) ================ */
+/** ===== Moonship Accents (inline) ===== */
 const ACCENT_BY_CATEGORY: Record<CategoryKey, string> = {
   strategy: "#FFD54A",
   structure: "#2DD4BF",
@@ -27,7 +36,7 @@ const ACCENT_BY_CATEGORY: Record<CategoryKey, string> = {
   sales: "#FF7A1A",
 };
 
-/** สถานะ Moonship แบบ GO/HOLD/NO-GO */
+/** ===== Mission status (GO/HOLD/NO-GO) ===== */
 type MissionStatus = "GO" | "HOLD" | "NO-GO";
 const toMissionStatus = (it: ChecklistItem): MissionStatus => {
   if (it.has_record && it.has_evidence) return "GO";
@@ -35,61 +44,126 @@ const toMissionStatus = (it: ChecklistItem): MissionStatus => {
   return "NO-GO";
 };
 
-/** ชิปสถานะ (สไตล์ Dark) */
 function StatusChip({ status }: { status: MissionStatus }) {
   const base =
     "inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium border transition";
   if (status === "GO")
     return (
-      <span className={`${base} text-emerald-400 border-emerald-500/40 bg-emerald-500/10`}>● GO</span>
+      <span className={`${base} text-emerald-400 border-emerald-500/40 bg-emerald-500/10`}>
+        ● GO
+      </span>
     );
   if (status === "HOLD")
     return (
-      <span className={`${base} text-amber-300 border-amber-400/40 bg-amber-500/10`}>● HOLD</span>
+      <span className={`${base} text-amber-300 border-amber-400/40 bg-amber-500/10`}>
+        ● HOLD
+      </span>
     );
-  return <span className={`${base} text-rose-300 border-rose-400/40 bg-rose-500/10`}>● NO-GO</span>;
-}
-
-/** ปุ่มฟิลเตอร์แบบชิป */
-function FilterChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
   return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm border transition ${
-        active
-          ? "border-sky-400/60 bg-sky-400/10 text-sky-200"
-          : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
-      }`}
-    >
-      {children}
-    </button>
+    <span className={`${base} text-rose-300 border-rose-400/40 bg-rose-500/10`}>
+      ● NO-GO
+    </span>
   );
 }
 
-/** ================== Props/State เดิม ================== */
+/** ===== Evidence Quality (manual, LocalStorage) ===== */
+type EvidenceQuality = "good" | "fair" | "needs_work" | "";
+const QUALITY_LABEL: Record<Exclude<EvidenceQuality, "">, string> = {
+  good: "ดี",
+  fair: "พอใช้",
+  needs_work: "ต้องปรับ",
+};
+const qualityKey = (year: number, id: string) => `eq:${year}:${id}`;
+const readQuality = (year: number, id: string): EvidenceQuality => {
+  if (typeof window === "undefined") return "";
+  return (localStorage.getItem(qualityKey(year, id)) as EvidenceQuality) || "";
+};
+const writeQuality = (year: number, id: string, q: EvidenceQuality) => {
+  if (typeof window === "undefined") return;
+  if (q) localStorage.setItem(qualityKey(year, id), q);
+  else localStorage.removeItem(qualityKey(year, id));
+};
+function QualityTag({ q }: { q: EvidenceQuality }) {
+  if (!q) return null;
+  const map: Record<Exclude<EvidenceQuality, "">, string> = {
+    good: "text-emerald-300 border-emerald-400/40 bg-emerald-500/10",
+    fair: "text-sky-300 border-sky-400/40 bg-sky-500/10",
+    needs_work: "text-amber-300 border-amber-400/40 bg-amber-500/10",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${map[q]}`}>
+      {QUALITY_LABEL[q]}
+    </span>
+  );
+}
+
+/** ===== Segmented Filter (with hotkeys 1..4) ===== */
+type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
+const segments: { key: FilterKey; label: string; tone: "slate" | "rose" | "amber" | "emerald" }[] =
+  [
+    { key: "all", label: "ทั้งหมด", tone: "slate" },
+    { key: "not_started", label: "NO-GO", tone: "rose" },
+    { key: "checked_no_file", label: "HOLD", tone: "amber" },
+    { key: "completed", label: "GO", tone: "emerald" },
+  ];
+
+function Segmented({
+  value,
+  onChange,
+}: {
+  value: FilterKey;
+  onChange: (k: FilterKey) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="ตัวกรองสถานะ"
+      className="inline-flex rounded-full border border-white/10 bg-white/5 p-1"
+    >
+      {segments.map((s) => {
+        const active = value === s.key;
+        const tone =
+          s.tone === "emerald"
+            ? "text-emerald-300"
+            : s.tone === "amber"
+            ? "text-amber-300"
+            : s.tone === "rose"
+            ? "text-rose-300"
+            : "text-slate-200";
+        return (
+          <button
+            key={s.key}
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(s.key)}
+            className={`px-3.5 py-1.5 rounded-full text-sm transition ${
+              active
+                ? `bg-white/10 border border-white/10 ${tone}`
+                : "hover:bg-white/10 text-slate-200"
+            }`}
+          >
+            {s.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** ===== Props ===== */
 export type ChecklistGroupPageProps = {
   groupNo: 1 | 2 | 3 | 4 | 5 | 6;
   categoryKey: CategoryKey;
-  title: string; // เช่น "Checklist หมวด 2: โครงสร้างและการกำกับดูแล"
-  breadcrumb?: string; // เช่น "Checklist › หมวด 2"
-  requireEvidence?: boolean; // default=false (ติ๊กก็นับ) ; ถ้า true จะนับเฉพาะมีไฟล์
-  storageBucket?: string; // default="evidence"
+  title: string;
+  breadcrumb?: string;
+  requireEvidence?: boolean;
+  storageBucket?: string;
 };
 
-type FilterKey = "all" | "not_started" | "checked_no_file" | "completed";
 const DEFAULT_BUCKET = "evidence";
 
-/** ---------- ชื่อ/คำอธิบาย override ต่อหมวด ---------- */
+/** ---------- Title Overrides ---------- */
 type TitleDesc = { title: string; desc?: string };
-
 const STRATEGY_OVERRIDES: TitleDesc[] = [
   { title: "Vision (วิสัยทัศน์)", desc: "ภาพอนาคตที่องค์กรอยากไปให้ถึง" },
   { title: "Mission (พันธกิจ)", desc: "สิ่งที่องค์กรทำ/ส่งมอบให้กับลูกค้าและสังคม" },
@@ -101,7 +175,6 @@ const STRATEGY_OVERRIDES: TitleDesc[] = [
   { title: "Strategic Initiatives / Projects", desc: "โครงการ/แผนงานเชิงกลยุทธ์ที่กำลังดำเนินการ" },
   { title: "KPI Alignment (Lead–Lag) & Targets", desc: "เชื่อม KPI กับกลยุทธ์และกำหนดเป้าหมาย" },
 ];
-
 const STRUCTURE_OVERRIDES: TitleDesc[] = [
   { title: "Org Chart", desc: "แผนผังโครงสร้างองค์กรและสายบังคับบัญชา" },
   { title: "Board & Executives", desc: "คณะกรรมการ/ผู้บริหารและบทบาทหน้าที่" },
@@ -109,7 +182,6 @@ const STRUCTURE_OVERRIDES: TitleDesc[] = [
   { title: "KPI/OKR Review Cadence", desc: "รอบการติดตามผลการทำงานของหน่วยงาน/บุคคล" },
   { title: "Governance & Code of Conduct", desc: "นโยบายธรรมาภิบาลและจรรยาบรรณธุรกิจ" },
 ];
-
 const SOP_OVERRIDES: TitleDesc[] = [
   { title: "Core Processes", desc: "ระบุและออกแบบกระบวนการหลักขององค์กร" },
   { title: "SOP/WI", desc: "คู่มือ/ขั้นตอนการทำงานสำหรับงานสำคัญ" },
@@ -117,7 +189,6 @@ const SOP_OVERRIDES: TitleDesc[] = [
   { title: "Process KPIs", desc: "ตัวชี้วัดประสิทธิภาพต่อกระบวนการ" },
   { title: "Periodic Review & Improvement", desc: "ทบทวน/ปรับปรุง SOP/WI เป็นประจำ" },
 ];
-
 const HR_OVERRIDES: TitleDesc[] = [
   { title: "Recruitment & Onboarding", desc: "รับสมัครและปฐมนิเทศพนักงานใหม่" },
   { title: "Employee Handbook", desc: "คู่มือพนักงาน/นโยบายบุคคล" },
@@ -125,7 +196,6 @@ const HR_OVERRIDES: TitleDesc[] = [
   { title: "Training / IDP", desc: "แผนพัฒนาศักยภาพรายบุคคล/ทีม" },
   { title: "Engagement & Culture", desc: "สร้างความผูกพันและค่านิยมในทางปฏิบัติ" },
 ];
-
 const FINANCE_OVERRIDES: TitleDesc[] = [
   { title: "Annual Budget", desc: "งบประมาณประจำปีและแผนการเงิน" },
   { title: "Financial Reports (P&L, Cash Flow)", desc: "รายงานการเงินหลัก" },
@@ -133,7 +203,6 @@ const FINANCE_OVERRIDES: TitleDesc[] = [
   { title: "Financial KPIs", desc: "ตัวชี้วัดทางการเงินหลัก" },
   { title: "Data Analysis / Dashboard", desc: "การใช้ข้อมูลเพื่อการตัดสินใจ" },
 ];
-
 const SALES_OVERRIDES: TitleDesc[] = [
   { title: "Customer Segmentation / Persona", desc: "ทำความเข้าใจลูกค้าเป้าหมาย" },
   { title: "Customer Journey & Experience", desc: "ออกแบบประสบการณ์และจุดสัมผัส" },
@@ -141,7 +210,6 @@ const SALES_OVERRIDES: TitleDesc[] = [
   { title: "Sales Data & Market Analysis", desc: "ข้อมูลยอดขายและการวิเคราะห์ตลาด" },
   { title: "Marketing & Sales Plan", desc: "แผนการตลาดและการขายประจำปี" },
 ];
-
 const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
   strategy: STRATEGY_OVERRIDES,
   structure: STRUCTURE_OVERRIDES,
@@ -151,14 +219,7 @@ const TITLE_OVERRIDES: Record<CategoryKey, TitleDesc[] | null> = {
   sales: SALES_OVERRIDES,
 };
 
-/** ปุ่ม badge (ปรับเป็น Dark) */
-const badge = (active = false) =>
-  `px-3 py-1.5 rounded-full text-sm border ${
-    active
-      ? "bg-sky-400/10 text-sky-200 border-sky-400/60"
-      : "bg-white/5 text-slate-200 border-white/10 hover:bg-white/10"
-  }`;
-
+/** ===== Component ===== */
 export default function ChecklistGroupPage({
   groupNo,
   categoryKey,
@@ -168,7 +229,6 @@ export default function ChecklistGroupPage({
   storageBucket = DEFAULT_BUCKET,
 }: ChecklistGroupPageProps) {
   const router = useRouter();
-  // ✅ ดึงปีจาก query เท่านั้น (ไม่มี dropdown แล้ว)
   const year = useMemo(() => {
     const y = Number(router.query.year ?? new Date().getFullYear());
     return Number.isFinite(y) ? y : new Date().getFullYear();
@@ -181,23 +241,27 @@ export default function ChecklistGroupPage({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [qualities, setQualities] = useState<Record<string, EvidenceQuality>>({});
 
-  /** โหลดรายการ checklist ของหมวด */
+  /** Load items */
   const load = async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
       const rows = await loadItems({ year, category: categoryKey });
       setItems(rows);
+      // seed drafts
       setDrafts((prev) => {
         const next = { ...prev };
         rows.forEach((it) => {
-          if (next[it.template_id] === undefined) {
-            next[it.template_id] = it.input_text ?? "";
-          }
+          if (next[it.template_id] === undefined) next[it.template_id] = it.input_text ?? "";
         });
         return next;
       });
+      // seed quality from localStorage
+      const q: Record<string, EvidenceQuality> = {};
+      rows.forEach((it) => (q[it.template_id] = readQuality(year, it.template_id)));
+      setQualities(q);
     } catch (e: any) {
       console.error(e);
       setErrorMsg(e?.message || "โหลดรายการไม่สำเร็จ");
@@ -211,10 +275,9 @@ export default function ChecklistGroupPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, categoryKey]);
 
-  /** สรุปภาพรวมหมวด */
+  /** Summary & filters */
   const summary = useMemo(() => calcSummary(items, requireEvidence), [items, requireEvidence]);
 
-  /** ฟิลเตอร์รายการ */
   const visible = useMemo(() => {
     switch (filter) {
       case "not_started":
@@ -228,7 +291,21 @@ export default function ChecklistGroupPage({
     }
   }, [items, filter]);
 
-  /** ติ๊ก/ยกเลิก */
+  /** Hotkeys 1..4 -> filter */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target && (e.target as HTMLElement).tagName === "INPUT") return;
+      if (e.target && (e.target as HTMLElement).tagName === "TEXTAREA") return;
+      if (e.key === "1") setFilter("all");
+      if (e.key === "2") setFilter("not_started");
+      if (e.key === "3") setFilter("checked_no_file");
+      if (e.key === "4") setFilter("completed");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /** Actions */
   const onToggleItem = async (it: ChecklistItem, next: boolean) => {
     setSavingId(it.template_id);
     try {
@@ -242,7 +319,6 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** อัปโหลด/เปลี่ยน/ลบ/ดูไฟล์ */
   const onUploadEvidence = async (it: ChecklistItem, file: File) => {
     setSavingId(it.template_id);
     try {
@@ -302,7 +378,6 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** บันทึกข้อความ */
   const onSaveText = async (it: ChecklistItem) => {
     setSavingId(it.template_id);
     try {
@@ -317,7 +392,7 @@ export default function ChecklistGroupPage({
     }
   };
 
-  /** helper: ชื่อหัวข้อ (รองรับ override + ลำดับ) */
+  /** Helpers */
   const getDisplayName = (origName: string, index: number) => {
     const list = TITLE_OVERRIDES[categoryKey];
     const order = `${groupNo}.${index + 1}• `;
@@ -328,121 +403,85 @@ export default function ChecklistGroupPage({
     return `${order}${origName}`;
   };
 
-  /** สี accent ของหมวด (ใช้กับขอบการ์ด/หัวเรื่อง) */
   const accent = ACCENT_BY_CATEGORY[categoryKey] ?? "#A1A1AA";
 
   return (
     <main className="flex-1 bg-[linear-gradient(180deg,#0B0F1A,#0F1E2E)] min-h-screen p-6 md:p-10 text-slate-100">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-xs text-slate-400">{breadcrumb || `Checklist › หมวด ${groupNo}`}</div>
-          <h1
-            className="mt-1 text-2xl font-bold"
-            style={{ textShadow: "0 0 24px rgba(255,255,255,0.08)" }}
-          >
-            {title}
-          </h1>
-          <div className="mt-1 text-xs text-slate-400">ปี {year} · สถานะภารกิจหมวดนี้</div>
-        </div>
-
-        {/* Summary cards */}
-        <div className="flex items-center gap-4">
-          <div
-            className="rounded-2xl border px-4 py-3 shadow-sm"
-            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}
-          >
-            <div className="text-[11px] text-slate-300">
-              ความครบถ้วน{requireEvidence ? " (นับเฉพาะมีไฟล์)" : ""} {/* Hints ธีมยาน */}
-            </div>
-            <div className="text-right text-3xl font-extrabold" style={{ color: accent }}>
-              {summary.pct}%
-            </div>
-          </div>
-          <div
-            className="rounded-2xl border px-4 py-3 shadow-sm"
-            style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}
-          >
-            <div className="text-[11px] text-slate-300">คะแนน</div>
-            <div className="text-right text-lg font-semibold">
-              {summary.scored.toLocaleString()} / {summary.total.toLocaleString()}
-            </div>
-          </div>
-        </div>
+      <div className="mb-6">
+        <div className="text-xs text-slate-400">{breadcrumb || `Checklist › หมวด ${groupNo}`}</div>
+        <h1 className="mt-1 text-2xl font-bold" style={{ textShadow: "0 0 24px rgba(255,255,255,0.08)" }}>
+          {title}
+        </h1>
+        <div className="mt-1 text-xs text-slate-400">ปี {year} · สถานะภารกิจหมวดนี้</div>
       </div>
 
-      {/* Stat strip */}
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
-          { label: "GO (เสร็จ + มีไฟล์)", value: summary.completed, tone: "emerald" },
-          { label: "HOLD (ติ๊กยังไม่มีไฟล์)", value: summary.checkedNoFile, tone: "amber" },
-          { label: "NO-GO (ยังไม่เริ่ม)", value: summary.notStarted, tone: "rose" },
-          { label: "จำนวนที่มีไฟล์", value: summary.withFile, tone: "sky" },
-        ].map((s, i) => (
-          <div
-            key={i}
-            className="rounded-xl p-4 shadow-sm border"
-            style={{
-              borderColor: "rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.05)",
-            }}
-          >
-            <div className="text-[11px] text-slate-300">{s.label}</div>
-            <div className="mt-1 text-xl font-bold">{s.value}</div>
+      {/* (1) Sticky Summary Bar */}
+      <div
+        className="sticky top-0 z-30 -mx-6 md:-mx-10 px-6 md:px-10 py-3 border-b"
+        style={{
+          background: "rgba(11,15,26,0.6)",
+          backdropFilter: "blur(12px)",
+          borderColor: "rgba(255,255,255,0.06)",
+        }}
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {/* Segmented + legend */}
+          <div className="flex items-center gap-3">
+            {/* (2) Segmented Filter */}
+            <Segmented value={filter} onChange={setFilter} />
+            <div className="hidden md:flex text-[11px] text-slate-400 gap-3">
+              <span>กด 1–4 เพื่อสลับตัวกรอง</span>
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        <FilterChip active={filter === "all"} onClick={() => setFilter("all")}>
-          ทั้งหมด
-        </FilterChip>
-        <FilterChip active={filter === "not_started"} onClick={() => setFilter("not_started")}>
-          NO-GO (ยังไม่เริ่ม)
-        </FilterChip>
-        <FilterChip
-          active={filter === "checked_no_file"}
-          onClick={() => setFilter("checked_no_file")}
-        >
-          HOLD (ติ๊กแล้วไม่มีไฟล์)
-        </FilterChip>
-        <FilterChip active={filter === "completed"} onClick={() => setFilter("completed")}>
-          GO (เสร็จ + มีไฟล์)
-        </FilterChip>
-
-        <div className="ml-auto text-xs text-slate-400 flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <Circle size={12} /> Record
-          </span>
-          <span className="flex items-center gap-1">
-            <CheckCircle2 size={12} /> Evidence
-          </span>
+          {/* Summary small cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full md:w-auto">
+            <div className="rounded-lg border px-3 py-2 text-right" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}>
+              <div className="text-[11px] text-slate-300">GO (เสร็จ + มีไฟล์)</div>
+              <div className="text-lg font-bold">{summary.completed}</div>
+            </div>
+            <div className="rounded-lg border px-3 py-2 text-right" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}>
+              <div className="text-[11px] text-slate-300">HOLD (ติ๊กไม่มีไฟล์)</div>
+              <div className="text-lg font-bold">{summary.checkedNoFile}</div>
+            </div>
+            <div className="rounded-lg border px-3 py-2 text-right" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}>
+              <div className="text-[11px] text-slate-300">NO-GO (ยังไม่เริ่ม)</div>
+              <div className="text-lg font-bold">{summary.notStarted}</div>
+            </div>
+            <div className="rounded-lg border px-3 py-2 text-right" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.06)" }}>
+              <div className="text-[11px] text-slate-300">
+                ความครบถ้วน{requireEvidence ? " (นับเฉพาะมีไฟล์)" : ""}
+              </div>
+              <div className="text-xl font-extrabold" style={{ color: accent }}>
+                {summary.pct}%
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Error / Loading */}
       {errorMsg && (
-        <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-rose-200">
+        <div className="mt-4 mb-4 rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-rose-200">
           {errorMsg}
         </div>
       )}
       {loading && (
-        <div className="flex items-center gap-2 text-slate-300">
+        <div className="mt-4 flex items-center gap-2 text-slate-300">
           <Loader2 className="animate-spin" size={18} /> กำลังเตรียมหัวข้อ…
         </div>
       )}
 
       {/* Items */}
       {!loading && items.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-slate-300">
+        <div className="mt-4 rounded-xl border border-dashed border-white/15 bg-white/5 p-10 text-center text-slate-300">
           ยังไม่มีหัวข้อของปีนี้
         </div>
       )}
 
-      <ul className="space-y-4 pb-24">
+      <ul className="mt-4 space-y-4 pb-24">
         {visible.map((it, idx) => {
-          // สถานะเดิม (green/yellow/else) ไว้ใช้สีไอคอนซ้าย
           const legacyStatus = getStatus(it);
           const stateIcon =
             legacyStatus === "green" ? (
@@ -455,6 +494,7 @@ export default function ChecklistGroupPage({
 
           const displayName = getDisplayName(it.name, idx);
           const missionStatus = toMissionStatus(it);
+          const q = qualities[it.template_id] || "";
 
           return (
             <li
@@ -482,7 +522,7 @@ export default function ChecklistGroupPage({
                       คะแนนข้อนี้: +{it.score_points} • อัปเดตล่าสุด: {fmtDate(it.updated_at)}
                     </div>
 
-                    {/* ชื่อไฟล์ + ปุ่มดู/เปลี่ยน/ลบ */}
+                    {/* File row + Evidence Quality (4) */}
                     {it.has_evidence && it.file_path ? (
                       <div className="mt-1 flex flex-wrap items-center gap-3 text-xs">
                         <span className="text-emerald-300/90">ไฟล์: {it.file_path}</span>
@@ -521,6 +561,24 @@ export default function ChecklistGroupPage({
                         >
                           <Trash2 size={14} /> ลบไฟล์
                         </button>
+
+                        {/* Evidence quality tag + select */}
+                        <QualityTag q={q} />
+                        <select
+                          value={q}
+                          onChange={(e) => {
+                            const v = e.target.value as EvidenceQuality;
+                            writeQuality(year, it.template_id, v);
+                            setQualities((prev) => ({ ...prev, [it.template_id]: v }));
+                          }}
+                          className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200"
+                          title="คุณภาพหลักฐาน"
+                        >
+                          <option value="">— คุณภาพหลักฐาน —</option>
+                          <option value="good">ดี</option>
+                          <option value="fair">พอใช้</option>
+                          <option value="needs_work">ต้องปรับ</option>
+                        </select>
                       </div>
                     ) : missionStatus === "HOLD" ? (
                       <div className="mt-1 text-xs text-amber-200">
@@ -530,7 +588,7 @@ export default function ChecklistGroupPage({
                   </div>
                 </div>
 
-                {/* actions + ชิปสถานะ */}
+                {/* actions + chip */}
                 <div className="flex items-center gap-3">
                   <StatusChip status={missionStatus} />
 
@@ -544,7 +602,7 @@ export default function ChecklistGroupPage({
                     ติ๊กแล้ว
                   </label>
 
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10">
                     <Upload size={16} />
                     <span>แนบไฟล์</span>
                     <input
@@ -561,20 +619,27 @@ export default function ChecklistGroupPage({
                 </div>
               </div>
 
-              {/* textarea */}
+              {/* textarea (5) — readable with subtle divider */}
               <div className="mt-3">
-                <textarea
-                  className="w-full rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-slate-100 placeholder:text-slate-400"
-                  rows={3}
-                  placeholder="พิมพ์บันทึก/สรุปหลักฐาน… (เพิ่ม Δv ให้ยานของคุณ)"
-                  value={drafts[it.template_id] ?? it.input_text ?? ""}
-                  onChange={(e) => setDrafts((d) => ({ ...d, [it.template_id]: e.target.value }))}
-                />
+                <div
+                  className="rounded-lg border border-white/10 bg-white/5"
+                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}
+                >
+                  <textarea
+                    className="w-full bg-transparent p-3 text-sm text-slate-100 placeholder:text-slate-400"
+                    rows={3}
+                    placeholder="พิมพ์บันทึก/สรุปหลักฐาน… (เพิ่ม Δv ให้ยานของคุณ)"
+                    value={drafts[it.template_id] ?? it.input_text ?? ""}
+                    onChange={(e) =>
+                      setDrafts((d) => ({ ...d, [it.template_id]: e.target.value }))
+                    }
+                  />
+                </div>
                 <div className="mt-2 flex justify-end">
                   <button
                     onClick={() => onSaveText(it)}
                     disabled={savingId === it.template_id}
-                    className="rounded bg-yellow-400/90 text-black px-3 py-1.5 text-sm hover:bg-yellow-300"
+                    className="rounded bg-yellow-400/90 text-black px-4 py-2 text-sm font-semibold hover:bg-yellow-300"
                     style={{ boxShadow: `0 0 18px ${accent}40` }}
                   >
                     บันทึก
