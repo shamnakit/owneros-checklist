@@ -21,7 +21,7 @@ const formatNumber = (n: number) => n.toLocaleString("en-US", { maximumFractionD
 const getScoreBand = (score: number) => {
   if (score >= 100) return { label: "Touchdown", color: "bg-emerald-600" };
   if (score >= 95) return { label: "Lunar Orbit", color: "bg-emerald-500" };
-  if (score >= 75) return { label: "Lunar Approach", color: "bg-blue-600" };
+  if (score >= 75) return { label: "Lunar Approach", color: "bg-brand-600" };
   if (score >= 50) return { label: "Trans-Lunar", color: "bg-indigo-600" };
   if (score >= 25) return { label: "Earth Orbit", color: "bg-slate-600" };
   return { label: "Grounded", color: "bg-slate-400" };
@@ -33,7 +33,7 @@ const Progress = ({ label, value }: { label: string; value: number }) => (
       <span>{label}</span><span className="font-medium">{value}%</span>
     </div>
     <div className="h-2 w-full rounded-full bg-slate-100">
-      <div className="h-2 rounded-full bg-blue-600" style={{ width: `${value}%` }} aria-label={`${label} ${value}%`} />
+      <div className="h-2 rounded-full bg-brand-600" style={{ width: `${value}%` }} aria-label={`${label} ${value}%`} />
     </div>
   </div>
 );
@@ -77,12 +77,12 @@ export default function LandingIndexPage() {
         <meta name="twitter:image" content={og.image} />
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900">
+      <div className="min-h-screen bg-hero-space text-slate-900">
         {/* Topbar */}
         <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-2xl bg-blue-600 shadow-sm grid place-items-center"><Rocket className="h-5 w-5 text-white" /></div>
+              <div className="h-9 w-9 rounded-2xl bg-brand-600 shadow-sm grid place-items-center"><Rocket className="h-5 w-5 text-white" /></div>
               <span className="text-lg font-semibold tracking-tight">Bizzyztem</span>
               <span className="ml-3 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">System Doc Hub</span>
             </div>
@@ -92,7 +92,7 @@ export default function LandingIndexPage() {
               <a href="#pricing" className="hover:text-slate-900">ราคา</a>
               <a href="#faq" className="hover:text-slate-900">คำถาม</a>
             </nav>
-            <a href="/login" onClick={() => handleCta("header")} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700">
+            <a href="/login" onClick={() => handleCta("header")} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-white shadow-sm hover:bg-brand-700">
               เริ่มภารกิจ <ArrowRight className="h-4 w-4" />
             </a>
           </div>
@@ -110,7 +110,7 @@ export default function LandingIndexPage() {
                 รวมเอกสารระบบไว้ศูนย์กลางเดียว แล้วพาธุรกิจเดินทางได้ต่อเนื่อง — ตั้งภารกิจ แบ่งเฟส สะสมความก้าวหน้า และ <span className="font-semibold">ดูระยะ Distance to Moon</span> แบบเรียลไทม์
               </p>
               <div className="flex flex-wrap items-center gap-3">
-                <a href="/login" onClick={() => handleCta("hero-primary")} className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700">
+                <a href="/login" onClick={() => handleCta("hero-primary")} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-brand-700">
                   เริ่มภารกิจ <ArrowRight className="h-5 w-5" />
                 </a>
                 <a href="#product" onClick={() => handleCta("hero-secondary")} className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 py-3 text-slate-800 hover:bg-slate-50">
@@ -121,7 +121,7 @@ export default function LandingIndexPage() {
               {/* Trust pills */}
               <div className="flex items-center gap-4 pt-2 text-sm text-slate-600">
                 <div className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" />ปลอดภัย สิทธิ์เป็นรายบทบาท</div>
-                <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-blue-600" />ไทยล้วน ใช้ง่ายสำหรับผู้บริหาร</div>
+                <div className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4 text-brand-600" />ไทยล้วน ใช้ง่ายสำหรับผู้บริหาร</div>
               </div>
 
               {/* Hero Stat Band */}
@@ -135,7 +135,7 @@ export default function LandingIndexPage() {
                   <div className="min-w-[220px] flex-1">
                     <div className="flex items-center justify-between text-xs text-slate-600"><span>0</span><span>384,400 กม.</span></div>
                     <div className="mt-1 h-2 w-full rounded-full bg-slate-100">
-                      <div className="h-2 rounded-full bg-blue-600" style={{ width: `${totalScore}%` }} aria-label={`Distance progress ${totalScore}%`} />
+                      <div className="h-2 rounded-full bg-brand-600" style={{ width: `${totalScore}%` }} aria-label={`Distance progress ${totalScore}%`} />
                     </div>
                   </div>
                   <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-white ${band.color}`}>
@@ -153,7 +153,7 @@ export default function LandingIndexPage() {
                   <h3 className="text-lg font-semibold">Mission Control Dashboard</h3>
                   <p className="text-sm text-slate-600">ตัวอย่างภาพรวม “ระบบธุรกิจ” บนหน้าเดียว</p>
                 </div>
-                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">ตัวอย่าง</span>
+                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">ตัวอย่าง</span>
               </div>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="h-64 w-full">
@@ -198,8 +198,8 @@ export default function LandingIndexPage() {
               <div>
                 <h2 className="text-2xl font-bold">หน้าตาเป็นอย่างไร?</h2>
                 <p className="text-slate-600">ตัวอย่าง Mission Control และเอกสารระบบที่ถูกรวมไว้ศูนย์กลางเดียว</p>
-              </div>
-              <a href="/login" onClick={() => handleCta("product-cta")} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-white shadow-sm hover:bg-blue-700">
+              </div>brand-600
+              <a href="/login" onClick={() => handleCta("product-cta")} className="inline-flex items-center gap-2 rounded-xl bg- px-4 py-2 text-white shadow-sm hover:bg-brand-700">
                 เริ่มภารกิจ <ArrowRight className="h-4 w-4" />
               </a>
             </div>
@@ -236,7 +236,7 @@ export default function LandingIndexPage() {
               <StepCard no={3} title="ดาวน์โหลด Mission Report" desc="สรุปสถานะ + สารบัญเอกสารระบบในคลิกเดียว" />
             </div>
             <div className="mt-8">
-              <a href="/login" onClick={() => handleCta("howto-cta")} className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700">
+              <a href="/login" onClick={() => handleCta("howto-cta")} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-brand-700">
                 เริ่มภารกิจ <ArrowRight className="h-5 w-5" />
               </a>
             </div>
@@ -267,11 +267,11 @@ export default function LandingIndexPage() {
         </section>
 
         {/* CTA Repeat */}
-        <section className="py-16 bg-gradient-to-br from-blue-50 to-indigo-50 border-t border-slate-200">
+        <section className="py-16 bg-gradient-to-br frombrand-50- to-indigo-50 border-t border-slate-200">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
             <h3 className="text-2xl font-bold mb-2">เริ่มภารกิจของธุรกิจคุณวันนี้</h3>
             <p className="text-slate-600 mb-6">รวมเอกสารระบบไว้ศูนย์กลางเดียว • Distance to Moon • พร้อมรายงาน</p>
-            <a href="/login" onClick={() => handleCta("footer")} className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-blue-700">
+            <a href="/login" onClick={() => handleCta("footer")} className="inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-6 py-3 text-white text-base font-medium shadow-sm hover:bg-brand-700">
               เริ่มภารกิจ <ArrowRight className="h-5 w-5" />
             </a>
           </div>
@@ -300,7 +300,7 @@ export default function LandingIndexPage() {
 function BenefitCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">{icon}</div>
+      <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-700">{icon}</div>
       <h3 className="text-base font-semibold mb-1">{title}</h3>
       <p className="text-sm text-slate-600">{desc}</p>
     </div>
@@ -330,10 +330,10 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 function PricingTeaser({ tier, desc, button, onClick, highlight }: { tier: string; desc: string; button: string; onClick: () => void; highlight?: boolean }) {
   return (
-    <div className={`rounded-2xl border ${highlight ? "border-blue-600 ring-2 ring-blue-100" : "border-slate-200"} bg-white p-6 shadow-sm flex flex-col`}>
+    <div className={`rounded-2xl border ${highlight ? "border-brand-600 ring-2 ring-blue-100" : "border-slate-200"} bg-white p-6 shadow-sm flex flex-col`}>
       <div className="text-sm font-medium text-slate-600">{tier}</div>
       <div className="mt-1 text-sm text-slate-600">{desc}</div>
-      <button onClick={onClick} className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl ${highlight ? "bg-blue-600 text-white hover:bg-blue-700" : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"} px-4 py-2`}>
+      <button onClick={onClick} className={`mt-6 inline-flex items-center justify-center gap-2 rounded-xl ${highlight ? "bg-brand-600 text-white hover:bg-brand-700" : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50"} px-4 py-2`}>
         {button} <ArrowRight className="h-4 w-4" />
       </button>
     </div>
@@ -382,7 +382,7 @@ function InterestModal({ open, onClose, initialPlan }: { open: boolean; onClose:
           <div className="mt-4">
             <p className="text-slate-700">รับเรื่องเรียบร้อยแล้ว ทีมงานจะติดต่อกลับโดยเร็วที่สุด ขอบคุณครับ 🙏</p>
             <div className="mt-6 text-right">
-              <button className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700" onClick={onClose}>ปิดหน้าต่าง</button>
+              <button className="rounded-xl bg-brand-600 px-4 py-2 text-white hover:bg-brand-700" onClick={onClose}>ปิดหน้าต่าง</button>
             </div>
           </div>
         ) : (
@@ -414,7 +414,7 @@ function InterestModal({ open, onClose, initialPlan }: { open: boolean; onClose:
             </div>
             <input type="text" className="hidden" autoComplete="off" tabIndex={-1} aria-hidden />
             <div className="pt-2 text-right">
-              <button type="submit" className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">ส่งข้อมูลความสนใจ</button>
+              <button type="submit" className="rounded-xl bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">ส่งข้อมูลความสนใจ</button>
             </div>
           </form>
         )}
