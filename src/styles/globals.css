@@ -9,3 +9,17 @@
     radial-gradient(50% 60% at -10% 110%, rgba(124,58,237,0.18) 0%, rgba(124,58,237,0) 55%),
     linear-gradient(180deg, #f7faff 0%, #ffffff 60%);
 }
+/* === Full-bleed hero helpers === */
+.hero-starfield {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    radial-gradient(#ffffff 1px, transparent 1px),
+    radial-gradient(#ffffff 1px, transparent 1px);
+  background-size: 2px 2px, 3px 3px;
+  background-position: 0 0, 25px 25px;
+  opacity: .08;
+}
+.hero-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 80% 20%, rgba(45,124,255,0.10) 0%, rgba(11,18,32,0) 60%);
+}

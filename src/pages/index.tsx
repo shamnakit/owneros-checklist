@@ -86,6 +86,15 @@ export default function LandingIndexPage() {
   const [interestOpen, setInterestOpen] = useState(false);
   const [initialPlan, setInitialPlan] = useState<"Pro" | "Premium">("Pro");
 
+  // header scroll state (โปร่ง → ขาวเมื่อเลื่อน)
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // visit_landing on mount
   useEffect(() => {
     track("visit_landing", { page: "landing" });
@@ -117,9 +126,16 @@ export default function LandingIndexPage() {
         <meta name="twitter:image" content={og.image} />
       </Head>
 
-      <div className="min-h-screen bg-hero-space text-slate-900">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200">
+      {/* เปลี่ยนพื้นหลังเพจเป็นปกติ เพราะ hero จะ full-bleed เอง */}
+      <div className="min-h-screen bg-white text-slate-900">
+        {/* Header (โปร่งบน hero → ขาวเมื่อเลื่อน) */}
+        <header
+          className={`fixed top-0 w-full z-40 transition-colors ${
+            scrolled
+              ? "bg-white/80 backdrop-blur border-b border-slate-200 text-slate-900"
+              : "bg-transparent text-white"
+          }`}
+        >
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-2xl bg-brand-600 shadow-sm grid place-items-center">
@@ -128,21 +144,41 @@ export default function LandingIndexPage() {
               <span className="text-lg font-semibold tracking-tight">
                 Bizzyztem
               </span>
-              <span className="ml-3 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+              <span
+                className={`ml-3 rounded-full px-2.5 py-1 text-xs font-medium ${
+                  scrolled ? "bg-slate-100 text-slate-700" : "bg-white/10"
+                }`}
+              >
                 System Doc Hub
               </span>
             </div>
-            <nav className="hidden md:flex items-center gap-8 text-sm text-slate-600">
-              <a href="#value" className="hover:text-slate-900">
+            <nav
+              className={`hidden md:flex items-center gap-8 text-sm ${
+                scrolled ? "text-slate-600" : "text-white/80"
+              }`}
+            >
+              <a
+                href="#value"
+                className={`${scrolled ? "hover:text-slate-900" : "hover:text-white"}`}
+              >
                 คุณค่า
               </a>
-              <a href="#product" className="hover:text-slate-900">
+              <a
+                href="#product"
+                className={`${scrolled ? "hover:text-slate-900" : "hover:text-white"}`}
+              >
                 ตัวอย่าง
               </a>
-              <a href="#pricing" className="hover:text-slate-900">
+              <a
+                href="#pricing"
+                className={`${scrolled ? "hover:text-slate-900" : "hover:text-white"}`}
+              >
                 ราคา
               </a>
-              <a href="#faq" className="hover:text-slate-900">
+              <a
+                href="#faq"
+                className={`${scrolled ? "hover:text-slate-900" : "hover:text-white"}`}
+              >
                 คำถาม
               </a>
             </nav>
@@ -156,28 +192,37 @@ export default function LandingIndexPage() {
           </div>
         </header>
 
-        {/* Hero */}
-        <section className="relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-brand-100 blur-3xl -z-10" />
-          <div className="absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-accent-500/20 blur-3xl -z-10" />
+        {/* === FULL-BLEED HERO === */}
+        <section className="relative isolate min-h-[88vh]">
+          {/* ดาร์กพื้นหลัง */}
+          <div className="absolute inset-0 bg-[#0B1220]" />
+          {/* ภาพฮีโร่เต็มจอ (ขวา) */}
+          <NextImage
+            src="/illustrations/hero-rocket-moon.png"
+            alt="Mission to the Moon"
+            fill
+            priority
+            className="absolute inset-0 object-cover object-right md:object-[75%] opacity-95"
+          />
+          {/* starfield + vignette (ต้องมีคลาสใน globals.css ตามที่ให้ไว้) */}
+          <div className="hero-starfield" />
+          <div className="hero-vignette" />
+          {/* ไล่สีช่วยให้อ่านตัวหนังสือชัด */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1220] via-[#0B1220]/80 to-transparent" />
 
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 lg:py-24 grid lg:grid-cols-2 gap-10 items-center">
-            {/* Text column */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="space-y-6"
-            >
-              <h1 className="text-4xl sm:text-5xl font-bold leading-tight tracking-tight">
+          {/* เนื้อหาซ้าย (เว้นเฮดเดอร์สูง 16) */}
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-28 pb-16 lg:pb-24 grid lg:grid-cols-2 items-center">
+            <div className="text-white space-y-6">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight">
                 ภารกิจสร้างระบบธุรกิจให้ถึงเป้าหมาย
               </h1>
-              <p className="text-lg text-slate-700">
+              <p className="text-lg text-white/80">
                 รวมเอกสารระบบไว้ศูนย์กลางเดียว แล้วพาธุรกิจเดินทางได้ต่อเนื่อง —{" "}
                 ตั้งภารกิจ แบ่งเฟส สะสมความก้าวหน้า และ{" "}
                 <span className="font-semibold">ดูระยะ Distance to Moon</span>{" "}
                 แบบเรียลไทม์
               </p>
+
               <div className="flex flex-wrap items-center gap-3">
                 <a
                   href="/login"
@@ -189,49 +234,33 @@ export default function LandingIndexPage() {
                 <a
                   href="#product"
                   onClick={() => handleCta("hero-secondary")}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 py-3 text-slate-800 hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/30 bg-white/0 px-6 py-3 text-white hover:bg-white/10"
                 >
                   ดูตัวอย่าง <PlayCircle className="h-5 w-5" />
                 </a>
               </div>
 
-              {/* Trust pills */}
-              <div className="flex items-center gap-4 pt-2 text-sm text-slate-600">
-                <div className="inline-flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  ปลอดภัย สิทธิ์เป็นรายบทบาท
-                </div>
-                <div className="inline-flex items-center gap-2">
-                  <BadgeCheck className="h-4 w-4 text-brand-600" />
-                  ไทยล้วน ใช้ง่ายสำหรับผู้บริหาร
-                </div>
-              </div>
-
-              {/* Hero Stat Band */}
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              {/* แถบสถิติในฮีโร่ */}
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
                 <div className="flex flex-wrap items-center gap-4 justify-between">
                   <div>
-                    <div className="text-sm text-slate-600">
-                      ระยะทางถึงดวงจันทร์
-                    </div>
+                    <div className="text-sm text-white/70">ระยะทางถึงดวงจันทร์</div>
                     <div className="text-2xl font-semibold">
                       {formatNumber(distanceKm)} กม.
                     </div>
-                    <div className="text-xs text-slate-500">
-                      คำนวณจากคะแนนรวม {totalScore}% (สูตร 384,400 ×
-                      score/100)
+                    <div className="text-xs text-white/60">
+                      คำนวณจากคะแนนรวม {totalScore}% (สูตร 384,400 × score/100)
                     </div>
                   </div>
                   <div className="min-w-[220px] flex-1">
-                    <div className="flex items-center justify-between text-xs text-slate-600">
+                    <div className="flex items-center justify-between text-xs text-white/70">
                       <span>0</span>
                       <span>384,400 กม.</span>
                     </div>
-                    <div className="mt-1 h-2 w-full rounded-full bg-slate-100">
+                    <div className="mt-1 h-2 w-full rounded-full bg-white/20">
                       <div
                         className="h-2 rounded-full bg-brand-600"
                         style={{ width: `${totalScore}%` }}
-                        aria-label={`Distance progress ${totalScore}%`}
                       />
                     </div>
                   </div>
@@ -241,30 +270,15 @@ export default function LandingIndexPage() {
                     <Stars className="h-3.5 w-3.5" />
                     {band.label}
                   </span>
-                  <div className="text-sm text-slate-700">
+                  <div className="text-sm text-white/80">
                     Greenlight Readiness{" "}
                     <span className="font-semibold">{greenlightPct}%</span>
                   </div>
                 </div>
               </div>
-            </motion.div>
-
-            {/* Hero Illustration */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-            >
-              <NextImage
-                src="/illustrations/hero-rocket-moon.png"
-                alt="Mission to the Moon"
-                width={1200}
-                height={700}
-                priority
-                className="w-full h-auto object-contain"
-              />
-            </motion.div>
+            </div>
+            {/* คอลัมน์ขวาปล่อยให้รูป fill */}
+            <div className="hidden lg:block" />
           </div>
         </section>
 
@@ -438,9 +452,7 @@ export default function LandingIndexPage() {
         {/* CTA Repeat */}
         <section className="py-16 bg-gradient-to-br from-brand-50 to-indigo-50 border-t border-slate-200">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-            <h3 className="text-2xl font-bold mb-2">
-              เริ่มภารกิจของธุรกิจคุณวันนี้
-            </h3>
+            <h3 className="text-2xl font-bold mb-2">เริ่มภารกิจของธุรกิจคุณวันนี้</h3>
             <p className="text-slate-600 mb-6">
               รวมเอกสารระบบไว้ศูนย์กลางเดียว • Distance to Moon • พร้อมรายงาน
             </p>
@@ -457,9 +469,7 @@ export default function LandingIndexPage() {
         {/* Footer */}
         <footer className="py-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-sm text-slate-600 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div>
-              © {new Date().getFullYear()} Bizzyztem • Mission to the Moon
-            </div>
+            <div>© {new Date().getFullYear()} Bizzyztem • Mission to the Moon</div>
             <div className="flex items-center gap-6">
               <a href="#" className="hover:text-slate-900">
                 Privacy
@@ -623,7 +633,7 @@ function InterestModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       role="dialog"
-      aria-modal
+      aria-modal="true"
     >
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-center justify-between">
