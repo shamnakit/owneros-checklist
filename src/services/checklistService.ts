@@ -1,7 +1,7 @@
 // src/services/checklistService.ts
 import { supabase } from "@/utils/supabaseClient";
 
-/** ---------- Types ---------- */
+/** ---------- Types & Utils ---------- */
 export type CategoryKey =
   | "strategy"
   | "structure"
@@ -10,7 +10,7 @@ export type CategoryKey =
   | "finance"
   | "sales";
 
-export interface ChecklistItem {
+export interface ChecklistRow {
   template_id: string;
   name: string;
   score_points: number;
@@ -20,7 +20,13 @@ export interface ChecklistItem {
   input_text: string | null;
   file_key: string | null;
   file_path: string | null;
+  // จาก checklist_templates (สำหรับ Guideline/Example)
+  guideline?: string | null;
+  example?: string | null;
 }
+
+// Alias ให้โค้ดเดิมทำงานต่อได้
+export type ChecklistItem = ChecklistRow;
 
 export interface Summary {
   pct: number;
@@ -32,9 +38,28 @@ export interface Summary {
   withFile: number;
 }
 
+function groupNameForCategory(c: CategoryKey | string): string {
+  switch (c) {
+    case "strategy":
+      return "Strategy";
+    case "structure":
+      return "Structure";
+    case "sop":
+      return "SOP";
+    case "hr":
+      return "HR";
+    case "finance":
+      return "Finance";
+    case "sales":
+      return "Sales";
+    default:
+      return "General";
+  }
+}
+
 /** ---------- Helpers (pure) ---------- */
 export function getStatus(
-  it: Pick<ChecklistItem, "has_record" | "has_evidence">
+  it: Pick<ChecklistRow, "has_record" | "has_evidence">
 ) {
   if (!it.has_record) return "red" as const;
   if (it.has_record && !it.has_evidence) return "yellow" as const;
@@ -42,7 +67,7 @@ export function getStatus(
 }
 
 export function calcSummary(
-  items: ChecklistItem[],
+  items: ChecklistRow[],
   requireEvidence: boolean
 ): Summary {
   const total = items.reduce((s, it) => s + Number(it.score_points || 0), 0);
@@ -76,7 +101,7 @@ export async function getAuthUid() {
   return data.user.id as string;
 }
 
-/** ---------- Read (years, items) ---------- */
+/** ---------- Read (years, items, templates) ---------- */
 export async function listYears(): Promise<number[]> {
   const { data, error } = await supabase.rpc("fn_available_years_for_me");
   if (error) throw error;
@@ -86,17 +111,54 @@ export async function listYears(): Promise<number[]> {
   return ys.length ? ys : [new Date().getFullYear()];
 }
 
+/**
+ * ดึง "template" ต่อหมวดจาก checklist_templates (ไม่พึ่ง RPC)
+ * เหมาะเมื่ออยากโชว์ Guideline/Example เพื่อช่วยกรอก
+ */
+export async function fetchChecklistTemplatesByCategory(
+  category: CategoryKey
+): Promise<ChecklistRow[]> {
+  const { data, error } = await supabase
+    .from("checklist_templates")
+    .select("id, name, guideline, example, score_points, order_no")
+    .eq("category", category)
+    .eq("is_active", true)
+    .order("order_no", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map((r: any) => ({
+    template_id: r.id,
+    name: r.name,
+    score_points: Number(r.score_points ?? 1),
+    has_record: false,
+    has_evidence: false,
+    updated_at: null,
+    input_text: null,
+    file_key: null,
+    file_path: null,
+    guideline: r.guideline ?? null,
+    example: r.example ?? null,
+  })) as ChecklistRow[];
+}
+
+/**
+ * ดึง "สถานะของผู้ใช้" ต่อหมวด/ปี ผ่าน RPC
+ * (ถ้าแก้ RPC ให้ select t.guideline, t.example มาด้วยก็จะเติมสองฟิลด์ให้)
+ */
 export async function loadItems(params: {
   year: number;
   category: CategoryKey;
-}): Promise<ChecklistItem[]> {
+}): Promise<ChecklistRow[]> {
   const { year, category } = params;
   const { data, error } = await supabase.rpc("fn_checklist_items_for_me", {
     p_year: year,
     p_category: category,
   });
   if (error) throw error;
-  const rows = ((data || []) as ChecklistItem[]).sort((a, b) => {
+
+  const rows = ((data || []) as ChecklistRow[]).sort((a, b) => {
     const ta = (a.template_id || "").toString();
     const tb = (b.template_id || "").toString();
     if (ta < tb) return -1;
@@ -305,16 +367,19 @@ export async function signedUrl(payload: {
   return data.signedUrl;
 }
 
-// ---- Admin helpers for checklist templates (shim) ----
+/** ---------- Admin: checklist_templates helper ---------- */
 export type TemplateRow = {
   id?: string;
   template_id?: string | null;
-  name: string; // ชื่อจริงในตาราง
-  description?: string | null; // ถ้าไม่มีคอลัมน์นี้ ให้ลบฟิลด์นี้ออก
-  category: "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
+  name: string;
+  description?: string | null;
+  category: CategoryKey;
+  group_name?: string | null;
   score_points: number;
   order_no?: number | null;
   is_active?: boolean;
+  guideline?: string | null;
+  example?: string | null;
 };
 
 // ให้ admin.tsx import ได้
@@ -322,7 +387,7 @@ export type Checklist = TemplateRow & { title?: string };
 
 type AdminChecklistInput = Partial<TemplateRow> & {
   title?: string; // alias ของ name
-  description?: string; // ถ้า UI ส่งมาก็รับไว้
+  description?: string;
 };
 
 export async function getChecklists(): Promise<Checklist[]> {
@@ -338,14 +403,18 @@ export async function getChecklists(): Promise<Checklist[]> {
 export async function createChecklist(
   payload: AdminChecklistInput
 ): Promise<Checklist> {
+  const cat = (payload.category ?? "strategy") as CategoryKey;
   const row: TemplateRow = {
     name: (payload.title ?? payload.name ?? "").toString(),
     description: payload.description ?? null,
-    category: (payload.category ?? "strategy") as TemplateRow["category"],
+    category: cat,
+    group_name: payload.group_name ?? groupNameForCategory(cat),
     score_points: Number(payload.score_points ?? 1),
     order_no: payload.order_no ?? null,
     is_active: payload.is_active ?? true,
     template_id: payload.template_id ?? null,
+    guideline: payload.guideline ?? null,
+    example: payload.example ?? null,
   };
   const { data, error } = await supabase
     .from("checklist_templates")
@@ -367,6 +436,10 @@ export async function updateChecklist(
     delete upd.title;
   }
   if (upd.score_points != null) upd.score_points = Number(upd.score_points);
+  if (upd.category != null && (upd.group_name == null || upd.group_name === "")) {
+    upd.group_name = groupNameForCategory(upd.category);
+  }
+
   const { error } = await supabase
     .from("checklist_templates")
     .update(upd)
