@@ -1,8 +1,4 @@
-// /src/pages/dashboard.tsx – Bizsystem Dashboard (v2.9)
-// 0) Business Health Card (Hybrid 70% Score + 30% Progress + Grade)
-// Order: 0) Health → 1) Radar → 2) Category Progress → 3) Progress vs Quality → 4) Gap → 5) Suggestions → 6) Trend
-// Fix: Rename local Bar -> StatBar, Recharts Bar -> RBar (alias)
-// Analytics: PostHog events (Dashboard Viewed, Score Recomputed, Export Binder*)
+// /src/pages/dashboard.tsx – Bizsystem Dashboard (v2.10 dark+readable)
 
 import posthog from "posthog-js";
 import dynamic from "next/dynamic";
@@ -50,9 +46,9 @@ type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales"
 
 type CatRow = {
   category: CategoryKey | string;
-  score: number; // คะแนนได้จริง
-  max_score_category: number; // คะแนนเต็มหมวด
-  evidence_rate_pct: number; // 0..100 (ใช้เป็น Progress/Y)
+  score: number;
+  max_score_category: number;
+  evidence_rate_pct: number;
 };
 
 type TotalRow = {
@@ -82,28 +78,24 @@ const CAT_LABEL: Record<CategoryKey, string> = {
   finance: "Finance",
   sales: "Sales",
 };
-
 const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance", "sales"];
 
-// สีประจำหมวด
+// สีแถบหัวการ์ดรายหมวด
 const COLOR: Record<CategoryKey, string> = {
-  strategy: "#2563eb", // blue-600
-  structure: "#a855f7", // purple-500
-  sop: "#f59e0b", // amber-500
-  hr: "#ec4899", // pink-500
-  finance: "#16a34a", // green-600
-  sales: "#f59e0b", // amber-500
+  strategy: "#2563eb",
+  structure: "#a855f7",
+  sop: "#f59e0b",
+  hr: "#ec4899",
+  finance: "#16a34a",
+  sales: "#f59e0b",
 };
 
 /** ---------- Helpers ---------- */
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
-const fmtPct0 = (v: number) =>
-  `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%`;
-const fmtPct1 = (v: number) =>
-  `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+const fmtPct0 = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}%`;
+const fmtPct1 = (v: number) => `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 const toPct = (n: number, d: number) => (d ? (Number(n) / Number(d)) * 100 : 0);
-const thaiTier = (t: TotalRow["tier_label"]) =>
-  t === "Excellent" ? "Excellent" : t === "Developing" ? "Developing" : "Early Stage";
+const thaiTier = (t: TotalRow["tier_label"]) => (t === "Excellent" ? "Excellent" : t === "Developing" ? "Developing" : "Early Stage");
 
 /** ---------- Component ---------- */
 function DashboardPageImpl() {
@@ -125,7 +117,6 @@ function DashboardPageImpl() {
   const [industryAvg, setIndustryAvg] = useState<Record<number, IndustryAvgRow | undefined>>({});
   const [trend, setTrend] = useState<Array<{ year: number; value: number }>>([]);
 
-  // --- Analytics: page view (health section) ---
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -133,7 +124,7 @@ function DashboardPageImpl() {
     } catch {}
   }, [year, compareYear]);
 
-  // โหลดปีที่ใช้งาน
+  // โหลดปี
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
@@ -146,10 +137,7 @@ function DashboardPageImpl() {
         setCompareYear(thisYear - 1);
         return;
       }
-      const years = data
-        .map((r: any) => Number(r.year_version))
-        .filter(Boolean)
-        .sort((a: number, b: number) => a - b);
+      const years = data.map((r: any) => Number(r.year_version)).filter(Boolean).sort((a: number, b: number) => a - b);
       setAvailableYears(years);
       setYear(years[years.length - 1]);
       setCompareYear(years.length > 1 ? years[years.length - 2] : years[0]);
@@ -159,7 +147,7 @@ function DashboardPageImpl() {
     };
   }, [uid]);
 
-  // ป้องกันเลือกปีซ้ำกัน
+  // ป้องกันปีซ้ำ
   useEffect(() => {
     if (year === compareYear && availableYears.length > 1) {
       const alt = availableYears.find((y) => y !== year)!;
@@ -167,7 +155,7 @@ function DashboardPageImpl() {
     }
   }, [year, compareYear, availableYears]);
 
-  // โหลดข้อมูลของปีที่เลือก (รวมเทียบปี)
+  // โหลดข้อมูล
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
@@ -196,14 +184,8 @@ function DashboardPageImpl() {
 
         results.forEach(({ y, t, c, w, ind }) => {
           totalMap[y] = (t.data as TotalRow[] | null)?.[0];
-          catsMap[y] = ((c.data as CatRow[] | null) || []).map((r) => ({
-            ...r,
-            category: String(r.category).trim().toLowerCase(),
-          }));
-          warnsMap[y] = ((w.data as WarnRow[] | null) || []).map((r) => ({
-            ...r,
-            category: String(r.category).trim().toLowerCase(),
-          }));
+          catsMap[y] = ((c.data as CatRow[] | null) || []).map((r) => ({ ...r, category: String(r.category).trim().toLowerCase() }));
+          warnsMap[y] = ((w.data as WarnRow[] | null) || []).map((r) => ({ ...r, category: String(r.category).trim().toLowerCase() }));
           indMap[y] = (ind.data as IndustryAvgRow[] | null)?.[0];
         });
 
@@ -224,7 +206,7 @@ function DashboardPageImpl() {
     };
   }, [uid, year, compareYear]);
 
-  // โหลด trend ทุกปีที่มี
+  // โหลด trend
   useEffect(() => {
     if (!uid || !availableYears.length) return;
     let mounted = true;
@@ -251,7 +233,6 @@ function DashboardPageImpl() {
   const totalA = total[year];
   const totalB = total[compareYear];
 
-  // Radar data (คะแนน “ได้จริง” รายหมวด ปี A vs ปี B)
   const radarData = useMemo(() => {
     const a = cats[year] || [];
     const b = cats[compareYear] || [];
@@ -264,7 +245,6 @@ function DashboardPageImpl() {
     }));
   }, [cats, year, compareYear]);
 
-  // Bar cards per category
   const categoryBars = useMemo(() => {
     const a = cats[year] || [];
     const w = warns[year] || [];
@@ -276,7 +256,7 @@ function DashboardPageImpl() {
       return {
         key: cat,
         name: CAT_LABEL[cat],
-        value: row ? Math.round(toPct(Number(row.score), Math.max(1, Number(row.max_score_category)))) : 0, // % ต่อหมวด
+        value: row ? Math.round(toPct(Number(row.score), Math.max(1, Number(row.max_score_category)))) : 0,
         evidenceRate: Number(row?.evidence_rate_pct ?? 0),
         warnings: warnCount.get(cat) || 0,
         raw: row,
@@ -284,7 +264,6 @@ function DashboardPageImpl() {
     });
   }, [cats, warns, year]);
 
-  // Overall Score% (คุณภาพ) และ Progress% (ความครบถ้วน)
   const overallScorePct = useMemo(
     () => (totalA ? toPct(Number(totalA.total_score), Math.max(1, Number(totalA.max_score))) : 0),
     [totalA]
@@ -295,42 +274,26 @@ function DashboardPageImpl() {
     return a.reduce((s, r) => s + Number(r.evidence_rate_pct || 0), 0) / a.length;
   }, [cats, year]);
 
-  // Hybrid score (0–100)
   const overallHybrid = useMemo(
     () => Math.round(((overallScorePct * 0.7) + (overallProgressPct * 0.3)) * 10) / 10,
     [overallScorePct, overallProgressPct]
   );
 
-  // --- Analytics: recompute score ---
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (loading) return;
     try {
-      posthog?.capture("Score Recomputed", {
-        year,
-        overallHybrid,
-        overallScorePct,
-        overallProgressPct,
-      });
+      posthog?.capture("Score Recomputed", { year, overallHybrid, overallScorePct, overallProgressPct });
     } catch {}
   }, [loading, year, overallHybrid, overallScorePct, overallProgressPct]);
 
-  // Grade mapping (Soft & Positive)
   const gradeInfo = useMemo(() => toGrade(overallHybrid), [overallHybrid]);
-
-  // Quadrant (Quality vs Progress)
-  const quadrantPoint = useMemo(
-    () => [{ x: clampPct(overallScorePct), y: clampPct(overallProgressPct) }],
-    [overallScorePct, overallProgressPct]
-  );
-
-  // Top gaps
+  const quadrantPoint = useMemo(() => [{ x: clampPct(overallScorePct), y: clampPct(overallProgressPct) }], [overallScorePct, overallProgressPct]);
   const topGaps = useMemo(
     () => (warns[year] || []).slice(0, 3).map((w) => ({ title: w.name, category: String(w.category).toUpperCase(), id: w.checklist_id })),
     [warns, year]
   );
 
-  // Suggestions (rule ง่าย ๆ)
   const addonSuggestions = useMemo(() => {
     const list: Array<{ title: string; desc: string; href: string }> = [];
     const byKey: Record<string, number> = {};
@@ -352,9 +315,7 @@ function DashboardPageImpl() {
   const handleExport = async (uploadToStorage = false) => {
     if (!uid) return;
     try {
-      // pre-capture
       try { posthog?.capture("Export Binder", { year, uploadToStorage, companyName }); } catch {}
-
       const params = new URLSearchParams({ userId: uid, year: String(year), companyName, upload: uploadToStorage ? "1" : "0" });
       const url = `/api/export/export-binder?${params.toString()}`;
       const res = await fetch(url, { method: "GET" });
@@ -366,7 +327,6 @@ function DashboardPageImpl() {
         const j = await res.json();
         if (j?.url) window.open(j.url, "_blank");
         else alert("Export เสร็จ แต่ไม่ได้ลิงก์ไฟล์");
-
         try { posthog?.capture("Export Binder Result", { year, uploadToStorage: true, ok: true }); } catch {}
         return;
       }
@@ -377,7 +337,6 @@ function DashboardPageImpl() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-
       try { posthog?.capture("Export Binder Result", { year, uploadToStorage: false, ok: true }); } catch {}
     } catch (e: any) {
       console.error(e);
@@ -392,15 +351,15 @@ function DashboardPageImpl() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">{companyName}</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-1)]">{companyName}</h1>
           <div className="flex items-center gap-2 text-sm">
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="border rounded-md px-2 py-1">
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-dark">
               {availableYears.map((y) => (
                 <option key={y} value={y}>ปี {y}</option>
               ))}
             </select>
-            <span className="text-gray-500">เทียบกับ</span>
-            <select value={compareYear} onChange={(e) => setCompareYear(Number(e.target.value))} className="border rounded-md px-2 py-1">
+            <span className="muted">เทียบกับ</span>
+            <select value={compareYear} onChange={(e) => setCompareYear(Number(e.target.value))} className="input-dark">
               {availableYears.map((y) => (
                 <option key={y} value={y}>ปี {y}</option>
               ))}
@@ -408,10 +367,10 @@ function DashboardPageImpl() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => handleExport(false)}>
+          <button className="inline-flex items-center gap-2 btn-success" onClick={() => handleExport(false)}>
             <Download size={18} /> Export XLSX
           </button>
-          <button className="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-blue-600 text-white hover:bg-blue-700" onClick={() => handleExport(true)}>
+          <button className="inline-flex items-center gap-2 btn-primary" onClick={() => handleExport(true)}>
             <Download size={18} /> Export & Upload
           </button>
         </div>
@@ -419,33 +378,34 @@ function DashboardPageImpl() {
 
       {/* 0) Business Health Card (Hybrid + Grade) */}
       {!loading && (
-        <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="panel-dark">
           <div className="p-6">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-lg font-semibold">Business Health (Hybrid)</div>
+              <div className="panel-title">Business Health (Hybrid)</div>
               <GradeBadge label={gradeInfo.grade} colorClass={gradeInfo.color} />
             </div>
 
             <div className="grid grid-cols-12 gap-6">
               {/* Gauge */}
               <div className="col-span-12 md:col-span-4 flex items-center justify-center">
-                <CircularGauge value={overallHybrid} trackColor="#e5e7eb" barColor={gradeInfo.hex} size={138} strokeWidth={12} />
+                <CircularGauge value={overallHybrid} trackColor="rgba(255,255,255,.16)" barColor={gradeInfo.hex} size={138} strokeWidth={12} />
               </div>
 
               {/* Breakdown */}
               <div className="col-span-12 md:col-span-8">
-                <div className="text-4xl font-bold leading-tight text-zinc-900">
-                  {format1(overallHybrid)}<span className="text-xl font-semibold text-zinc-500"> / 100</span>
+                <div className="leading-tight">
+                  <span className="score-on-dark">{format1(overallHybrid)}</span>
+                  <span className="score-on-dark-suffix"> / 100</span>
                 </div>
-                <div className="mt-1 text-sm text-zinc-500">Hybrid = 70% Score + 30% Progress</div>
+                <div className="mt-1 text-sm muted">Hybrid = 70% Score + 30% Progress</div>
 
-                <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800">
+                <div className="mt-3 panel-dark p-3 text-sm panel-note">
                   {gradeInfo.message}
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3">
-                  <StatBar label="Score (คุณภาพ)" value={overallScorePct} colorClass="bg-emerald-500" />
-                  <StatBar label="Progress (ความครบถ้วน)" value={overallProgressPct} colorClass="bg-sky-500" />
+                  <StatBar label="Score (คุณภาพ)" value={overallScorePct} colorClass="progress-quality" />
+                  <StatBar label="Progress (ความครบถ้วน)" value={overallProgressPct} colorClass="progress-completion" />
                 </div>
               </div>
             </div>
@@ -454,24 +414,24 @@ function DashboardPageImpl() {
       )}
 
       {/* Error/Loading */}
-      {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">เกิดข้อผิดพลาด: {errorMsg}</div>}
-      {loading && <div className="rounded-xl border p-4">กำลังโหลดข้อมูล…</div>}
+      {errorMsg && <div className="panel-dark p-4 text-red-300 border-red-400/40">เกิดข้อผิดพลาด: {errorMsg}</div>}
+      {loading && <div className="panel-dark p-4">กำลังโหลดข้อมูล…</div>}
 
       {/* 1) Radar Chart */}
       {!loading && (
-        <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="panel-dark">
           <div className="p-6">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="text-sky-600" size={18} />
-              <h3 className="font-semibold">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
+              <Target className="text-sky-400" size={18} />
+              <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
               {total[year] && (
                 <span
                   className={`ml-auto text-xs px-3 py-1 rounded-full ${
                     total[year]?.tier_label === "Excellent"
-                      ? "bg-emerald-100 text-emerald-700"
+                      ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/30"
                       : total[year]?.tier_label === "Developing"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-yellow-500/15 text-yellow-200 border border-yellow-400/30"
+                      : "bg-rose-500/15 text-rose-200 border border-rose-400/30"
                   }`}
                 >
                   Tier: {thaiTier(total[year]!.tier_label)}
@@ -483,8 +443,8 @@ function DashboardPageImpl() {
                 <PolarGrid />
                 <PolarAngleAxis dataKey="category" />
                 <PolarRadiusAxis />
-                <Radar name={`${year}`} dataKey="scoreA" stroke="#16a34a" fill="#16a34a" fillOpacity={0.6} />
-                <Radar name={`${compareYear}`} dataKey="scoreB" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.3} />
+                <Radar name={`${year}`} dataKey="scoreA" stroke="#16a34a" fill="#16a34a" fillOpacity={0.55} />
+                <Radar name={`${compareYear}`} dataKey="scoreB" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.28} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
@@ -493,11 +453,11 @@ function DashboardPageImpl() {
 
       {/* 2) Category Progress Cards */}
       {!loading && (
-        <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="panel-dark">
           <div className="p-6 space-y-4">
             <div className="flex items-center gap-2">
-              <BarChart3 className="text-emerald-600" size={18} />
-              <h3 className="font-semibold">ความคืบหน้าตามหมวด (ปี {year})</h3>
+              <BarChart3 className="text-emerald-400" size={18} />
+              <h3 className="panel-title">ความคืบหน้าตามหมวด (ปี {year})</h3>
             </div>
 
             {/* Mini bar overview */}
@@ -514,19 +474,14 @@ function DashboardPageImpl() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {categoryBars.map((item) => {
                 const Icon =
-                  item.key === "strategy"
-                    ? Target
-                    : item.key === "structure"
-                    ? Building2
-                    : item.key === "sop"
-                    ? ShoppingCart
-                    : item.key === "hr"
-                    ? Users
-                    : item.key === "finance"
-                    ? Wallet
-                    : ShoppingCart;
+                  item.key === "strategy" ? Target :
+                  item.key === "structure" ? Building2 :
+                  item.key === "sop" ? ShoppingCart :
+                  item.key === "hr" ? Users :
+                  item.key === "finance" ? Wallet : ShoppingCart;
+
                 return (
-                  <div key={item.key} className="rounded-2xl border overflow-hidden">
+                  <div key={item.key} className="panel-dark overflow-hidden">
                     <div
                       className="px-4 py-2 text-white font-semibold flex items-center gap-2"
                       style={{ background: COLOR[item.key as CategoryKey] }}
@@ -535,29 +490,28 @@ function DashboardPageImpl() {
                     </div>
                     <div className="p-4 space-y-2">
                       <div className="flex items-baseline justify-between">
-                        <span className="text-sm text-gray-600">Progress</span>
-                        <span className="text-lg font-bold">{fmtPct0(item.value)}</span>
+                        <span className="muted">Progress</span>
+                        <span className="metric-contrast">{fmtPct0(item.value)}</span>
                       </div>
                       <div className="flex items-baseline justify-between">
-                        <span className="text-sm text-gray-600">Evidence Rate</span>
-                        <span className="text-sm font-medium">{fmtPct0(item.evidenceRate)}</span>
+                        <span className="muted">Evidence Rate</span>
+                        <span className="font-medium text-[var(--text-2)]">{fmtPct0(item.evidenceRate)}</span>
                       </div>
+
                       {item.raw?.max_score_category === 0 ? (
-                        <div className="text-xs text-red-600">ยังไม่ได้ตั้งคะแนนใน template</div>
+                        <div className="text-xs text-rose-300">ยังไม่ได้ตั้งคะแนนใน template</div>
                       ) : item.warnings > 0 ? (
-                        <div className="text-xs text-yellow-700 flex items-center gap-1">
+                        <div className="text-xs text-yellow-200 flex items-center gap-1">
                           <AlertTriangle size={14} /> หลักฐานไม่ครบ {item.warnings} รายการ
                         </div>
                       ) : (
-                        <div className="text-xs text-emerald-700 flex items-center gap-1">
+                        <div className="text-xs text-emerald-200 flex items-center gap-1">
                           <CheckCircle2 size={14} /> หลักฐานครบ
                         </div>
                       )}
+
                       <div className="pt-2">
-                        <Link
-                          href={`/checklist?tab=${item.key}&year=${year}`}
-                          className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-                        >
+                        <Link href={`/checklist?tab=${item.key}&year=${year}`} className="text-sm text-[var(--accent-astroBlue)] hover:underline flex items-center gap-1">
                           View Details <ArrowRight size={14} />
                         </Link>
                       </div>
@@ -572,14 +526,14 @@ function DashboardPageImpl() {
 
       {/* 3) Progress vs Quality */}
       {!loading && (
-        <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="panel-dark">
           <div className="p-6">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Activity className="text-purple-600" size={18} />
-                <h3 className="font-semibold">Progress vs Quality (ปี {year})</h3>
+                <Activity className="text-purple-400" size={18} />
+                <h3 className="panel-title">Progress vs Quality (ปี {year})</h3>
               </div>
-              <div className="text-sm text-gray-600">
+              <div className="text-sm muted">
                 Score: {fmtPct1(overallScorePct)} · Progress: {fmtPct1(overallProgressPct)}
               </div>
             </div>
@@ -594,7 +548,7 @@ function DashboardPageImpl() {
                 <Scatter name="Org" data={quadrantPoint} fill="#16a34a" />
               </ScatterChart>
             </ResponsiveContainer>
-            <div className="grid grid-cols-2 md:grid-cols-4 text-xs text-gray-600 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 text-xs muted mt-2">
               <div className="p-1">🚧 Early Stage</div>
               <div className="p-1">⚠️ Quality Uplift</div>
               <div className="p-1">⏳ Quick Wins</div>
@@ -605,48 +559,48 @@ function DashboardPageImpl() {
       )}
 
       {/* 4) Gap Analysis */}
-      <div className="rounded-2xl border bg-white shadow-sm">
+      <div className="panel-dark">
         <div className="p-6">
           <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle className="text-red-600" size={18} />
-            <h3 className="font-semibold">Gap & Action Panel</h3>
+            <AlertTriangle className="text-rose-400" size={18} />
+            <h3 className="panel-title">Gap & Action Panel</h3>
           </div>
           {topGaps.length && !loading ? (
             <ul className="space-y-2">
               {topGaps.map((g) => (
-                <li key={g.id} className="flex items-center justify-between border rounded-xl p-3">
+                <li key={g.id} className="panel-dark p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="text-red-600" size={18} />
+                    <AlertTriangle className="text-rose-400" size={18} />
                     <div>
-                      <div className="font-medium">{g.title}</div>
-                      <div className="text-xs text-gray-500">หมวด: {g.category}</div>
+                      <div className="font-medium text-[var(--text-1)]">{g.title}</div>
+                      <div className="text-xs muted">หมวด: {g.category}</div>
                     </div>
                   </div>
-                  <Link href={`/checklist?year=${year}`} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                  <Link href={`/checklist?year=${year}`} className="text-sm text-[var(--accent-astroBlue)] hover:underline flex items-center gap-1">
                     Assign to team <ArrowRight size={14} />
                   </Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="text-sm text-gray-500">ไม่พบช่องว่างสำคัญ</div>
+            <div className="text-sm muted">ไม่พบช่องว่างสำคัญ</div>
           )}
         </div>
       </div>
 
       {/* 5) Suggestions */}
-      <div className="rounded-2xl border bg-white shadow-sm">
+      <div className="panel-dark">
         <div className="p-6">
           <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="text-amber-500" size={18} />
-            <h3 className="font-semibold">Suggestions (Add-on)</h3>
+            <Lightbulb className="text-amber-300" size={18} />
+            <h3 className="panel-title">Suggestions (Add-on)</h3>
           </div>
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {addonSuggestions.map((s, idx) => (
-              <li key={idx} className="border rounded-xl p-3">
-                <div className="font-medium">{s.title}</div>
-                <div className="text-xs text-gray-600 mb-2">{s.desc}</div>
-                <Link href={s.href} className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+              <li key={idx} className="panel-dark p-3">
+                <div className="font-medium text-[var(--text-1)]">{s.title}</div>
+                <div className="text-xs muted mb-2">{s.desc}</div>
+                <Link href={s.href} className="text-sm text-[var(--accent-astroBlue)] hover:underline flex items-center gap-1">
                   ดูรายละเอียด <ArrowRight size={14} />
                 </Link>
               </li>
@@ -657,11 +611,11 @@ function DashboardPageImpl() {
 
       {/* 6) Trend */}
       {trend.length > 0 && (
-        <div className="rounded-2xl border bg-white shadow-sm">
+        <div className="panel-dark">
           <div className="p-6">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="text-sky-600" size={18} />
-              <h3 className="font-semibold">Trend Over Time</h3>
+              <TrendingUp className="text-sky-400" size={18} />
+              <h3 className="panel-title">Trend Over Time</h3>
             </div>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={trend}>
@@ -681,19 +635,18 @@ function DashboardPageImpl() {
 
 export default dynamic(() => Promise.resolve(DashboardPageImpl), { ssr: false });
 
-/** ---------- Local UI sub-components (no external deps) ---------- */
+/** ---------- Local UI sub-components ---------- */
 
 function StatBar({ label, value, colorClass }: { label: string; value: number; colorClass: string }) {
   const v = clampPct(value);
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm text-zinc-600">
-        <span>{label}</span>
-        <span className="font-medium text-zinc-900">{fmtPct1(v)}</span>
-
+      <div className="mb-1 flex items-center justify-between text-sm">
+        <span className="muted">{label}</span>
+        <span className="metric-contrast">{fmtPct1(v)}</span>
       </div>
-      <div className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200">
-        <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${v}%` }} />
+      <div className="h-2.5 w-full overflow-hidden progress-track">
+        <div className={`h-full ${colorClass}`} style={{ width: `${v}%`, borderRadius: 999 }} />
       </div>
     </div>
   );
@@ -701,7 +654,7 @@ function StatBar({ label, value, colorClass }: { label: string; value: number; c
 
 function CircularGauge({
   value,
-  trackColor = "#eee",
+  trackColor = "rgba(255,255,255,.16)",
   barColor = "#10b981",
   size = 128,
   strokeWidth = 12,
@@ -719,31 +672,33 @@ function CircularGauge({
   const center = size / 2;
 
   return (
-    <svg width={size} height={size} className="block">
-      {/* Track */}
-      <circle cx={center} cy={center} r={r} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
-      {/* Bar */}
-      <circle
-        cx={center}
-        cy={center}
-        r={r}
-        stroke={barColor}
-        strokeWidth={strokeWidth}
-        fill="none"
-        strokeLinecap="round"
-        strokeDasharray={`${c} ${c}`}
-        strokeDashoffset={offset}
-        transform={`rotate(-90 ${center} ${center})`}
-        className="transition-all duration-500"
-      />
-      {/* Text */}
-      <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" className="fill-zinc-900 text-[28px] font-bold">
-        {fmtPct1(v)}
-      </text>
-      <text x="50%" y={center + 20} dominantBaseline="middle" textAnchor="middle" className="fill-zinc-500 text-xs font-medium">
-        / 100
-      </text>
-    </svg>
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="block">
+        {/* Track */}
+        <circle cx={center} cy={center} r={r} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
+        {/* Bar */}
+        <circle
+          cx={center}
+          cy={center}
+          r={r}
+          stroke={barColor}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${c} ${c}`}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${center} ${center})`}
+          className="transition-all duration-500"
+        />
+      </svg>
+      {/* Overlay number (readable on dark) */}
+      <div className="donut-center-contrast">
+        <div className="text-center leading-tight">
+          <div className="font-extrabold">{fmtPct1(v)}</div>
+          <div className="text-xs metric-contrast-sub">/ 100</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -757,15 +712,11 @@ function GradeBadge({ label, colorClass }: { label: string; colorClass: string }
 }
 
 /** ---------- Helpers (format & grade) ---------- */
-
 function format1(n: number) {
   return Number.isFinite(n) ? (Math.round(n * 10) / 10).toString() : "0";
 }
-
 function toGrade(score0to100: number): { grade: string; message: string; color: string; hex: string } {
   const s = clampPct(score0to100);
-
-  // เกรดแบบ Soft & Positive (ไม่มี F)
   if (s >= 90) return { grade: "A", message: "ยอดเยี่ยมมาก • พร้อมขยายตัว", color: "bg-gradient-to-r from-emerald-500 to-emerald-600", hex: "#10b981" };
   if (s >= 80) return { grade: "B+", message: "แข็งแรง • เหลือเก็บรายละเอียด", color: "bg-gradient-to-r from-teal-500 to-sky-600", hex: "#14b8a6" };
   if (s >= 70) return { grade: "B", message: "ดี • มีพื้นฐานครบ ควรเสริมบางจุด", color: "bg-gradient-to-r from-sky-500 to-blue-600", hex: "#0ea5e9" };

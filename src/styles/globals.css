@@ -250,3 +250,51 @@
   }
   .btn-primary:hover { filter: brightness(1.06); }
 }
+
+/* === Readability for key numbers on dark backgrounds === */
+
+/* ตัวเลขใหญ่มาก เช่น 9.1/100 */
+.score-on-dark {
+  color: #EAF2FF;                 /* starlight */
+  font-weight: 800;
+  font-size: clamp(28px, 3.2vw, 42px);
+  letter-spacing: -0.012em;
+  /* เงานุ่ม + ขอบมืดบาง ๆ ช่วยคอนทราสต์กับพื้น */
+  -webkit-text-stroke: 0.6px rgba(0,0,0,.45);
+  text-shadow:
+    0 0 6px rgba(0,0,0,.45),
+    0 0 14px rgba(255,255,255,.16);
+}
+.score-on-dark-suffix{
+  color: rgba(234,242,255,.82);
+  font-weight: 700;
+}
+
+/* ตัวเลขเมตริกทั่วไป เช่น % ในการ์ด */
+.metric-contrast{
+  color: #EAF2FF;
+  font-weight: 800;
+  font-size: clamp(20px, 2.2vw, 28px);
+  letter-spacing: -0.01em;
+  -webkit-text-stroke: 0.5px rgba(0,0,0,.45);
+  text-shadow:
+    0 0 6px rgba(0,0,0,.45),
+    0 0 12px rgba(255,255,255,.14);
+}
+.metric-contrast-sub{ color: rgba(234,242,255,.85); }
+
+/* ตัวเลขกลางวงกลม (Donut/Radial) */
+.donut-center-contrast{
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: #EAF2FF; font-weight: 800; font-size: clamp(18px, 2vw, 26px);
+  pointer-events: none; z-index: 1;
+  -webkit-text-stroke: 0.6px rgba(0,0,0,.5);
+  text-shadow:
+    0 0 6px rgba(0,0,0,.55),
+    0 0 14px rgba(255,255,255,.16);
+}
+
+/* แทร็กโปรเกรสให้สว่างขึ้นเล็กน้อย */
+.progress-track{ background: rgba(255,255,255,.20); border-radius: 999px; }
+.surface{ background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); border-radius: 12px; }
+.muted{ color: rgba(234,242,255,.75); }
