@@ -1,3 +1,6 @@
+/* src/styles/globals.css */
+
+/* ต้องอยู่บรรทัดแรก ๆ เสมอ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -55,7 +58,7 @@
   th { color:#EAF2FF; background: rgba(255,255,255,0.04); text-align: left; }
   tbody tr:nth-child(odd) { background: rgba(255,255,255,0.03); }
 
-  /* Form controls (inputs/select/textarea) */
+  /* Form controls */
   input, select, textarea {
     @apply text-sm;
     color: rgba(230,237,245,0.95);
@@ -116,9 +119,9 @@
 .glow-finance  { box-shadow: 0 0 0 1px rgba(245,158,11,.25),  0 8px 32px rgba(245,158,11,.15); }
 .glow-sales    { box-shadow: 0 0 0 1px rgba(255,122,26,.25),  0 8px 32px rgba(255,122,26,.15); }
 
-/* ---------- Global neutralizer (make light util classes safe on dark) ---------- */
-/* ใช้ [class~="..."] เพื่อไม่จับ bg-white/5 ที่เราต้องการ */
+/* ---------- Global neutralizer & readability pack ---------- */
 @layer utilities {
+  /* Neutralize light util classes on dark (ไม่จับ bg-white/5) */
   :is(
     [class~="bg-white"],
     [class~="bg-slate-50"],
@@ -141,6 +144,34 @@
     [class~="border-gray-300"]
   ) { border-color: rgba(255,255,255,0.12) !important; }
 
-  /* Selection look */
+  /* Readability tweaks */
+  :is([class~="text-slate-500"], [class~="text-gray-500"]) { color: rgba(226,232,240,.72) !important; }
+  :is([class~="text-slate-600"], [class~="text-gray-600"]) { color: rgba(226,232,240,.84) !important; }
+  :is([class~="text-slate-700"], [class~="text-gray-700"]) { color: rgba(236,242,248,.92) !important; }
+
+  :is(hr, .divide-y > :not([hidden]) ~ :not([hidden])) { border-color: rgba(255,255,255,.12) !important; }
+  :is(.shadow-sm, .shadow).border { background: rgba(255,255,255,.04); backdrop-filter: blur(2px); }
+
+  :is([class~="bg-gray-100"], [class~="bg-slate-100"], [class~="bg-gray-50"], [class~="bg-slate-50"]) {
+    background-color: rgba(255,255,255,.06) !important;
+  }
+  [class~="hover:bg-gray-50"]:hover,
+  [class~="hover:bg-slate-50"]:hover { background-color: rgba(255,255,255,.08) !important; }
+
+  /* Tables & charts */
+  th, td { border-bottom: 1px solid rgba(255,255,255,.10); }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,.03); }
+  .recharts-text { fill: rgba(230,237,245,.92); }
+  .recharts-cartesian-grid-vertical line,
+  .recharts-cartesian-grid-horizontal line,
+  .recharts-polar-grid-concentric { stroke: rgba(255,255,255,.10); }
+  .recharts-polar-angle-axis-tick-value { fill: rgba(230,237,245,.90); }
+  .recharts-tooltip-wrapper .recharts-default-tooltip {
+    background: rgba(15,23,42,.85);
+    color: var(--text-starlight);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: .5rem;
+  }
+
   ::selection { background: rgba(108,163,255,.25); color: var(--text-starlight); }
 }
