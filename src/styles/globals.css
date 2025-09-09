@@ -7,29 +7,39 @@
 
 /* ================== Moonship · GLOBAL DARK ================== */
 
-/* Tokens */
+/* Tokens (ปรับตาม mockup) */
 :root{
-  --bg-space:#0B0F1A;
-  --bg-navy:#0F1E2E;
-  --text-starlight:#E6EDF5;
+  /* Space BG */
+  --bg-space:#0A1020;        /* กรมท่าเข้ม */
+  --bg-navy:#0E1B2E;         /* กรมท่าอ่อน */
+  --text-starlight:#EAF2FF;  /* ตัวหนังสือหลัก */
 
+  /* Accents */
+  --accent-astroBlue:#9CC3FF;  /* ลิงก์/หัวข้อรอง */
+  --accent-ionTeal:#2DE1C2;    /* คุณภาพ */
+  --accent-lunarCyan:#2AA9FF;  /* ความคืบหน้า */
+  --accent-orbitPink:#FF5B99;  /* ดอนัท/จุดเน้น */
+
+  /* Category */
   --c-strategy:#FFD54A;
   --c-structure:#2DD4BF;
-  --c-sop:#7C3AED;
+  --c-sop:#9D7CFF;        /* ม่วงสว่างขึ้น */
   --c-hr:#22C55E;
-  --c-finance:#F59E0B;
+  --c-finance:#F6C453;    /* amber นวล */
   --c-sales:#FF7A1A;
 
-  --c-go:#22C55E;
-  --c-hold:#F59E0B;
-  --c-nogo:#EF4444;
+  /* Status */
+  --c-go:#2DE1C2;
+  --c-hold:#F6C453;
+  --c-nogo:#FF6B6B;
 
-  --text-1:#F4F8FF;  /* headings */
-  --text-2:#E6EDF5;  /* body     */
-  --text-3:#C8D2E2;  /* muted    */
-  --line:rgba(255,255,255,.14);
+  /* Surfaces/lines */
+  --text-1:#F7FAFF;
+  --text-2:#EAF2FF;
+  --text-3:#C9D6EA;
+  --line:rgba(255,255,255,.16);
   --surface-1:rgba(255,255,255,.06);
-  --surface-2:rgba(255,255,255,.09);
+  --surface-2:rgba(255,255,255,.10);
 }
 
 /* Base: background + type + elements */
@@ -53,7 +63,9 @@
   h3{ font-size:clamp(18px,1.4vw,22px); line-height:1.30; font-weight:700; color:var(--text-1); }
   small,.text-xs{ font-size:12.5px; line-height:1.45; color:var(--text-3); }
 
-  a{ color:#9CC3FF; } a:hover{ color:#CFE0FF; text-decoration:underline; }
+  a{ color:var(--accent-astroBlue); } 
+  a:hover{ color:#CFE0FF; text-decoration:underline; }
+
   hr{ border-color:rgba(255,255,255,.12); }
 
   /* Tables */
@@ -105,6 +117,26 @@
 
   .btn-ghost{ background:rgba(255,255,255,.06); border:1px solid var(--line); color:var(--text-2); border-radius:.6rem; padding:.5rem .9rem; }
   .btn-ghost:hover{ background:rgba(255,255,255,.10); }
+
+  .btn-primary{
+    background:linear-gradient(180deg,#2F6BFF,#2251D8);
+    color:white; border:1px solid rgba(255,255,255,.12);
+    border-radius:.7rem; padding:.55rem 1rem; font-weight:600;
+  }
+  .btn-primary:hover{ filter:brightness(1.06); }
+
+  .btn-success{
+    background:linear-gradient(180deg,#18B563,#118A4B);
+    color:white; border:1px solid rgba(255,255,255,.12);
+    border-radius:.7rem; padding:.55rem 1rem; font-weight:600;
+  }
+
+  .badge-soft{
+    background:rgba(255,255,255,.08);
+    border:1px solid var(--line);
+    color:var(--text-2);
+    padding:.25rem .6rem; border-radius:9999px; font-size:.78rem; font-weight:600;
+  }
 }
 
 /* Better borders for chips on supported browsers */
@@ -117,12 +149,12 @@
 /* Category glows */
 .glow-strategy{ box-shadow:0 0 0 1px rgba(255,213,74,.25), 0 8px 32px rgba(255,213,74,.15); }
 .glow-structure{box-shadow:0 0 0 1px rgba(45,212,191,.25), 0 8px 32px rgba(45,212,191,.15); }
-.glow-sop{      box-shadow:0 0 0 1px rgba(124,58,237,.25), 0 8px 32px rgba(124,58,237,.15); }
+.glow-sop{      box-shadow:0 0 0 1px rgba(157,124,255,.25), 0 8px 32px rgba(157,124,255,.15); }
 .glow-hr{       box-shadow:0 0 0 1px rgba(34,197,94,.25),  0 8px 32px rgba(34,197,94,.15); }
-.glow-finance{  box-shadow:0 0 0 1px rgba(245,158,11,.25), 0 8px 32px rgba(245,158,11,.15); }
+.glow-finance{  box-shadow:0 0 0 1px rgba(246,196,83,.25), 0 8px 32px rgba(246,196,83,.15); }
 .glow-sales{    box-shadow:0 0 0 1px rgba(255,122,26,.25), 0 8px 32px rgba(255,122,26,.15); }
 
-/* Utilities: neutralizer + readability + charts */
+/* Utilities: neutralizer + readability + charts + progress */
 @layer utilities{
   /* Neutralize light util classes (ไม่จับ bg-white/5) */
   :is([class~="bg-white"],[class~="bg-slate-50"],[class~="bg-gray-50"],[class~="bg-slate-100"],[class~="bg-gray-100"]){
@@ -153,14 +185,27 @@
   .surface-strong{ background:var(--surface-2); border:1px solid var(--line); border-radius:.75rem; }
   .bubble-dark{ background:rgba(15,23,42,.92) !important; color:var(--text-2) !important; border:1px solid var(--line) !important; }
 
-  .track-dim{ background:rgba(255,255,255,.18) !important; }
+  /* Progress bars (ตาม mockup) */
+  .progress-track{ background:rgba(255,255,255,.20); border-radius:9999px; }
+  .progress-quality{ 
+    background:linear-gradient(90deg,var(--accent-ionTeal) 0%, #7CF9E4 100%);
+    border-radius:9999px;
+  }
+  .progress-completion{
+    background:linear-gradient(90deg,var(--accent-lunarCyan) 0%, #9CD8FF 100%);
+    border-radius:9999px;
+  }
+
+  /* Donut chart ring */
+  .ring-track{ stroke:rgba(255,255,255,.16); }
+  .ring-accent{ stroke:var(--accent-orbitPink); }
 
   /* Charts (Recharts) */
-  .recharts-text{ fill:rgba(230,237,245,.95); }
+  .recharts-text{ fill:var(--text-2); }
   .recharts-cartesian-grid-horizontal line,
   .recharts-cartesian-grid-vertical line,
-  .recharts-polar-grid-concentric{ stroke:rgba(255,255,255,.12); }
-  .recharts-polar-angle-axis-tick-value{ fill:rgba(230,237,245,.93); }
+  .recharts-polar-grid-concentric{ stroke:rgba(255,255,255,.16); }
+  .recharts-polar-angle-axis-tick-value{ fill:var(--text-2); }
   .recharts-tooltip-wrapper .recharts-default-tooltip{
     background:rgba(15,23,42,.90); color:var(--text-2);
     border:1px solid var(--line); border-radius:.5rem;
