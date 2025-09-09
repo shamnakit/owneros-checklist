@@ -8,11 +8,7 @@ import type { CategoryKey } from "@/services/checklistService";
 import { listYears } from "@/services/checklistService";
 import { getLastYear, setLastYear } from "@/utils/yearPref";
 
-/**
- * รองรับทั้ง slug แบบใหม่ (strategy|structure|sop|hr|finance|sales)
- * และแบบเดิม (group1..group6) เพื่อความเข้ากันได้ย้อนหลัง
- */
-
+/** slug ใหม่ + รองรับของเดิมแบบ backward-compatible */
 const SLUG_MAP: Record<
   CategoryKey,
   { no: 1 | 2 | 3 | 4 | 5 | 6; key: CategoryKey; title: string }
@@ -35,94 +31,76 @@ const LEGACY_MAP: Record<`group${1|2|3|4|5|6}`, CategoryKey> = {
 };
 
 function resolveCategoryKey(param: string | string[] | undefined): CategoryKey | null {
-  const raw = String(param ?? "").trim().toLowerCase();
+  const raw = String(param ?? "").toLowerCase();
   if (!raw) return null;
-  if ((SLUG_MAP as any)[raw]) return raw as CategoryKey;
-  if ((LEGACY_MAP as any)[raw]) return LEGACY_MAP[raw as keyof typeof LEGACY_MAP];
+  if (raw in SLUG_MAP) return raw as CategoryKey;
+  if (raw in LEGACY_MAP) return LEGACY_MAP[raw as keyof typeof LEGACY_MAP];
   return null;
 }
 
 function GroupRoutePageImpl() {
   const router = useRouter();
-
-  // แปลง slug -> categoryKey
   const catKey = resolveCategoryKey(router.query.group);
 
-  /**
-   * เติม year ลงใน query ถ้ายังไม่มี:
-   * 1) ใช้ lastYear จาก localStorage
-   * 2) ถ้าไม่มีก็ถามจากฐานข้อมูล (ปีล่าสุดที่มีข้อมูล)
-   * 3) ถ้ายังไม่ได้ก็ปีปัจจุบัน
-   *
-   * ใช้ router.replace(..., { shallow:true, scroll:false }) เพื่อไม่รีเรนเดอร์ layout ทั้งหน้า
-   * ลดโอกาสเกิดช่องว่าง/กระพริบตอนนำทางมาจาก Dashboard
-   */
+  // เติมปีให้ URL ถ้ายังไม่มี
   useEffect(() => {
     if (!catKey) return;
-
     const qYear = Number(router.query.year);
     if (Number.isFinite(qYear) && qYear > 0) {
       setLastYear(qYear);
       return;
     }
-
     (async () => {
       let y = getLastYear();
       if (!y) {
         try {
           const ys = await listYears();
-          y = [...ys].sort((a, b) => b - a)[0] ?? new Date().getFullYear();
+          y = ys.sort((a, b) => b - a)[0] ?? new Date().getFullYear();
         } catch {
           y = new Date().getFullYear();
         }
       }
       setLastYear(y);
-
-      // เติม year ลงไปแบบ shallow เพื่อคง layout/state ที่มีอยู่
+      // ไม่ใช้ shallow เพื่อให้ layout/สไตล์รีเซ็ตครบ เวลามาจากปุ่มลัด
       router.replace(
-        { pathname: router.pathname, query: { ...router.query, year: y } },
+        { pathname: router.asPath.split("?")[0], query: { ...router.query, year: y } },
         undefined,
-        { shallow: true, scroll: false }
+        { shallow: false }
       );
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catKey]);
 
-  // slug ไม่ถูกต้อง -> เด้งกลับหน้า overview
   if (!catKey) {
-    if (typeof window !== "undefined") {
-      // เก็บปีไว้ให้หน้าถัดไปใช้
-      const y = getLastYear() || new Date().getFullYear();
-      window.location.replace(`/checklist?year=${y}`);
-    }
+    if (typeof window !== "undefined") window.location.replace("/checklist");
     return null;
   }
 
   const cfg = SLUG_MAP[catKey];
-
-  // นโยบายคะแนน: ต้องมี evidence จึงนับ (ให้ภาพรวม/แดชบอร์ดสอดคล้องกัน)
   const requireEvidence = true;
 
   return (
-    // ❗️ไม่ห่ออะไรเพิ่ม เพื่อไม่เพิ่มระยะขาว — ให้ ChecklistGroupPage จัดการ spacing เอง
-    <ChecklistGroupPage
-      key={`${cfg.key}-${router.query.year ?? "ny"}`} // force remount เมื่อเปลี่ยนปี/หมวด ลดอาการขนาดเพี้ยน
-      groupNo={cfg.no}
-      categoryKey={cfg.key}
-      title={cfg.title}
-      breadcrumb={`Checklist › หมวด ${cfg.no}`}
-      requireEvidence={requireEvidence}
-      storageBucket="evidence"
-      // หมายเหตุ: ปีจะถูกเติมเข้ามาใน query แล้วจาก useEffect ด้านบน
-    />
+    // ✅ ให้ MainLayout จัด sidebar/grid ทั้งหมด
+    // ✅ ส่วนของเพจใช้แค่ความกว้างและ padding ปกติ ไม่มี margin/padding-left ชดเชย sidebar เอง
+    <div id="checklist-group-root" className="w-full">
+      <div className="mx-auto max-w-7xl px-4 md:px-6 lg:px-8">
+        <ChecklistGroupPage
+          groupNo={cfg.no}
+          categoryKey={cfg.key}
+          title={cfg.title}
+          breadcrumb={`Checklist › หมวด ${cfg.no}`}
+          requireEvidence={requireEvidence}
+          storageBucket="evidence"
+        />
+      </div>
+    </div>
   );
 }
 
-// ใช้ MainLayout แบบเดียวกับการเข้าโดยคลิกจาก Sidebar
-// เพื่อคง UI/spacing ให้เหมือนกันทุกวิธีการนำทาง
+// ใส่ MainLayout ระดับเพจ (Pages Router)
 (GroupRoutePageImpl as any).getLayout = (page: React.ReactElement) => (
   <MainLayout>{page}</MainLayout>
 );
 
-// ปิด SSR (ใช้ข้อมูลฝั่ง client + ป้องกันระยะกระโดดระหว่าง hydrate)
+// ปิด SSR
 export default dynamic(() => Promise.resolve(GroupRoutePageImpl), { ssr: false });

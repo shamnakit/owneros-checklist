@@ -1,31 +1,28 @@
-/* src/styles/globals.css */
-
-/* ต้องอยู่บนสุดเสมอ */
+/* ===================== Tailwind hooks (ต้องอยู่บนสุด) ===================== */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ================== Moonship · GLOBAL DARK ================== */
-
-/* Tokens (ปรับตาม mockup) */
+/* ========================= Moonship · GLOBAL DARK ========================= */
+/* Design tokens (ปรับตาม mockup) */
 :root{
   /* Space BG */
-  --bg-space:#0A1020;        /* กรมท่าเข้ม */
-  --bg-navy:#0E1B2E;         /* กรมท่าอ่อน */
-  --text-starlight:#EAF2FF;  /* ตัวหนังสือหลัก */
+  --bg-space:#0A1020;          /* กรมท่าเข้ม */
+  --bg-navy:#0E1B2E;           /* กรมท่าอ่อน */
+  --text-starlight:#EAF2FF;    /* ตัวหนังสือหลักบนพื้นมืด */
 
   /* Accents */
-  --accent-astroBlue:#9CC3FF;  /* ลิงก์/หัวข้อรอง */
-  --accent-ionTeal:#2DE1C2;    /* คุณภาพ */
-  --accent-lunarCyan:#2AA9FF;  /* ความคืบหน้า */
+  --accent-astroBlue:#9CC3FF;  /* สีลิงก์/หัวข้อรอง */
+  --accent-ionTeal:#2DE1C2;    /* คุณภาพ / score bar */
+  --accent-lunarCyan:#2AA9FF;  /* ความคืบหน้า / progress bar */
   --accent-orbitPink:#FF5B99;  /* ดอนัท/จุดเน้น */
 
   /* Category */
   --c-strategy:#FFD54A;
   --c-structure:#2DD4BF;
-  --c-sop:#9D7CFF;        /* ม่วงสว่างขึ้น */
+  --c-sop:#9D7CFF;
   --c-hr:#22C55E;
-  --c-finance:#F6C453;    /* amber นวล */
+  --c-finance:#F6C453;
   --c-sales:#FF7A1A;
 
   /* Status */
@@ -42,7 +39,7 @@
   --surface-2:rgba(255,255,255,.10);
 }
 
-/* Base: background + type + elements */
+/* ================================ Base ==================================== */
 @layer base{
   html,body,#__next{
     min-height:100vh;
@@ -63,7 +60,7 @@
   h3{ font-size:clamp(18px,1.4vw,22px); line-height:1.30; font-weight:700; color:var(--text-1); }
   small,.text-xs{ font-size:12.5px; line-height:1.45; color:var(--text-3); }
 
-  a{ color:var(--accent-astroBlue); } 
+  a{ color:var(--accent-astroBlue); }
   a:hover{ color:#CFE0FF; text-decoration:underline; }
 
   hr{ border-color:rgba(255,255,255,.12); }
@@ -88,12 +85,12 @@
     box-shadow:0 0 0 3px rgba(108,163,255,.25);
   }
 
-  /* Code */
+  /* Code blocks */
   code{ background:rgba(255,255,255,.06); padding:.15rem .35rem; border-radius:.375rem; }
   pre{ background:rgba(0,0,0,.35); color:var(--text-2); padding:.875rem 1rem; border-radius:.75rem; border:1px solid rgba(255,255,255,.08); overflow:auto; }
 }
 
-/* Helper */
+/* Helper BG */
 .bg-space{
   background:
     radial-gradient(1200px 800px at 10% 10%, rgba(255,255,255,.06), transparent 60%),
@@ -101,7 +98,7 @@
     linear-gradient(180deg,var(--bg-space),var(--bg-navy));
 }
 
-/* Components */
+/* ============================== Components ================================ */
 @layer components{
   .card-moon{ @apply rounded-2xl border bg-white/5 backdrop-blur-sm; border-color:rgba(255,255,255,.10); }
 
@@ -110,7 +107,6 @@
   .chip-hold{ color:var(--c-hold); border-color:rgba(245,158,11,.40); }
   .chip-nogo{ color:var(--c-nogo); border-color:rgba(239,68,68,.40); }
 
-  /* Inputs/Buttons tuned for dark */
   .input-dark{ background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--text-2); border-radius:.5rem; padding:.5rem .75rem; }
   .input-dark::placeholder{ color:#94A3B8; }
   .input-dark:focus{ outline:none; border-color:rgba(108,163,255,.45); box-shadow:0 0 0 3px rgba(108,163,255,.22); }
@@ -139,7 +135,7 @@
   }
 }
 
-/* Better borders for chips on supported browsers */
+/* Better borders for chips on modern browsers */
 @supports (color: oklab){
   .chip-go{   border-color:color-mix(in oklab,var(--c-go) 40%,white 60%); }
   .chip-hold{ border-color:color-mix(in oklab,var(--c-hold) 40%,white 60%); }
@@ -154,53 +150,45 @@
 .glow-finance{  box-shadow:0 0 0 1px rgba(246,196,83,.25), 0 8px 32px rgba(246,196,83,.15); }
 .glow-sales{    box-shadow:0 0 0 1px rgba(255,122,26,.25), 0 8px 32px rgba(255,122,26,.15); }
 
-/* Utilities: neutralizer + readability + charts + progress */
+/* =============================== Utilities ================================ */
 @layer utilities{
-  /* Neutralize light util classes (ไม่จับ bg-white/5) */
+  /* Neutralize light util classes (ไม่ยุ่ง bg-white/5 ในคอมโพเนนต์) */
   :is([class~="bg-white"],[class~="bg-slate-50"],[class~="bg-gray-50"],[class~="bg-slate-100"],[class~="bg-gray-100"]){
     background-color:transparent !important; background-image:none !important;
   }
   :is([class~="text-slate-800"],[class~="text-gray-800"],[class~="text-slate-700"],[class~="text-gray-700"]){
     color:var(--text-starlight) !important;
   }
-  :is([class~="border-slate-200"],[class~="border-gray-200"],[class~="border-slate-300"],[class~="border-gray-300"]){
-    border-color:rgba(255,255,255,.12) !important;
+  :is(.border,.ring-1), :is([class*="border-slate-2"],[class*="border-gray-2"]){
+    border-color:var(--line) !important;
   }
 
-  /* Readability */
-  .muted{ color:var(--text-3) !important; }
-  .subtle{ color:var(--text-3) !important; } /* fallback */
-}
-@supports (color: oklab){
-  .subtle{ color:color-mix(in oklab,var(--text-3) 85%,white 15%) !important; }
-}
-@layer utilities{
-  :is(.text-slate-500,.text-gray-500){ color:rgba(226,232,240,.78) !important; }
-  :is(.text-slate-600,.text-gray-600){ color:rgba(232,238,247,.88) !important; }
-
-  hr,.divide-y > :not([hidden]) ~ :not([hidden]){ border-color:var(--line) !important; }
-  :is(.border,.ring-1){ border-color:var(--line); }
-
+  /* Surfaces */
   .surface{ background:var(--surface-1); border:1px solid var(--line); border-radius:.75rem; }
   .surface-strong{ background:var(--surface-2); border:1px solid var(--line); border-radius:.75rem; }
   .bubble-dark{ background:rgba(15,23,42,.92) !important; color:var(--text-2) !important; border:1px solid var(--line) !important; }
 
+  /* Readability helpers */
+  .muted{ color:var(--text-3) !important; }
+  .metric-number    { font-weight:800; font-size:clamp(22px,2.2vw,28px); color:var(--text-1); text-shadow:0 0 14px rgba(255,255,255,.12); letter-spacing:-.01em; }
+  .metric-number-xl { font-weight:800; font-size:clamp(28px,3vw,40px);  color:var(--text-1); text-shadow:0 0 18px rgba(255,255,255,.14); letter-spacing:-.012em; }
+  .metric-label     { font-size:12px; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; }
+
   /* Progress bars (ตาม mockup) */
-  .progress-track{ background:rgba(255,255,255,.20); border-radius:9999px; }
-  .progress-quality{ 
-    background:linear-gradient(90deg,var(--accent-ionTeal) 0%, #7CF9E4 100%);
-    border-radius:9999px;
-  }
-  .progress-completion{
-    background:linear-gradient(90deg,var(--accent-lunarCyan) 0%, #9CD8FF 100%);
-    border-radius:9999px;
+  .progress-track      { background:rgba(255,255,255,.20); border-radius:9999px; }
+  .progress-quality    { background:linear-gradient(90deg,var(--accent-ionTeal) 0%, #7CF9E4 100%); border-radius:9999px; }
+  .progress-completion { background:linear-gradient(90deg,var(--accent-lunarCyan) 0%, #9CD8FF 100%); border-radius:9999px; }
+
+  /* Donut / rings */
+  .ring-track  { stroke:rgba(255,255,255,.16); }
+  .ring-accent { stroke:var(--accent-orbitPink); }
+  .donut-center{
+    position:absolute; inset:0; display:grid; place-items:center;
+    color:var(--text-1); font-weight:800; font-size:clamp(18px,2vw,26px);
+    text-shadow:0 0 14px rgba(255,255,255,.14); pointer-events:none;
   }
 
-  /* Donut chart ring */
-  .ring-track{ stroke:rgba(255,255,255,.16); }
-  .ring-accent{ stroke:var(--accent-orbitPink); }
-
-  /* Charts (Recharts) */
+  /* Recharts themed */
   .recharts-text{ fill:var(--text-2); }
   .recharts-cartesian-grid-horizontal line,
   .recharts-cartesian-grid-vertical line,
@@ -211,90 +199,37 @@
     border:1px solid var(--line); border-radius:.5rem;
   }
 
+  /* Selection */
   ::selection{ background:rgba(108,163,255,.25); color:var(--text-starlight); }
-}
 
-/* ===== Moonship · Dashboard Readability Boost ===== */
-@layer utilities {
-  /* ตัวเลขเมตริก (ใหญ่/คม/มีเงานุ่ม) */
-  .metric-number      { font-weight: 800; font-size: clamp(22px, 2.2vw, 28px); color: var(--text-1); text-shadow: 0 0 14px rgba(255,255,255,.12); letter-spacing: -.01em; }
-  .metric-number-xl   { font-weight: 800; font-size: clamp(28px, 3vw, 40px);  color: var(--text-1); text-shadow: 0 0 18px rgba(255,255,255,.14); letter-spacing: -.012em; }
-  .metric-label       { font-size: 12px;  color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+  /* ตัวเลขใหญ่มาก เช่น 9.1/100 บนพื้นมืด */
+  .score-on-dark{
+    color:#EAF2FF; font-weight:800; font-size:clamp(28px,3.2vw,42px); letter-spacing:-.012em;
+    -webkit-text-stroke:.6px rgba(0,0,0,.45);
+    text-shadow:0 0 6px rgba(0,0,0,.45), 0 0 14px rgba(255,255,255,.16);
+  }
+  .score-on-dark-suffix{ color:rgba(234,242,255,.82); font-weight:700; }
 
-  /* ตัวเลขกลางวงกลม (ดอนัท/ราดาร์กลาง) */
-  .donut-center {
-    position: absolute; inset: 0; display: grid; place-items: center;
-    color: var(--text-1); font-weight: 800; font-size: clamp(18px, 2vw, 26px);
-    text-shadow: 0 0 14px rgba(255,255,255,.14);
-    pointer-events: none;
+  /* ตัวเลขกลางวงกลม (คอนทราสต์สูง) */
+  .donut-center-contrast{
+    position:absolute; inset:0; display:grid; place-items:center;
+    color:#EAF2FF; font-weight:800; font-size:clamp(18px,2vw,26px); pointer-events:none; z-index:1;
+    -webkit-text-stroke:.6px rgba(0,0,0,.5);
+    text-shadow:0 0 6px rgba(0,0,0,.55), 0 0 14px rgba(255,255,255,.16);
   }
 
-  /* พาเนลสรุป/ข้อเสนอแนะ (GAP & ACTION) */
-  .panel-dark {
-    background: var(--surface-2);
-    border: 1px solid var(--line);
-    border-radius: 1rem;
-  }
-  .panel-title {
-    color: var(--text-1);
-    font-weight: 700;
-    letter-spacing: .02em;
-  }
-  .panel-note { color: var(--text-2); opacity: .92; }
-
-  /* ปุ่มยอดนิยม */
-  .btn-primary {
-    background: linear-gradient(180deg,#2F6BFF,#2251D8);
-    color: #fff; border: 1px solid rgba(255,255,255,.12);
-    border-radius: .7rem; padding: .55rem 1rem; font-weight: 600;
-  }
-  .btn-primary:hover { filter: brightness(1.06); }
+  /* พาเนลสรุป/ข้อเสนอแนะ */
+  .panel-dark{ background:var(--surface-2); border:1px solid var(--line); border-radius:1rem; }
+  .panel-title{ color:var(--text-1); font-weight:700; letter-spacing:.02em; }
+  .panel-note{ color:var(--text-2); opacity:.92; }
 }
 
-/* === Readability for key numbers on dark backgrounds === */
+/* Subtle text on color-mix browsers */
+@supports (color: oklab){ .subtle{ color:color-mix(in oklab,var(--text-3) 85%,white 15%) !important; } }
 
-/* ตัวเลขใหญ่มาก เช่น 9.1/100 */
-.score-on-dark {
-  color: #EAF2FF;                 /* starlight */
-  font-weight: 800;
-  font-size: clamp(28px, 3.2vw, 42px);
-  letter-spacing: -0.012em;
-  /* เงานุ่ม + ขอบมืดบาง ๆ ช่วยคอนทราสต์กับพื้น */
-  -webkit-text-stroke: 0.6px rgba(0,0,0,.45);
-  text-shadow:
-    0 0 6px rgba(0,0,0,.45),
-    0 0 14px rgba(255,255,255,.16);
+/* =================== Hot fix: reset offset ของหน้า Group =================== */
+/* กันเคสหน้า /checklist/[group] เคยชดเชยระยะให้ sidebar เอง → รีเซ็ตให้เหลือ 0 */
+#checklist-group-root{
+  margin-left:0 !important;
+  padding-left:0 !important;
 }
-.score-on-dark-suffix{
-  color: rgba(234,242,255,.82);
-  font-weight: 700;
-}
-
-/* ตัวเลขเมตริกทั่วไป เช่น % ในการ์ด */
-.metric-contrast{
-  color: #EAF2FF;
-  font-weight: 800;
-  font-size: clamp(20px, 2.2vw, 28px);
-  letter-spacing: -0.01em;
-  -webkit-text-stroke: 0.5px rgba(0,0,0,.45);
-  text-shadow:
-    0 0 6px rgba(0,0,0,.45),
-    0 0 12px rgba(255,255,255,.14);
-}
-.metric-contrast-sub{ color: rgba(234,242,255,.85); }
-
-/* ตัวเลขกลางวงกลม (Donut/Radial) */
-.donut-center-contrast{
-  position: absolute; inset: 0; display: grid; place-items: center;
-  color: #EAF2FF; font-weight: 800; font-size: clamp(18px, 2vw, 26px);
-  pointer-events: none; z-index: 1;
-  -webkit-text-stroke: 0.6px rgba(0,0,0,.5);
-  text-shadow:
-    0 0 6px rgba(0,0,0,.55),
-    0 0 14px rgba(255,255,255,.16);
-}
-
-/* แทร็กโปรเกรสให้สว่างขึ้นเล็กน้อย */
-.progress-track{ background: rgba(255,255,255,.20); border-radius: 999px; }
-.surface{ background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10); border-radius: 12px; }
-.muted{ color: rgba(234,242,255,.75); }
