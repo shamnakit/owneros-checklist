@@ -1,7 +1,6 @@
 // src/components/checklist/SummaryPage.tsx
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/card";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
 import { Trophy, Info, Target, Download } from "lucide-react";
@@ -52,6 +51,7 @@ function tierThai(t: TotalRow["tier_label"]) {
   if (t === "Developing") return "Developing";
   return "Early Stage";
 }
+
 // CSV helpers
 const csvEsc = (v: any) => {
   if (v === null || v === undefined) return "";
@@ -130,9 +130,9 @@ function SummaryPageImpl() {
 
   // Badge org-level (จาก Score% รวมที่มี)
   const orgBadge = useMemo(() => {
-    if (scorePctOverall >= ORG_EXCELLENT.scorePct) return { label: "เข้าเป้า Excellent (Score)", className: "bg-emerald-100 text-emerald-700" };
-    if (scorePctOverall >= ORG_PASS.scorePct) return { label: "ผ่านขั้นต่ำ (Score)", className: "bg-blue-100 text-blue-700" };
-    return { label: "ยังไม่ผ่าน (Score)", className: "bg-amber-100 text-amber-700" };
+    if (scorePctOverall >= ORG_EXCELLENT.scorePct) return { label: "เข้าเป้า Excellent (Score)", className: "badge-soft text-emerald-300 border-emerald-400/40" };
+    if (scorePctOverall >= ORG_PASS.scorePct) return { label: "ผ่านขั้นต่ำ (Score)", className: "badge-soft text-sky-300 border-sky-400/40" };
+    return { label: "ยังไม่ผ่าน (Score)", className: "badge-soft text-amber-300 border-amber-400/40" };
   }, [scorePctOverall]);
 
   // === Export CSV ===
@@ -170,7 +170,7 @@ function SummaryPageImpl() {
 
       const rowsAll = [...meta, header, ...body];
       const csv = rowsAll.map((row) => row.map(csvEsc).join(",")).join("\r\n");
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }); // BOM สำหรับภาษาไทยใน Excel
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }); // BOM ไทย
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -187,77 +187,87 @@ function SummaryPageImpl() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    // ⬇️ เต็มกว้าง + ใช้สีตัวอักษรแบบ dark
+    <div className="w-full !max-w-none p-6 md:p-8 space-y-6 text-slate-100">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">สรุปภาพรวม (Summary) – v1.6 Balanced</h1>
-          <p className="text-slate-600">แยก “Score%” (คุณภาพ/น้ำหนัก) ออกจาก “%Progress” (งานเสร็จจริง)</p>
+          <h1 className="text-2xl font-bold">สรุปภาพรวม (Summary) – v1.6 Balanced</h1>
+          <p className="subtle">แยก “Score%” (คุณภาพ/น้ำหนัก) ออกจาก “%Progress” (งานเสร็จจริง)</p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-slate-500">ปี:</label>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="border rounded-md px-2 py-2">
-            {availableYears.map((y) => <option key={y} value={y}>ปี {y}</option>)}
+          <label className="text-sm subtle">ปี:</label>
+          <select
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="input-dark px-2 py-2"
+          >
+            {availableYears.map((y) => <option key={y} value={y} className="bg-[#0B0F1A]">ปี {y}</option>)}
           </select>
         </div>
       </div>
 
       {/* Definitions */}
       <div className="grid md:grid-cols-3 gap-4">
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-slate-800 font-semibold"><Target size={18} /> Score%</div>
-          <p className="text-sm text-slate-600 mt-1">
+        <div className="surface p-4">
+          <div className="flex items-center gap-2 font-semibold"><Target size={18} /> Score%</div>
+          <p className="text-sm muted mt-1">
             วัดคุณภาพ/ความครบถ้วน (ถ่วงน้ำหนัก) = (คะแนนรวม ÷ 600) × 100
           </p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center gap-2 text-slate-800 font-semibold"><Info size={18} /> %Progress</div>
-          <p className="text-sm text-slate-600 mt-1">
+        </div>
+        <div className="surface p-4">
+          <div className="flex items-center gap-2 font-semibold"><Info size={18} /> %Progress</div>
+          <p className="text-sm muted mt-1">
             วัดความคืบหน้าเชิงปริมาณ = (จำนวนข้อที่ “ติ๊ก+มีหลักฐาน” ÷ จำนวนข้อทั้งหมด) × 100
           </p>
-          <p className="text-xs text-slate-500 mt-1">* เปิดโหมดนับหลักฐาน: requireEvidence = true</p>
-        </Card>
-        <Card className="p-4">
-          <div className="text-slate-800 font-semibold">เกณฑ์ค่าเริ่มต้น</div>
-          <ul className="text-sm text-slate-700 mt-1 space-y-1">
+          <p className="text-xs subtle mt-1">* เปิดโหมดนับหลักฐาน: requireEvidence = true</p>
+        </div>
+        <div className="surface p-4">
+          <div className="font-semibold">เกณฑ์ค่าเริ่มต้น</div>
+          <ul className="text-sm mt-1 space-y-1">
             <li>องค์กร: ผ่านขั้นต่ำ = <b>Score ≥ {ORG_PASS.scorePct}%</b> และ <b>%Progress ≥ {ORG_PASS.progressPct}%</b></li>
             <li>องค์กร: Excellent = <b>Score ≥ {ORG_EXCELLENT.scorePct}%</b> และ <b>%Progress ≥ {ORG_EXCELLENT.progressPct}%</b></li>
             <li>ระดับหมวด (Floor) = <b>Score ≥ {SECTION_FLOOR.scorePct}%</b> และ <b>%Progress ≥ {SECTION_FLOOR.progressPct}%</b></li>
           </ul>
-        </Card>
+        </div>
       </div>
 
       {/* Overall Score% */}
-      <Card className="p-4">
+      <div className="surface p-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 text-slate-700">
-            <Trophy size={18} className="text-yellow-600" />
+          <div className="flex items-center gap-2">
+            <Trophy size={18} className="text-yellow-300" />
             <span className="font-medium">Score% รวมทั้งองค์กร (ปี {year})</span>
           </div>
-          <span className={`px-2 py-0.5 rounded-full text-xs ${orgBadge.className}`}>{orgBadge.label}</span>
+          <span className={orgBadge.className}>{orgBadge.label}</span>
         </div>
+
         <div className="flex items-center justify-between">
-          <div className="text-3xl font-bold">{pct(scorePctOverall)}</div>
-          <div className="text-slate-600">{total ? tierThai(total.tier_label) : "-"}</div>
+          <div className="metric-number">{pct(scorePctOverall)}</div>
+          <div className="subtle">{total ? tierThai(total.tier_label) : "-"}</div>
         </div>
-        <div className="mt-2 w-full bg-gray-200/70 h-3 rounded-full overflow-hidden">
-          <div className="h-3 rounded-full" style={{ width: `${scorePctOverall}%`, background: "linear-gradient(90deg,#34d399,#22c55e)" }} />
+
+        <div className="mt-3 w-full h-3 overflow-hidden rounded-full progress-track">
+          <div
+            className="h-3 rounded-full progress-quality"
+            style={{ width: `${scorePctOverall}%` }}
+          />
         </div>
-      </Card>
+      </div>
 
       {/* Error / Loading */}
-      {err && <Card className="p-4 border-red-300 text-red-700 bg-red-50">เกิดข้อผิดพลาด: {err}</Card>}
-      {loading && <Card className="p-4">กำลังโหลดข้อมูล…</Card>}
+      {err && <div className="surface p-4 border border-red-400/40 text-red-300">เกิดข้อผิดพลาด: {err}</div>}
+      {loading && <div className="surface p-4">กำลังโหลดข้อมูล…</div>}
 
       {/* Table per-category + Export */}
       {!loading && (
-        <Card className="p-0 overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-b">
-            <div className="font-medium text-slate-700">รายละเอียดรายหมวด</div>
+        <div className="surface p-0 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--line)]">
+            <div className="font-medium">รายละเอียดรายหมวด</div>
             <button
-              type="button"                                  // ✅ ป้องกัน submit form
-              onClick={(e) => handleExportCSV(e)}            // ✅ กัน event + export
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-500"
+              type="button"
+              onClick={(e) => handleExportCSV(e)}
+              className="btn-primary inline-flex items-center gap-1 text-sm"
               title="ส่งออก CSV"
             >
               <Download size={16} /> Export CSV
@@ -266,7 +276,7 @@ function SummaryPageImpl() {
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-700">
+              <thead>
                 <tr>
                   <th className="text-left px-4 py-3">หมวด</th>
                   <th className="text-right px-4 py-3">Score (ได้/เต็ม)</th>
@@ -283,20 +293,18 @@ function SummaryPageImpl() {
                   const progressPct = Math.max(0, Math.min(100, Math.round(Number(r?.evidence_rate_pct ?? 0))));
                   const passed = scorePct >= SECTION_FLOOR.scorePct && progressPct >= SECTION_FLOOR.progressPct;
                   return (
-                    <tr key={k} className="border-t">
+                    <tr key={k} className="border-t border-[var(--line)]">
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-2">
                           <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: CAT_COLORS[k] }} />
                           {CAT_LABEL[k]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right text-slate-700">
-                        {r ? `${Number(r.score)}/${Number(r.max_score_category)}` : "-"}
-                      </td>
+                      <td className="px-4 py-3 text-right">{r ? `${Number(r.score)}/${Number(r.max_score_category)}` : "-"}</td>
                       <td className="px-4 py-3 text-right font-medium">{pct(scorePct)}</td>
                       <td className="px-4 py-3 text-right">{pct(progressPct)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${passed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        <span className={`badge-soft ${passed ? "text-emerald-300 border-emerald-400/40" : "text-amber-300 border-amber-400/40"}`}>
                           {passed ? "ผ่านขั้นต่ำ" : "ยังไม่ผ่าน"}
                         </span>
                       </td>
@@ -307,11 +315,11 @@ function SummaryPageImpl() {
             </table>
           </div>
 
-          <div className="p-4 bg-slate-50 border-t text-xs text-slate-600">
+          <div className="p-4 border-t border-[var(--line)] text-xs subtle">
             * สถานะหมวด “ผ่านขั้นต่ำ” = Score ≥ {SECTION_FLOOR.scorePct}% และ %Progress ≥ {SECTION_FLOOR.progressPct}%<br />
             ** เกณฑ์องค์กร: ผ่านขั้นต่ำ {ORG_PASS.scorePct}/{ORG_PASS.progressPct} • Excellent {ORG_EXCELLENT.scorePct}/{ORG_EXCELLENT.progressPct}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   );
