@@ -6,10 +6,8 @@ export default function Document() {
     <Html lang="th">
       <Head />
       {/* ✅ บังคับธีมเข้าที่ body ทุกเพจ */}
-      <body className="moon-root bg-space">
-        <Main />
-        <NextScript />
-      </body>
+      <body className="bg-space">{/* ทั้งเว็บมืด */}</body>
+
     </Html>
   );
 }

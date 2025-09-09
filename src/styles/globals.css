@@ -3,49 +3,8 @@
 @tailwind utilities;
 
 /* =========================================================
-   Bizzyztem · Moonship UI — Global Styles
-   - Light "landing" (การตลาด) แยกด้วย .landing
-   - แอปภายในใช้ธีมมืด (Starfield) เป็นค่าเริ่มต้น
+   Bizzyztem · Moonship UI — GLOBAL DARK (all pages)
    ========================================================= */
-
-/* ---------- Landing-only (light / hero) ---------- */
-/* ใส่ class="landing" ที่ <body> หรือ wrapper ของหน้าแลนดิ้งเท่านั้น */
-.landing .bg-hero-space {
-  background:
-    radial-gradient(60% 80% at 105% -10%, rgba(108,163,255,0.30) 0%, rgba(108,163,255,0) 60%),
-    radial-gradient(50% 60% at -10% 110%, rgba(124,58,237,0.18) 0%, rgba(124,58,237,0) 55%),
-    linear-gradient(180deg, #f7faff 0%, #ffffff 60%);
-}
-.landing .hero-starfield {
-  position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    radial-gradient(#ffffff 1px, transparent 1px),
-    radial-gradient(#ffffff 1px, transparent 1px);
-  background-size: 2px 2px, 3px 3px;
-  background-position: 0 0, 25px 25px;
-  opacity: .08;
-}
-.landing .hero-vignette {
-  position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(120% 80% at 80% 20%, rgba(45,124,255,0.10) 0%, rgba(11,18,32,0) 60%);
-}
-.landing .section-dark {
-  position: relative;
-  background: linear-gradient(180deg, #0B1220 0%, #0E1A2F 100%);
-}
-.landing .section-light {
-  position: relative;
-  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-}
-.landing .cosmic-stars {
-  position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    radial-gradient(#fff 1px, transparent 1px),
-    radial-gradient(#fff 1px, transparent 1px);
-  background-size: 2px 2px, 3px 3px;
-  background-position: 0 0, 25px 25px;
-  opacity: .06;
-}
 
 /* ---------- Theme tokens ---------- */
 :root {
@@ -67,8 +26,7 @@
   --c-nogo: #EF4444;
 }
 
-/* ---------- Force dark app background globally ---------- */
-/* ใช้ @layer base เพื่อชนะกฎอื่น ๆ และ !important กันทุกเคส */
+/* ---------- Force dark background for the whole app ---------- */
 @layer base {
   html, body, #__next {
     min-height: 100vh;
@@ -78,9 +36,53 @@
       radial-gradient(800px 600px at 80% 30%, rgba(255,255,255,0.04), transparent 60%),
       linear-gradient(180deg, var(--bg-space), var(--bg-navy)) !important;
   }
+
+  /* Typography defaults for readability on dark */
+  h1 { @apply text-3xl md:text-4xl font-bold; }
+  h2 { @apply text-2xl md:text-3xl font-bold; }
+  h3 { @apply text-xl font-semibold; }
+  h1, h2, h3 { color: #F4F8FF; text-shadow: 0 0 24px rgba(255,255,255,0.06); }
+  p, li, dl, dt, dd { color: rgba(230,237,245,0.92); }
+
+  a { color: #91BAFF; }
+  a:hover { color: #CFE0FF; text-decoration: underline; }
+
+  hr { border-color: rgba(255,255,255,0.12); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: .625rem .75rem; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  th { color:#EAF2FF; background: rgba(255,255,255,0.04); text-align: left; }
+  tbody tr:nth-child(odd) { background: rgba(255,255,255,0.03); }
+
+  /* Form controls (inputs/select/textarea) */
+  input, select, textarea {
+    @apply text-sm;
+    color: rgba(230,237,245,0.95);
+    background-color: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: .5rem;
+  }
+  input::placeholder, textarea::placeholder { color: #94A3B8; }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: rgba(108,163,255,0.45);
+    box-shadow: 0 0 0 3px rgba(108,163,255,0.25);
+  }
+
+  /* Code / pre */
+  code { background: rgba(255,255,255,0.06); padding: .15rem .35rem; border-radius: .375rem; }
+  pre {
+    background: rgba(0,0,0,0.35);
+    color: #E6EDF5;
+    padding: .875rem 1rem;
+    border-radius: .75rem;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: auto;
+  }
 }
 
-/* Helper — ใช้กับคอนเทนต์ที่ต้องการพื้นธีมมืดแบบเดียวกับ body */
+/* Helper — use same dark background on sections when needed */
 .bg-space {
   background:
     radial-gradient(1200px 800px at 10% 10%, rgba(255,255,255,0.06), transparent 60%),
@@ -88,26 +90,25 @@
     linear-gradient(180deg, var(--bg-space), var(--bg-navy));
 }
 
-/* ---------- Components (Tailwind @apply ไว้ใน layer นี้) ---------- */
+/* ---------- Components ---------- */
 @layer components {
   /* Card base + soft blur */
   .card-moon { @apply rounded-2xl border bg-white/5 backdrop-blur-sm; border-color: rgba(255,255,255,0.10); }
 
-  /* Chips */
+  /* Chips for status */
   .chip { @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
   .chip-go   { color: var(--c-go);   border-color: rgba(34,197,94,.40); }
   .chip-hold { color: var(--c-hold); border-color: rgba(245,158,11,.40); }
   .chip-nogo { color: var(--c-nogo); border-color: rgba(239,68,68,.40); }
 }
 
-/* ใช้ color-mix ถ้าบราวเซอร์รองรับ (border ดูนุ่มขึ้น) */
 @supports (color: oklab) {
   .chip-go   { border-color: color-mix(in oklab, var(--c-go)   40%, white 60%); }
   .chip-hold { border-color: color-mix(in oklab, var(--c-hold) 40%, white 60%); }
   .chip-nogo { border-color: color-mix(in oklab, var(--c-nogo) 40%, white 60%); }
 }
 
-/* Glow per category (ไม่มี @apply จึงวางนอก layer ได้) */
+/* Per-category glow */
 .glow-strategy { box-shadow: 0 0 0 1px rgba(255,213,74,.25),  0 8px 32px rgba(255,213,74,.15); }
 .glow-structure{ box-shadow: 0 0 0 1px rgba(45,212,191,.25),  0 8px 32px rgba(45,212,191,.15); }
 .glow-sop      { box-shadow: 0 0 0 1px rgba(124,58,237,.25),  0 8px 32px rgba(124,58,237,.15); }
@@ -115,44 +116,31 @@
 .glow-finance  { box-shadow: 0 0 0 1px rgba(245,158,11,.25),  0 8px 32px rgba(245,158,11,.15); }
 .glow-sales    { box-shadow: 0 0 0 1px rgba(255,122,26,.25),  0 8px 32px rgba(255,122,26,.15); }
 
-/* ---------- Hard override เฉพาะบริเวณที่ครอบด้วย .moon-root ---------- */
-/* กัน background/สีตัวหนังสือ/เส้นขอบจากคอมโพเนนต์เก่าที่เป็นโทนสว่าง */
-:where(.moon-root) :where(.bg-white, .bg-slate-50, .bg-gray-50) { background: transparent !important; }
-:where(.moon-root) :where(.text-slate-800, .text-gray-800)       { color: var(--text-starlight) !important; }
-:where(.moon-root) :where(.border-slate-200, .border-gray-200)   { border-color: rgba(255,255,255,0.12) !important; }
-
-/* (ทางเลือก) ปรับ selection ให้เข้าธีม */
-::selection { background: rgba(108,163,255,.25); color: var(--text-starlight); }
-
-/* === Moonship: Neutralize light backgrounds inside the app === */
-/* ใช้ [class~="..."] เพื่อ match “bg-white” เฉพาะตัว ไม่โดน bg-white/5 */
+/* ---------- Global neutralizer (make light util classes safe on dark) ---------- */
+/* ใช้ [class~="..."] เพื่อไม่จับ bg-white/5 ที่เราต้องการ */
 @layer utilities {
-  .moon-root :is(
+  :is(
     [class~="bg-white"],
     [class~="bg-slate-50"],
     [class~="bg-gray-50"],
     [class~="bg-slate-100"],
     [class~="bg-gray-100"]
-  ) {
-    background-color: transparent !important;
-    background-image: none !important;
-  }
+  ) { background-color: transparent !important; background-image: none !important; }
 
-  .moon-root :is(
+  :is(
     [class~="text-slate-800"],
     [class~="text-gray-800"],
     [class~="text-slate-700"],
     [class~="text-gray-700"]
-  ) {
-    color: var(--text-starlight) !important;
-  }
+  ) { color: var(--text-starlight) !important; }
 
-  .moon-root :is(
+  :is(
     [class~="border-slate-200"],
     [class~="border-gray-200"],
     [class~="border-slate-300"],
     [class~="border-gray-300"]
-  ) {
-    border-color: rgba(255,255,255,0.12) !important;
-  }
+  ) { border-color: rgba(255,255,255,0.12) !important; }
+
+  /* Selection look */
+  ::selection { background: rgba(108,163,255,.25); color: var(--text-starlight); }
 }
