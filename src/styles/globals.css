@@ -2,7 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Landing-only (light/hero) ===== */
+/* =========================================================
+   Bizzyztem · Moonship UI — Global Styles
+   - Light "landing" (การตลาด) แยกด้วย .landing
+   - แอปภายในใช้ธีมมืด (Starfield) เป็นค่าเริ่มต้น
+   ========================================================= */
+
+/* ---------- Landing-only (light / hero) ---------- */
+/* ใส่ class="landing" ที่ <body> หรือ wrapper ของหน้าแลนดิ้งเท่านั้น */
 .landing .bg-hero-space {
   background:
     radial-gradient(60% 80% at 105% -10%, rgba(108,163,255,0.30) 0%, rgba(108,163,255,0) 60%),
@@ -30,15 +37,38 @@
   position: relative;
   background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
 }
-
-/* ===== Moonship Theme (Black-heavy + Starfield) – App-wide ===== */
-:root{
-  --bg-space:#0B0F1A; --bg-navy:#0F1E2E; --text-starlight:#E6EDF5;
-  --c-strategy:#FFD54A; --c-structure:#2DD4BF; --c-sop:#7C3AED; --c-hr:#22C55E; --c-finance:#F59E0B; --c-sales:#FF7A1A;
-  --c-go:#22C55E; --c-hold:#F59E0B; --c-nogo:#EF4444;
+.landing .cosmic-stars {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    radial-gradient(#fff 1px, transparent 1px),
+    radial-gradient(#fff 1px, transparent 1px);
+  background-size: 2px 2px, 3px 3px;
+  background-position: 0 0, 25px 25px;
+  opacity: .06;
 }
 
-/* ใส่ใน layer:base เพื่อชนะพื้นหลังจากที่อื่นแน่นอน */
+/* ---------- Theme tokens ---------- */
+:root {
+  --bg-space: #0B0F1A;
+  --bg-navy:  #0F1E2E;
+  --text-starlight: #E6EDF5;
+
+  /* Category accents */
+  --c-strategy: #FFD54A;
+  --c-structure: #2DD4BF;
+  --c-sop:      #7C3AED;
+  --c-hr:       #22C55E;
+  --c-finance:  #F59E0B;
+  --c-sales:    #FF7A1A;
+
+  /* Mission status */
+  --c-go:   #22C55E;
+  --c-hold: #F59E0B;
+  --c-nogo: #EF4444;
+}
+
+/* ---------- Force dark app background globally ---------- */
+/* ใช้ @layer base เพื่อชนะกฎอื่น ๆ และ !important กันทุกเคส */
 @layer base {
   html, body, #__next {
     min-height: 100vh;
@@ -46,39 +76,50 @@
     background:
       radial-gradient(1200px 800px at 10% 10%, rgba(255,255,255,0.06), transparent 60%),
       radial-gradient(800px 600px at 80% 30%, rgba(255,255,255,0.04), transparent 60%),
-      linear-gradient(180deg, var(--bg-space), var(--bg-navy));
+      linear-gradient(180deg, var(--bg-space), var(--bg-navy)) !important;
   }
 }
 
-/* Helper */
-.bg-space{
+/* Helper — ใช้กับคอนเทนต์ที่ต้องการพื้นธีมมืดแบบเดียวกับ body */
+.bg-space {
   background:
     radial-gradient(1200px 800px at 10% 10%, rgba(255,255,255,0.06), transparent 60%),
     radial-gradient(800px 600px at 80% 30%, rgba(255,255,255,0.04), transparent 60%),
     linear-gradient(180deg, var(--bg-space), var(--bg-navy));
 }
 
-/* Card + glow */
-.card-moon{ @apply rounded-2xl border bg-white/5 backdrop-blur-sm; border-color:rgba(255,255,255,.10); }
-.glow-strategy{ box-shadow:0 0 0 1px rgba(255,213,74,.25), 0 8px 32px rgba(255,213,74,.15); }
-.glow-structure{ box-shadow:0 0 0 1px rgba(45,212,191,.25), 0 8px 32px rgba(45,212,191,.15); }
-.glow-sop{ box-shadow:0 0 0 1px rgba(124,58,237,.25), 0 8px 32px rgba(124,58,237,.15); }
-.glow-hr{ box-shadow:0 0 0 1px rgba(34,197,94,.25), 0 8px 32px rgba(34,197,94,.15); }
-.glow-finance{ box-shadow:0 0 0 1px rgba(245,158,11,.25), 0 8px 32px rgba(245,158,11,.15); }
-.glow-sales{ box-shadow:0 0 0 1px rgba(255,122,26,.25), 0 8px 32px rgba(255,122,26,.15); }
+/* ---------- Components (Tailwind @apply ไว้ใน layer นี้) ---------- */
+@layer components {
+  /* Card base + soft blur */
+  .card-moon { @apply rounded-2xl border bg-white/5 backdrop-blur-sm; border-color: rgba(255,255,255,0.10); }
 
-/* Chips (+ fallback สำหรับเบราว์เซอร์ที่ยังไม่รองรับ color-mix/oklab) */
-.chip{ @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); }
-.chip-go{ color:var(--c-go);   border-color:rgba(34,197,94,.4); }
-.chip-hold{ color:var(--c-hold); border-color:rgba(245,158,11,.4); }
-.chip-nogo{ color:var(--c-nogo); border-color:rgba(239,68,68,.4); }
-@supports (color: oklab) {
-  .chip-go{   border-color: color-mix(in oklab, var(--c-go) 40%, white 60%); }
-  .chip-hold{ border-color: color-mix(in oklab, var(--c-hold) 40%, white 60%); }
-  .chip-nogo{ border-color: color-mix(in oklab, var(--c-nogo) 40%, white 60%); }
+  /* Chips */
+  .chip { @apply inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-medium; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); }
+  .chip-go   { color: var(--c-go);   border-color: rgba(34,197,94,.40); }
+  .chip-hold { color: var(--c-hold); border-color: rgba(245,158,11,.40); }
+  .chip-nogo { color: var(--c-nogo); border-color: rgba(239,68,68,.40); }
 }
 
-/* กันพื้นขาวจากคอมโพเนนต์เก่าที่หลงเข้ามา (ใช้เฉพาะหน้าที่ใส่ .moon-root) */
-.moon-root .bg-white,
-.moon-root .bg-slate-50,
-.moon-root .bg-gray-50 { background: transparent !important; }
+/* ใช้ color-mix ถ้าบราวเซอร์รองรับ (border ดูนุ่มขึ้น) */
+@supports (color: oklab) {
+  .chip-go   { border-color: color-mix(in oklab, var(--c-go)   40%, white 60%); }
+  .chip-hold { border-color: color-mix(in oklab, var(--c-hold) 40%, white 60%); }
+  .chip-nogo { border-color: color-mix(in oklab, var(--c-nogo) 40%, white 60%); }
+}
+
+/* Glow per category (ไม่มี @apply จึงวางนอก layer ได้) */
+.glow-strategy { box-shadow: 0 0 0 1px rgba(255,213,74,.25),  0 8px 32px rgba(255,213,74,.15); }
+.glow-structure{ box-shadow: 0 0 0 1px rgba(45,212,191,.25),  0 8px 32px rgba(45,212,191,.15); }
+.glow-sop      { box-shadow: 0 0 0 1px rgba(124,58,237,.25),  0 8px 32px rgba(124,58,237,.15); }
+.glow-hr       { box-shadow: 0 0 0 1px rgba(34,197,94,.25),   0 8px 32px rgba(34,197,94,.15); }
+.glow-finance  { box-shadow: 0 0 0 1px rgba(245,158,11,.25),  0 8px 32px rgba(245,158,11,.15); }
+.glow-sales    { box-shadow: 0 0 0 1px rgba(255,122,26,.25),  0 8px 32px rgba(255,122,26,.15); }
+
+/* ---------- Hard override เฉพาะบริเวณที่ครอบด้วย .moon-root ---------- */
+/* กัน background/สีตัวหนังสือ/เส้นขอบจากคอมโพเนนต์เก่าที่เป็นโทนสว่าง */
+:where(.moon-root) :where(.bg-white, .bg-slate-50, .bg-gray-50) { background: transparent !important; }
+:where(.moon-root) :where(.text-slate-800, .text-gray-800)       { color: var(--text-starlight) !important; }
+:where(.moon-root) :where(.border-slate-200, .border-gray-200)   { border-color: rgba(255,255,255,0.12) !important; }
+
+/* (ทางเลือก) ปรับ selection ให้เข้าธีม */
+::selection { background: rgba(108,163,255,.25); color: var(--text-starlight); }
