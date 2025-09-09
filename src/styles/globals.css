@@ -123,3 +123,36 @@
 
 /* (ทางเลือก) ปรับ selection ให้เข้าธีม */
 ::selection { background: rgba(108,163,255,.25); color: var(--text-starlight); }
+
+/* === Moonship: Neutralize light backgrounds inside the app === */
+/* ใช้ [class~="..."] เพื่อ match “bg-white” เฉพาะตัว ไม่โดน bg-white/5 */
+@layer utilities {
+  .moon-root :is(
+    [class~="bg-white"],
+    [class~="bg-slate-50"],
+    [class~="bg-gray-50"],
+    [class~="bg-slate-100"],
+    [class~="bg-gray-100"]
+  ) {
+    background-color: transparent !important;
+    background-image: none !important;
+  }
+
+  .moon-root :is(
+    [class~="text-slate-800"],
+    [class~="text-gray-800"],
+    [class~="text-slate-700"],
+    [class~="text-gray-700"]
+  ) {
+    color: var(--text-starlight) !important;
+  }
+
+  .moon-root :is(
+    [class~="border-slate-200"],
+    [class~="border-gray-200"],
+    [class~="border-slate-300"],
+    [class~="border-gray-300"]
+  ) {
+    border-color: rgba(255,255,255,0.12) !important;
+  }
+}
