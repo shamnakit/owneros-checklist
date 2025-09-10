@@ -17,6 +17,7 @@ import {
   Wallet,
   ShoppingCart,
 } from "lucide-react";
+import { toChecklistHref } from "@/utils/toChecklistHref"; // ⬅️ ใช้ helper เดียว
 
 type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 type CatRow = {
@@ -56,15 +57,6 @@ const CAT_ICON: Record<CategoryKey, React.ComponentType<any>> = {
   hr: Users,
   finance: Wallet,
   sales: ShoppingCart,
-};
-
-const CAT_ROUTE: Record<CategoryKey, string> = {
-  strategy: "/checklist/group1",
-  structure: "/checklist/group2",
-  sop: "/checklist/group3",
-  hr: "/checklist/group4",
-  finance: "/checklist/group5",
-  sales: "/checklist/group6",
 };
 
 const CAT_COLORS: Record<CategoryKey, string> = {
@@ -272,14 +264,12 @@ function ChecklistOverviewImpl() {
       {!loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {MAIN_CAT_KEYS.map((cat) => {
-            const row = cats[cat]; // ✅ ใช้ state เดิม
+            const row = cats[cat];
             const max = Number(row?.max_score_category ?? 0);
 
-            // Score% จากคะแนน / max
             const scorePct =
               max > 0 ? Math.round((Number(row!.score) / max) * 100) : 0;
 
-            // Progress% = evidence_rate_pct (ถือว่าเสร็จเมื่อมีหลักฐาน ≥1)
             const progressPct = Math.max(
               0,
               Math.min(100, Math.round(Number(row?.evidence_rate_pct ?? 0)))
@@ -293,7 +283,6 @@ function ChecklistOverviewImpl() {
               { name: "remain", value: Math.max(0, 100 - scorePct) },
             ];
 
-            // Badge ผ่านขั้นต่ำ (หมวด): Score≥60 และ Progress≥70
             const passed = scorePct >= 60 && progressPct >= 70;
 
             return (
@@ -385,7 +374,8 @@ function ChecklistOverviewImpl() {
                     </div>
 
                     <div className="mt-4">
-                      <Link href={CAT_ROUTE[cat]}>
+                      {/* ⬇️ ใช้สกีมาใหม่ + ส่งปีไปด้วย */}
+                      <Link href={toChecklistHref(cat, year)}>
                         <Button className="bg-blue-600 hover:bg-blue-500">
                           ไปเก็บคะแนนต่อ
                         </Button>
