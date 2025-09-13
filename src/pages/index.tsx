@@ -41,9 +41,9 @@ const ButtonLink: React.FC<{ href: string; children: React.ReactNode; variant?: 
 = ({ href, children, variant = "primary", className = "" }) => {
   const style =
     variant === "primary"
-      ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+      ? "bg-blue-700 hover:bg-blue-800 text-white"
       : variant === "secondary"
-      ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-700"
+      ? "bg-blue-50 hover:bg-blue-100 text-blue-700"
       : "border border-slate-300 hover:bg-slate-50 text-slate-700";
   return (
     <a href={href} className={`inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors ${style} ${className}`}>
@@ -79,7 +79,7 @@ function NavBar() {
     <div className="sticky top-0 z-40 w-full backdrop-blur bg-white/70 border-b border-slate-200">
       <Container className="flex h-16 items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-indigo-600" />
+          <Sparkles className="h-5 w-5 text-blue-700" />
           <span className="font-semibold tracking-tight">Bizzyztem</span>
           <Badge className="ml-2 hidden md:inline-flex">CEO‑first</Badge>
         </div>
@@ -159,7 +159,7 @@ function KpiCard({ icon, title, value, trend, status }: { icon: React.ReactNode;
 function SectionHeader({ eyebrow, title, sub }: { eyebrow?: string; title: string; sub?: string }) {
   return (
     <div className="text-center max-w-2xl mx-auto">
-      {eyebrow && <div className="text-xs uppercase tracking-widest text-indigo-600 mb-2">{eyebrow}</div>}
+      {eyebrow && <div className="text-xs uppercase tracking-widest text-blue-700 mb-2">{eyebrow}</div>}
       <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">{title}</h2>
       {sub && <p className="mt-2 text-slate-600">{sub}</p>}
     </div>
@@ -180,7 +180,7 @@ function ValueCards() {
           {items.map((it) => (
             <Card key={it.title}>
               <div className="p-4">
-                <div className="flex items-center gap-2 text-indigo-600"><span>{it.icon}</span><span className="font-medium">{it.title}</span></div>
+                <div className="flex items-center gap-2 text-blue-700"><span>{it.icon}</span><span className="font-medium">{it.title}</span></div>
                 <p className="mt-3 text-slate-600">{it.text}</p>
               </div>
             </Card>
@@ -206,7 +206,7 @@ function HowItWorks() {
             <Card key={s.title}>
               <div className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><s.icon className="h-5 w-5" /></div>
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center"><s.icon className="h-5 w-5" /></div>
                   <div className="font-medium">{idx + 1}) {s.title}</div>
                 </div>
                 <p className="mt-3 text-slate-600">{s.desc}</p>
@@ -232,7 +232,7 @@ function ScreenshotBlock() {
                 <ButtonLink href="#demo" variant="outline">ดูตัวอย่าง 2 นาที</ButtonLink>
               </div>
             </div>
-            <div className="h-64 md:h-72 rounded-xl bg-gradient-to-br from-indigo-50 to-slate-50 border flex items-center justify-center text-slate-500">ตัวอย่างหน้าจอ Mission Control</div>
+            <div className="h-64 md:h-72 rounded-xl bg-gradient-to-br from-blue-50 to-slate-50 border flex items-center justify-center text-slate-500">ตัวอย่างหน้าจอ Mission Control</div>
           </div>
         </Card>
       </Container>
@@ -258,7 +258,7 @@ function Pricing() {
 
 function PriceCard({ title, price, audience, features, cta, highlight }: { title: string; price: string; audience: string; features: string[]; cta: { href: string; label: string }; highlight?: boolean; }) {
   return (
-    <Card className={`${highlight ? "ring-2 ring-indigo-600" : ""}`}>
+    <Card className={`${highlight ? "ring-2 ring-blue-700" : ""}`}>
       <div className="p-5">
         <div className="flex items-center justify-between">
           <div className="text-xl font-semibold">{title}</div>
@@ -268,7 +268,7 @@ function PriceCard({ title, price, audience, features, cta, highlight }: { title
         <p className="text-slate-500 text-sm">{audience}</p>
         <ul className="mt-4 space-y-2 text-sm text-slate-600">
           {features.map((f) => (
-            <li key={f} className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-indigo-600 mt-0.5" /><span>{f}</span></li>
+            <li key={f} className="flex items-start gap-2"><CheckCircle2 className="h-4 w-4 text-blue-700 mt-0.5" /><span>{f}</span></li>
           ))}
         </ul>
         <ButtonLink href={cta.href} className="w-full mt-6">{cta.label}</ButtonLink>
@@ -373,7 +373,7 @@ function Security() {
         <SectionHeader title="ความปลอดภัย & ความน่าเชื่อถือ" />
         <div className="mt-8 grid md:grid-cols-3 gap-4 text-sm text-slate-700">
           <div className="rounded-2xl border bg-slate-50 p-5"><ShieldCheck className="h-5 w-5 text-emerald-600 mb-2" />สิทธิ์ตามบทบาท (RBAC) • บันทึกกิจกรรม • การอนุมัติเอกสาร</div>
-          <div className="rounded-2xl border bg-slate-50 p-5"><Lock className="h-5 w-5 text-indigo-600 mb-2" />เข้ารหัสระหว่างทาง/ขณะพัก • สำรองข้อมูล • ควบคุมการแชร์รายงาน (ลายน้ำ/วันหมดอายุลิงก์)</div>
+          <div className="rounded-2xl border bg-slate-50 p-5"><Lock className="h-5 w-5 text-blue-700 mb-2" />เข้ารหัสระหว่างทาง/ขณะพัก • สำรองข้อมูล • ควบคุมการแชร์รายงาน (ลายน้ำ/วันหมดอายุลิงก์)</div>
           <div className="rounded-2xl border bg-slate-50 p-5"><FileText className="h-5 w-5 text-sky-600 mb-2" />สอดคล้อง PDPA เบื้องต้น • ผู้ใช้ควบคุมสิทธิ์การเข้าถึงข้อมูล</div>
         </div>
       </Container>
@@ -409,9 +409,9 @@ function FinalCTA() {
   return (
     <section className="py-14">
       <Container>
-        <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-500 p-6 md:p-10 text-white shadow-md">
+        <div className="rounded-2xl bg-gradient-to-br from-blue-800 to-blue-700 p-6 md:p-10 text-white shadow-md">
           <h3 className="text-2xl md:text-3xl font-semibold">เห็นภาพรวมตอนนี้เลย — เริ่มทดลอง 30 วันฟรี</h3>
-          <p className="mt-2 text-indigo-100">ปลดล็อกภาพรวมทั้งบริษัท + Morning Brief ทุกเช้า เริ่มที่ <span className="font-semibold">฿199/เดือน</span></p>
+          <p className="mt-2 text-blue-100">ปลดล็อกภาพรวมทั้งบริษัท + Morning Brief ทุกเช้า เริ่มที่ <span className="font-semibold">฿199/เดือน</span></p>
           <div className="mt-6">
             <ButtonLink href="#signup" variant="secondary" className="px-4 py-2">เริ่มทดลอง 30 วันฟรี</ButtonLink>
           </div>
@@ -426,7 +426,7 @@ function Footer() {
     <footer className="py-10 border-t bg-white">
       <Container className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-slate-500">
         <div className="flex items-center gap-2 text-slate-600">
-          <Sparkles className="h-4 w-4 text-indigo-600" />
+          <Sparkles className="h-4 w-4 text-blue-700" />
           <span>Bizzyztem © {new Date().getFullYear()}</span>
         </div>
         <div className="flex items-center gap-4">
