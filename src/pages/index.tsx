@@ -2,10 +2,11 @@ import React from "react";
 import { Activity, BarChart3, BellRing, CheckCircle2, FileText, Gauge, Goal, LineChart, Lock, Mail, ShieldCheck, Sparkles, TrendingUp, Users } from "lucide-react";
 
 /**
- * Bizzyztem — Landing Page (TH) • Tailwind‑only
- * ไม่พึ่ง shadcn/ui • ไม่มี asChild/variant/size ของ lib อื่น
- * ใช้ได้กับ Next.js (App Router หรือ Pages) หรือ React เดี่ยว ๆ
- * หากยังไม่มีไอคอน: `npm i lucide-react`
+ * Bizzyztem — Landing Page (TH • Tailwind-only • Corporate Navy)
+ * - CEO-first
+ * - Core ฟรี + โมดูลเสริมแบบ Odoo-style
+ * - เพิ่มส่วน "โมดูลที่กำลังสำรวจดีมานด์ (ISO • Lean • KPI)" เพื่อวัดความสนใจ
+ * - มีแบบฟอร์ม "ฝากคอนแทค" ในหน้าเดียว และยิง event ไปยัง window.posthog (ถ้ามี)
  */
 
 export default function LandingPageTH_TailwindOnly() {
@@ -16,6 +17,8 @@ export default function LandingPageTH_TailwindOnly() {
       <ValueCards />
       <HowItWorks />
       <ScreenshotBlock />
+      <ValidationModules />
+      <InterestForm />
       <Pricing />
       <SocialProof />
       <Outcomes />
@@ -104,7 +107,7 @@ function Hero() {
       <Container className="grid items-center gap-10 md:grid-cols-2">
         <div>
           <h1 className="text-3xl md:text-5xl font-semibold tracking-tight text-slate-900">เห็นภาพรวมทั้งบริษัทแบบเรียลไทม์ — รู้ว่าใกล้เป้าหมายแค่ไหน</h1>
-          <p className="mt-4 text-slate-600 text-lg">แผงควบคุมสำหรับผู้บริหาร: การ์ด 6 KPI + พยากรณ์ถึงเส้นตาย + สรุปทุกเช้า (Morning Brief)</p>
+          <p className="mt-4 text-slate-600 text-lg">แผงควบคุมสำหรับผู้บริหาร: การ์ด 6 KPI + พยากรณ์ถึงเส้นตาย + รายงานสถานะธุรกิจวันนี้ (อัตโนมัติทุกเช้า)</p>
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <ButtonLink href="#signup">เริ่มทดลองใช้งานฟรี 30 วัน</ButtonLink>
             <ButtonLink href="#demo" variant="outline">ดูตัวอย่าง 2 นาที</ButtonLink>
@@ -193,7 +196,7 @@ function ValueCards() {
 
 function HowItWorks() {
   const steps = [
-    { title: "สรุปตอนเช้า", desc: "ดูตัวเลขสำคัญ + แจ้งเตือนสิ่งผิดปกติจาก Morning Brief", icon: Mail },
+    { title: "รายงานสถานะธุรกิจวันนี้", desc: "ดูตัวเลขสำคัญ + แจ้งเตือนสิ่งผิดปกติ ส่งอัตโนมัติทุกเช้า", icon: Mail },
     { title: "หน้าควบคุมหลัก", desc: "การ์ด 6 KPI + มุมมองตามแผนก + เทรนด์ช่วงสั้น", icon: BarChart3 },
     { title: "ตัดสินใจ & แจ้งทีม", desc: "ปุ่มเดียว: Re‑plan / Re‑target / Re‑focus หรือส่งโน้ตถึงทีม", icon: CheckCircle2 },
   ];
@@ -240,17 +243,123 @@ function ScreenshotBlock() {
   );
 }
 
+/* ------------------------ Validation Cards + Form ------------------------ */
+function ValidationModules() {
+  const modules = [
+    { slug: "iso", title: "ISO Readiness (Lite)", desc: "Quick Scan 20 ข้อ • Evidence Map • Roadmap 90 วัน", icon: FileText, href: "/modules/iso" },
+    { slug: "lean", title: "Lean 90-Day (Lite)", desc: "Waste Walk • Kaizen Log (10 รายการ) • Weekly Review 15 นาที", icon: Activity, href: "/modules/lean" },
+    { slug: "kpi", title: "KPI Suite (River KPI + Execution Lite)", desc: "เทรนด์ 12 เดือน • anomaly highlight • Check-in รายสัปดาห์", icon: BarChart3, href: "/modules/kpi" },
+  ] as const;
+
+  const handleDetails = (slug: string) => {
+    (window as any)?.posthog?.capture?.("validate_card_click_details", { slug });
+  };
+  const handleInterest = (slug: string) => {
+    (window as any)?.posthog?.capture?.("validate_interest_click", { slug });
+    if (typeof window !== "undefined") {
+      window.location.hash = `interest=${slug}`;
+      document.getElementById("interest")?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  return (
+    <section className="py-14 md:py-20">
+      <Container>
+        <SectionHeader eyebrow="Validation for Fundraising" title="โมดูลที่กำลังสำรวจดีมานด์ (ISO • Lean • KPI)" sub="เราวัดทั้งการกดดูรายละเอียดและการฝากคอนแทค เพื่อใช้เป็นหลักฐานในการระดมทุน" />
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {modules.map((m) => (
+            <div key={m.slug} className="rounded-2xl border bg-white shadow-sm p-5">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                  <m.icon className="h-5 w-5" />
+                </div>
+                <div className="font-semibold">{m.title}</div>
+              </div>
+              <p className="mt-3 text-sm text-slate-600">{m.desc}</p>
+              <div className="mt-4 flex items-center gap-3">
+                <a href={m.href} onClick={() => handleDetails(m.slug)} className="inline-flex items-center rounded-2xl px-3 py-2 text-sm font-medium border border-slate-300 hover:bg-slate-50 text-slate-700">ดูรายละเอียด</a>
+                <button onClick={() => handleInterest(m.slug)} className="inline-flex items-center rounded-2xl px-3 py-2 text-sm font-medium bg-blue-700 hover:bg-blue-800 text-white">ฉันสนใจ (ฝากคอนแทค)</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-center text-xs text-slate-500">*ตัวชี้วัดบนหน้านี้จะถูกรวบรวมเป็นข้อมูลประกอบการระดมทุน (anonymized)</p>
+      </Container>
+    </section>
+  );
+}
+
+function InterestForm() {
+  const [module, setModule] = React.useState<string>("");
+  const [name, setName] = React.useState("");
+  const [company, setCompany] = React.useState("");
+  const [contact, setContact] = React.useState("");
+  const [notes, setNotes] = React.useState("");
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const match = window.location.hash.match(/interest=(\w+)/);
+    if (match) setModule(match[1]);
+  }, []);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    (window as any)?.posthog?.capture?.("validate_interest_submit", { module, name, company, contact });
+    alert("ขอบคุณที่สนใจ เราจะติดต่อกลับโดยเร็วที่สุด");
+  };
+
+  return (
+    <section id="interest" className="py-10 md:py-16">
+      <Container>
+        <SectionHeader title="ฝากคอนแทคสำหรับโมดูลที่สนใจ" sub="กรอกข้อมูลสั้น ๆ เพื่อติดต่อรับข่าวเมื่อโมดูลพร้อม หรือเข้าร่วมรอบทดสอบ" />
+        <form onSubmit={submit} className="mt-6 grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">โมดูลที่สนใจ</label>
+            <select value={module} onChange={(e) => setModule(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2">
+              <option value="">เลือกโมดูล</option>
+              <option value="iso">ISO Readiness (Lite)</option>
+              <option value="lean">Lean 90-Day (Lite)</option>
+              <option value="kpi">KPI Suite (River KPI + Execution Lite)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">ชื่อ‑สกุล</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">บริษัท</label>
+            <input value={company} onChange={(e) => setCompany(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">เบอร์/อีเมลสำหรับติดต่อกลับ</label>
+            <input value={contact} onChange={(e) => setContact(e.target.value)} required className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700">หมายเหตุ (ถ้ามี)</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2" />
+          </div>
+          <div className="md:col-span-2">
+            <button type="submit" className="w-full rounded-2xl bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 font-medium">ส่งข้อมูลความสนใจ</button>
+            <p className="mt-2 text-xs text-slate-500 text-center">กดส่ง = ยินยอมให้ Bizzyztem ติดต่อกลับ และรับอัปเดตความคืบหน้าโมดูล</p>
+          </div>
+        </form>
+      </Container>
+    </section>
+  );
+}
+
+/* ------------------------ Pricing & Rest ------------------------ */
 function Pricing() {
   return (
     <section id="pricing" className="py-16 md:py-24 bg-white">
       <Container>
         <SectionHeader title="ราคา (เรียบ เข้าใจง่าย)" />
         <div className="mt-10 grid gap-6 md:grid-cols-3">
-          <PriceCard title="Free" price="฿0" audience="เริ่มต้น/ทดสอบ" features={["การ์ด KPI 2 ใบ", "การเตือนพื้นฐาน", "Check‑in 2 ครั้ง/เดือน", "Export ฉบับย่อ 1 ครั้ง/เดือน"]} cta={{ href: "#signup", label: "เริ่มฟรี" }} />
-          <PriceCard title="Pro (Solo)" price="฿199" audience="เจ้าของ/CEO คนเดียว" highlight features={["การ์ด 6 KPI", "Morning Brief", "Drilldown/กราฟ", "Reforecast/What‑if", "Scenario/Decision/Board Pack (ฉบับย่อ)"]} cta={{ href: "#upgrade", label: "อัปเกรดเป็น Pro" }} />
-          <PriceCard title="Team/Premium" price="฿1,490 / ฿2,990 / ฿4,900" audience="ทีมระดับกลาง (M) — 5/10/20 ที่นั่ง" features={["ทุกอย่างใน Pro", "Dept roll‑ups เต็ม", "Scenario/Decision Inbox เต็ม", "Export เต็ม", "RBAC/Approvals/Masking"]} cta={{ href: "#contact", label: "พูดคุยทีมขาย" }} />
+          <PriceCard title="Core (ฟรี)" price="฿0" audience="เริ่มต้น/ทดสอบ" features={["การ์ด KPI 2 ใบ", "การเตือนพื้นฐาน", "รายงานสถานะธุรกิจวันนี้ (พื้นฐาน)", "Export ฉบับย่อ 1 ครั้ง/เดือน"]} cta={{ href: "#signup", label: "เริ่มฟรี" }} />
+          <PriceCard title="โมดูลเสริม (เริ่มต้น)" price="ตามโมดูล" audience="ซื้อเฉพาะความสามารถที่ต้องใช้" highlight features={["River KPI / Goal / Decision Inbox Pro", "Audit Binder+ / Board Pack Pro", "Realtime Connectors / Digital Assets", "ISO Readiness / Lean / ESG/Carbon"]} cta={{ href: "#modules", label: "ดูโมดูลที่มี" }} />
+          <PriceCard title="Bundles" price="ประหยัด 20–30%" audience="รวมโมดูลยอดนิยม" features={["Owner Growth", "Operational Excellence", "Governance", "Sustainability Lite"]} cta={{ href: "#modules", label: "รับข้อเสนอ" }} />
         </div>
-        <p className="text-center text-sm text-slate-500 mt-4">ทดลองใช้ครบทุกฟีเจอร์ 30 วัน — ครบกำหนดจะลดเป็นแผนฟรี และเสนออัปเกรด</p>
+        <p className="text-center text-sm text-slate-500 mt-4">ทดลองใช้โมดูลฟรี 14 วัน (เมื่อพร้อม) • เก็บสถิติวัดดีมานด์เพื่อใช้ประกอบการระดมทุน</p>
       </Container>
     </section>
   );
@@ -264,7 +373,7 @@ function PriceCard({ title, price, audience, features, cta, highlight }: { title
           <div className="text-xl font-semibold">{title}</div>
           {highlight && <Badge>ยอดนิยม</Badge>}
         </div>
-        <div className="mt-2 text-3xl font-semibold">{price}<span className="text-base font-normal text-slate-500">/เดือน</span></div>
+        <div className="mt-2 text-3xl font-semibold">{price}</div>
         <p className="text-slate-500 text-sm">{audience}</p>
         <ul className="mt-4 space-y-2 text-sm text-slate-600">
           {features.map((f) => (
@@ -409,9 +518,9 @@ function FinalCTA() {
   return (
     <section className="py-14">
       <Container>
-        <div className="rounded-2xl bg-gradient-to-br from-blue-800 to-blue-700 p-6 md:p-10 text-white shadow-md">
-          <h3 className="text-2xl md:text-3xl font-semibold">เห็นภาพรวมตอนนี้เลย — เริ่มทดลอง 30 วันฟรี</h3>
-          <p className="mt-2 text-blue-100">ปลดล็อกภาพรวมทั้งบริษัท + Morning Brief ทุกเช้า เริ่มที่ <span className="font-semibold">฿199/เดือน</span></p>
+        <div className="rounded-2xl bg-gradient-to-br from-blue-800 to-blue-700 p-6 md:p-10 text-white shadow-sm">
+          <h3 className="text-2xl md:3xl font-semibold">เห็นภาพรวมตอนนี้เลย — เริ่มทดลอง 30 วันฟรี</h3>
+          <p className="mt-2 text-blue-100">ปลดล็อกภาพรวมทั้งบริษัท + รายงานสถานะธุรกิจวันนี้ เริ่มจาก Core ฟรี และเลือกซื้อโมดูลเมื่อพร้อม</p>
           <div className="mt-6">
             <ButtonLink href="#signup" variant="secondary" className="px-4 py-2">เริ่มทดลอง 30 วันฟรี</ButtonLink>
           </div>
