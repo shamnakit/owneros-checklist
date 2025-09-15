@@ -5,7 +5,6 @@ import { upsertSalesDaily } from "@/connectors/persist";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") return res.status(405).end();
-
     const orgId = String(req.headers["x-org-id"] || "");
     if (!orgId) return res.status(400).json({ error: "missing x-org-id" });
 
@@ -15,7 +14,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         | { mode: "webhook"; baseUrl: string; userId: string; webhook: string }
         | { mode: "oauth"; baseUrl: string; accessToken: string };
     };
-
     if (!from || !to || !creds) return res.status(400).json({ error: "missing params (from/to/creds)" });
 
     const rows = await pullDealsWonDaily(creds, from, to);
