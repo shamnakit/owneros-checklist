@@ -68,29 +68,36 @@ function SourcesPageImpl() {
   }, [orgId]);
 
   // ---- Save Bitrix (POST + orgId in body) ----
-  async function saveBitrix() {
-    try {
-      setBxSaving(true);
-      await api("/api/sources", {
-        method: "POST",
-        body: JSON.stringify({
-          orgId, // << สำคัญ
-          code: "bitrix_main",
-          name: "Bitrix24 (Deals)",
-          kind: "bitrix",
-          credentials: { mode: "webhook", baseUrl: bxBaseUrl.trim(), userId: bxUserId.trim(), webhook: bxWebhook.trim() },
-        }),
-      });
-      setBxBaseUrl("");
-      setBxUserId("");
-      setBxWebhook("");
-      await load();
-    } catch (e: any) {
-      alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
-    } finally {
-      setBxSaving(false);
-    }
+ async function saveBitrix() {
+  try {
+    setBxSaving(true);
+    await api("/api/sources/upsert", {
+      method: "POST",
+      body: JSON.stringify({
+        orgId,                              // << ส่ง orgId ตรง ๆ
+        code: "bitrix_main",
+        name: "Bitrix24 (Deals)",
+        kind: "bitrix",
+        // ใช้กรอก 3 ช่องเดิม:
+        credentials: {
+          mode: "webhook",
+          baseUrl: bxBaseUrl.trim(),
+          userId: bxUserId.trim(),
+          webhook: bxWebhook.trim(),
+        },
+        // หรือจะรองรับวาง URL เดียว (ถ้าจะปรับ UI ภายหลัง):
+        // credentials: { webhookUrl: `${bxBaseUrl}/rest/${bxUserId}/${bxWebhook}/` },
+      }),
+    });
+    setBxBaseUrl(""); setBxUserId(""); setBxWebhook("");
+    await load();
+  } catch (e: any) {
+    alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
+  } finally {
+    setBxSaving(false);
   }
+}
+
 
   // ---- Test (POST + orgId in body) ----
   async function testSource(id: string) {
