@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (CEO Focus v4.1)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (CEO Focus v4.2, wired KPIs)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -17,9 +17,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  ScatterChart,
-  Scatter,
-  ReferenceLine,
   BarChart,
   Bar as RBar,
   LineChart,
@@ -32,9 +29,7 @@ import {
   Activity,
   Target,
   Sparkles,
-  ShieldCheck,
   Leaf,
-  Clock,
   FileText,
   Download,
   AlertTriangle,
@@ -42,9 +37,10 @@ import {
   BarChart3,
   TrendingUp,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react"; // ✅ แทน JSX.Element
+import type { LucideIcon } from "lucide-react";
 import { useUserProfile } from "@/contexts/UserProfileContext";
 import { supabase } from "@/utils/supabaseClient";
+import { getSalesMtd, getArOver30, getNpsThisMonth } from "@/lib/kpis";
 
 /* ====================== Types ====================== */
 
@@ -76,12 +72,12 @@ type CategoryPack = {
   key: Category7Key;
   label: string;
   color: string; // hex
-  icon: LucideIcon; // ✅
+  icon: LucideIcon;
   primary: KPI; // การ์ดใหญ่สุดของหมวด
-  secondary: KPI[]; // การ์ดเล็ก (จะโชว์ Top-3 ก่อน)
+  secondary: KPI[]; // การ์ดเล็ก (Top-3 ก่อน)
 };
 
-/** ---------- OwnerOS types (insights ด้านล่าง) ---------- */
+/** ---------- OwnerOS types (insights) ---------- */
 type CategoryKey = "strategy" | "structure" | "sop" | "hr" | "finance" | "sales";
 type CatRow = {
   category: CategoryKey | string;
@@ -116,8 +112,6 @@ const thaiTier = (t: TotalRow["tier_label"]) =>
 const traffic = {
   runway: (v: number) => (v >= 90 ? "green" : v >= 45 ? "amber" : "red"),
   revenueYoY: (v: number) => (v >= 15 ? "green" : v >= 5 ? "amber" : "red"),
-  arDays: (v: number) => (v <= 45 ? "green" : v <= 60 ? "amber" : "red"),
-  apDays: (v: number) => (v <= 45 ? "green" : v <= 60 ? "amber" : "red"),
   gm: (v: number) => (v >= 30 ? "green" : v >= 25 ? "amber" : "red"),
   nps: (v: number) => (v >= 50 ? "green" : v >= 30 ? "amber" : "red"),
   retention: (v: number) => (v >= 85 ? "green" : v >= 75 ? "amber" : "red"),
@@ -253,19 +247,20 @@ const COLOR: Record<CategoryKey, string> = {
 function DashboardPageImpl() {
   const { profile } = useUserProfile();
   const uid = (profile as any)?.id || null;
+  const orgId = uid; // TODO: ถ้า orgId แยกจาก user ให้แก้จุดนี้
 
-  // ===== 7 หมวด + โหมดอ่านง่าย =====
+  // 7 หมวด + โหมดอ่านง่าย
   const packs = useMemo(() => mockCategories(), []);
   const [active, setActive] = useState<Category7Key>(packs[0].key);
-  const [showAllSecondary, setShowAllSecondary] = useState(false); // ต่อหมวด
+  const [showAllSecondary, setShowAllSecondary] = useState(false);
 
-  // ===== Header year selection (OwnerOS Insights ใช้) =====
+  // Header year selection (OwnerOS Insights)
   const thisYear = new Date().getFullYear();
   const [availableYears, setAvailableYears] = useState<number[]>([thisYear]);
   const [year, setYear] = useState<number>(thisYear);
   const [compareYear, setCompareYear] = useState<number>(thisYear - 1);
 
-  // ===== OwnerOS (Insights footer) =====
+  // OwnerOS (Insights footer)
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [total, setTotal] = useState<Record<number, TotalRow | undefined>>({});
@@ -273,12 +268,18 @@ function DashboardPageImpl() {
   const [warns, setWarns] = useState<Record<number, WarnRow[]>>({});
   const [trend, setTrend] = useState<Array<{ year: number; value: number }>>([]);
 
-  // Track
+  // === Real KPIs (Sales MTD, AR>30, NPS) ===
+  const [salesMtdReal, setSalesMtdReal] = useState<number | null>(null);
+  const [arOver30Real, setArOver30Real] = useState<number | null>(null);
+  const [npsReal, setNpsReal] = useState<number | null>(null);
+  const [kpiLoading, setKpiLoading] = useState(false);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+
   useEffect(() => {
     try { posthog?.capture("Dashboard Viewed", { section: "ceo_focus", active }); } catch {}
   }, [active]);
 
-  // ปีที่มีข้อมูล
+  // ปีที่มีข้อมูล (OwnerOS)
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
@@ -360,18 +361,55 @@ function DashboardPageImpl() {
     return () => { mounted = false; };
   }, [uid, availableYears]);
 
-  // ===== Hero 4 การ์ด =====
-  const heroSales = packs.find(p => p.key === "financial")!.secondary.find(k => k.code === "revenue")!;
-  const heroRunway = packs.find(p => p.key === "financial")!.primary;
-  const allKpis = packs.flatMap(p => [p.primary, ...p.secondary]);
-  const atRisk = useMemo(() => {
-    let red = 0, amber = 0;
-    allKpis.forEach(k => { if (k.status === "red") red++; else if (k.status === "amber") amber++; });
-    return { red, amber };
-  }, [packs]);
-  const heroCX = packs.find(p => p.key === "customer")!.secondary.find(k => k.code === "nps")!; // default ใช้ NPS
+  // === โหลด KPI จริง (Sales MTD, AR>30, NPS) ===
+  useEffect(() => {
+    if (!orgId) return;
+    let mounted = true;
+    (async () => {
+      setKpiLoading(true); setKpiError(null);
+      try {
+        const [s, ar, nps] = await Promise.all([
+          getSalesMtd(orgId),
+          getArOver30(orgId, new Date()),
+          getNpsThisMonth(orgId),
+        ]);
+        if (!mounted) return;
+        setSalesMtdReal(s);
+        setArOver30Real(ar);
+        setNpsReal(nps);
+      } catch (e: any) {
+        setKpiError(e?.message || "Load KPI failed");
+      } finally {
+        mounted && setKpiLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [orgId]);
 
-  // ===== OwnerOS derived =====
+  // ===== Hero values (ผสม real + mock สำรอง) =====
+  const mockSales = packs.find(p=>p.key==="financial")!.secondary.find(k=>k.code==="revenue")!.value;
+  const salesMtdDisplay = (salesMtdReal ?? mockSales);
+  const mockNps = packs.find(p=>p.key==="customer")!.secondary.find(k=>k.code==="nps")!.value;
+  const npsDisplay = (npsReal ?? mockNps);
+
+  function riskLevelFromAr(v: number | null) {
+    if (v == null) return "green";
+    if (v > 600_000) return "red";
+    if (v > 400_000) return "amber";
+    return "green";
+  }
+  function riskLevelFromNps(v: number | null) {
+    if (v == null) return "green";
+    if (v < 0) return "red";
+    if (v < 30) return "amber";
+    return "green";
+  }
+  const atRiskCount = {
+    red: [riskLevelFromAr(arOver30Real), riskLevelFromNps(npsReal)].filter(r=>r==="red").length,
+    amber: [riskLevelFromAr(arOver30Real), riskLevelFromNps(npsReal)].filter(r=>r==="amber").length,
+  };
+
+  // ===== OwnerOS derived (Insights) =====
   const totalA = total[year];
   const totalB = total[compareYear];
   const radarData = useMemo(() => {
@@ -404,17 +442,9 @@ function DashboardPageImpl() {
     });
   }, [cats, warns, year]);
 
-  const overallScorePct = useMemo(
-    () => (totalA ? toPct(Number(totalA.total_score), Math.max(1, Number(totalA.max_score))) : 0),
-    [totalA]
-  );
-  const overallProgressPct = useMemo(() => {
-    const a = cats[year] || [];
-    if (!a.length) return 0;
-    return a.reduce((s, r) => s + Number(r.evidence_rate_pct || 0), 0) / a.length;
-  }, [cats, year]);
-
   /* ====================== UI ====================== */
+  const heroRunway = packs.find(p => p.key === "financial")!.primary;
+
   return (
     <div className="p-6 space-y-6">
       {/* Header — ลดปุ่มให้เหลือเท่าที่จำเป็น */}
@@ -443,13 +473,32 @@ function DashboardPageImpl() {
 
       {/* HERO STRIP — การ์ดใหญ่ 4 ใบ */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <HeroCard title="Sales MTD" value={`฿ ${fmtMoney2(heroSales.value)}`} sub={`MoM ${heroSales.mom! >= 0 ? "+" : ""}${fmtPct1(Math.abs(heroSales.mom || 0))} · YoY ${heroSales.yoy! >= 0 ? "+" : ""}${fmtPct1(Math.abs(heroSales.yoy || 0))}`} trend={heroSales.trend} />
-        <HeroCard title="Runway (วัน)" value={`${heroRunway.value.toLocaleString()} วัน`} sub="Cash & Liquidity" trend={heroRunway.trend} status={heroRunway.status} />
-        <HeroCard title="At-risk KPIs" value={`${atRisk.red}R • ${atRisk.amber}A`} sub="จำนวนรายการ Red / Amber" />
-        <HeroCard title="NPS" value={`${Math.round(heroCX.value)}`} sub={heroCX.status === "green" ? "Healthy" : heroCX.status === "amber" ? "Watchlist" : "At risk"} status={heroCX.status} />
+        <HeroCard
+          title="Sales MTD"
+          value={`฿ ${fmtMoney2(salesMtdDisplay)}`}
+          sub={kpiLoading ? "กำลังโหลด…" : (kpiError ? "เกิดข้อผิดพลาด" : "รวมทุกช่องทาง")}
+        />
+        <HeroCard
+          title="Runway (วัน)"
+          value={`${heroRunway.value.toLocaleString()} วัน`}
+          sub="Cash & Liquidity"
+          trend={heroRunway.trend}
+          status={heroRunway.status}
+        />
+        <HeroCard
+          title="At-risk KPIs"
+          value={`${atRiskCount.red}R • ${atRiskCount.amber}A`}
+          sub={arOver30Real!=null ? `AR>30 ฿${arOver30Real.toLocaleString(undefined,{minimumFractionDigits:0})}` : "นับจาก NPS/AR (เบื้องต้น)"}
+        />
+        <HeroCard
+          title="NPS"
+          value={`${Math.round(npsDisplay)}`}
+          sub={npsReal==null ? "ยังเป็น mock (อัป NPS CSV เพื่อใช้จริง)" : "คะแนนเดือนนี้"}
+          status={riskLevelFromNps(npsReal)}
+        />
       </div>
 
-      {/* Sticky Category Tabs (สีอ่อน อ่านง่าย) */}
+      {/* Sticky Category Tabs */}
       <div className="panel-dark p-3 sticky top-0 z-20 backdrop-blur supports-[backdrop-filter]:bg-black/30">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           {packs.map((p) => (
@@ -470,7 +519,7 @@ function DashboardPageImpl() {
       {packs.map((p) =>
         p.key !== active ? null : (
           <div key={p.key} className="space-y-6">
-            {/* Primary KPI (ใหญ่, คำสั้น) */}
+            {/* Primary KPI */}
             <PrimaryKpiCard pack={p} />
 
             {/* Secondary — โชว์ Top-3 ก่อน */}
@@ -492,6 +541,7 @@ function DashboardPageImpl() {
         <summary className="p-4 cursor-pointer select-none">Insights (Radar • Progress • Trend)</summary>
         <div className="p-6 space-y-6">
           {errorMsg && <div className="panel-dark p-4 text-red-300 border-red-400/40">เกิดข้อผิดพลาด: {errorMsg}</div>}
+
           {/* Radar */}
           {!loading && (
             <div className="panel-dark">
@@ -499,6 +549,19 @@ function DashboardPageImpl() {
                 <div className="flex items-center gap-2 mb-2">
                   <Target className="text-sky-400" size={18} />
                   <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
+                  {total[year] && (
+                    <span
+                      className={`ml-auto text-xs px-3 py-1 rounded-full ${
+                        total[year]?.tier_label === "Excellent"
+                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/30"
+                          : total[year]?.tier_label === "Developing"
+                          ? "bg-yellow-500/15 text-yellow-200 border border-yellow-400/30"
+                          : "bg-rose-500/15 text-rose-200 border border-rose-400/30"
+                      }`}
+                    >
+                      Tier: {thaiTier(total[year]!.tier_label)}
+                    </span>
+                  )}
                 </div>
                 <ResponsiveContainer width="100%" height={360}>
                   <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
