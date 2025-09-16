@@ -1,5 +1,4 @@
-//src/pages/api/sources/index.ts
-
+// src/pages/api/sources/index.ts — list/register (kept), accepts OPTIONS; orgId from header/body/query
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -9,7 +8,6 @@ type SourceRow = {
 };
 
 function parseOrgId(req: NextApiRequest) {
-  // รองรับทั้ง header, body, query (กันเบราเซอร์ยิง preflight/GET)
   return (
     String(req.headers["x-org-id"] || "") ||
     (req.method === "POST" ? String((req.body as any)?.orgId || "") : "") ||
@@ -19,27 +17,31 @@ function parseOrgId(req: NextApiRequest) {
 
 async function listSources(orgId: string) {
   const { data, error } = await supabaseAdmin
-    .from("data_sources").select("*")
+    .from("data_sources")
+    .select("*")
     .eq("org_id", orgId)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
   const rows = (data as SourceRow[]) || [];
-  const withSync = await Promise.all(rows.map(async r => {
-    const { data: sj } = await supabaseAdmin
-      .from("sync_jobs")
-      .select("status, started_at, finished_at, message")
-      .eq("source_id", r.id)
-      .order("started_at", { ascending: false })
-      .limit(1).maybeSingle();
-    return { ...r, last_sync: sj || null };
-  }));
+  const withSync = await Promise.all(
+    rows.map(async (r) => {
+      const { data: sj } = await supabaseAdmin
+        .from("sync_jobs")
+        .select("status, started_at, finished_at, message")
+        .eq("source_id", r.id)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return { ...r, last_sync: sj || null };
+    })
+  );
   return withSync;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method === "OPTIONS" || req.method === "HEAD") return res.status(200).end();
 
     const orgId = parseOrgId(req);
     if (!orgId) return res.status(400).json({ error: "missing orgId" });
@@ -50,11 +52,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (req.method === "POST") {
-      const { code, name, kind } = req.body || {};
-      let { credentials, active } = req.body || {};
+      const { code, name, kind } = (req.body as any) || {};
+      let { credentials, active } = (req.body as any) || {};
       if (!code || !name || !kind) return res.status(400).json({ error: "missing code/name/kind" });
 
-      // อนุญาตให้ผู้ใช้วาง webhook URL เดียว ระบบจะแยกให้
       if (kind === "bitrix" && credentials?.webhookUrl) {
         const url = String(credentials.webhookUrl).trim();
         const base = url.match(/^https?:\/\/[^/]+/i)?.[0] || "";
@@ -65,8 +66,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const payload = { org_id: orgId, code, name, kind, credentials: credentials || {}, active: active ?? true };
       const { data, error } = await supabaseAdmin
-        .from("data_sources").upsert(payload, { onConflict: "org_id,code" })
-        .select().maybeSingle();
+        .from("data_sources")
+        .upsert(payload, { onConflict: "org_id,code" })
+        .select()
+        .maybeSingle();
       if (error) throw error;
 
       return res.json({ ok: true, source: data });

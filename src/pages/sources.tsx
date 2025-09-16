@@ -1,4 +1,4 @@
-// src/pages/sources.tsx — CEOPolar Data Sources (M1, fixed 405 + orgId in POST)
+// src/pages/sources.tsx — CEOPolar Data Sources (M1, fixed leading-slash & orgId in POST)
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -33,9 +33,10 @@ function SourcesPageImpl() {
 
   const hasBitrix = useMemo(() => sources.some((s) => s.kind === "bitrix"), [sources]);
 
-  // ---- API helper (supports ?query and JSON body) ----
+  // ---- API helper (force leading slash, supports ?query and JSON body) ----
   async function api(path: string, init?: RequestInit & { query?: Record<string, string> }) {
-    const url = new URL(path, window.location.origin);
+    const href = path.startsWith("http") ? path : path.startsWith("/") ? path : `/${path}`;
+    const url = new URL(href, window.location.origin);
     if (init?.query) Object.entries(init.query).forEach(([k, v]) => url.searchParams.set(k, String(v)));
     const res = await fetch(url.toString(), {
       method: init?.method || "GET",
@@ -68,36 +69,35 @@ function SourcesPageImpl() {
   }, [orgId]);
 
   // ---- Save Bitrix (POST + orgId in body) ----
- async function saveBitrix() {
-  try {
-    setBxSaving(true);
-    await api("/api/sources/upsert", {
-      method: "POST",
-      body: JSON.stringify({
-        orgId,                              // << ส่ง orgId ตรง ๆ
-        code: "bitrix_main",
-        name: "Bitrix24 (Deals)",
-        kind: "bitrix",
-        // ใช้กรอก 3 ช่องเดิม:
-        credentials: {
-          mode: "webhook",
-          baseUrl: bxBaseUrl.trim(),
-          userId: bxUserId.trim(),
-          webhook: bxWebhook.trim(),
-        },
-        // หรือจะรองรับวาง URL เดียว (ถ้าจะปรับ UI ภายหลัง):
-        // credentials: { webhookUrl: `${bxBaseUrl}/rest/${bxUserId}/${bxWebhook}/` },
-      }),
-    });
-    setBxBaseUrl(""); setBxUserId(""); setBxWebhook("");
-    await load();
-  } catch (e: any) {
-    alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
-  } finally {
-    setBxSaving(false);
+  async function saveBitrix() {
+    try {
+      setBxSaving(true);
+      await api("/api/sources/upsert", {
+        method: "POST",
+        body: JSON.stringify({
+          orgId,
+          code: "bitrix_main",
+          name: "Bitrix24 (Deals)",
+          kind: "bitrix",
+          credentials: {
+            mode: "webhook",
+            baseUrl: bxBaseUrl.trim(),
+            userId: bxUserId.trim(),
+            webhook: bxWebhook.trim(),
+          },
+          active: true,
+        }),
+      });
+      setBxBaseUrl("");
+      setBxUserId("");
+      setBxWebhook("");
+      await load();
+    } catch (e: any) {
+      alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
+    } finally {
+      setBxSaving(false);
+    }
   }
-}
-
 
   // ---- Test (POST + orgId in body) ----
   async function testSource(id: string) {
@@ -244,7 +244,7 @@ function CsvUploader({ title, endpoint, orgId, sample }: { title: string; endpoi
     try {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "x-org-id": orgId }, // CSV endpoints ของเราอ่าน orgId จาก header
+        headers: { "x-org-id": orgId },
         body: file,
       });
       if (!res.ok) {
