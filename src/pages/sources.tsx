@@ -1,4 +1,4 @@
-// src/pages/sources.tsx — CEOPolar Data Sources (M1, POST primary + GET fallback)
+// src/pages/sources.tsx — CEOPolar Data Sources (M1, org selector + robust orgId)
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -17,8 +17,23 @@ type SourceView = {
 
 function SourcesPageImpl() {
   const { profile } = useUserProfile();
-  const orgId = (profile as any)?.id || "";
+  // ----- org selector (dev only) -----
+  const [orgOverride, setOrgOverride] = useState<string>("");
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("ceopolar.orgId") || "";
+    if (saved) setOrgOverride(saved);
+  }, []);
+
+  const orgIdFinal =
+    (profile as any)?.org_id ||
+    (profile as any)?.company_id ||
+    (profile as any)?.id ||
+    orgOverride ||
+    "";
+
+  // ----- page state -----
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<SourceView[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -47,7 +62,7 @@ function SourcesPageImpl() {
       const j = await res.json().catch(() => ({}));
       const msg = j?.error || `HTTP ${res.status}`;
       const err: any = new Error(msg);
-      err.status = res.status;
+      (err as any).status = res.status;
       throw err;
     }
     return res.json();
@@ -55,11 +70,11 @@ function SourcesPageImpl() {
 
   // ---- Load list (GET + ?orgId=) ----
   async function load() {
-    if (!orgId) return;
+    if (!orgIdFinal) return;
     setLoading(true);
     setErr(null);
     try {
-      const j = await api("/api/sources", { query: { orgId } });
+      const j = await api("/api/sources", { query: { orgId: orgIdFinal } });
       setSources(j.sources || []);
     } catch (e: any) {
       setErr(e?.message || "โหลดล้มเหลว");
@@ -69,19 +84,22 @@ function SourcesPageImpl() {
   }
   useEffect(() => {
     load();
-  }, [orgId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgIdFinal]);
 
-  // ---- Save Bitrix: POST primary → fallback GET upsert on 405 ----
+  // ---- Save Bitrix: POST /api/sources (หลัก) → ถ้า 405 fallback GET /api/sources/upsert ----
   async function saveBitrix() {
+    if (!orgIdFinal) {
+      alert("กรุณาระบุ Org ID ก่อน (การ์ดด้านบน)");
+      return;
+    }
     try {
       setBxSaving(true);
-
-      // 1) ลอง POST /api/sources (ตัวหลัก)
       try {
         await api("/api/sources", {
           method: "POST",
           body: JSON.stringify({
-            orgId,
+            orgId: orgIdFinal,
             code: "bitrix_main",
             name: "Bitrix24 (Deals)",
             kind: "bitrix",
@@ -95,15 +113,15 @@ function SourcesPageImpl() {
           }),
         });
       } catch (err: any) {
-        // 2) ถ้าเจอ 405 ให้ fallback → GET /api/sources/upsert (แนบค่าทาง query)
         if (err?.status === 405) {
-          const webhookUrl = `${bxBaseUrl.trim().replace(/\/+$/,"")}/rest/${encodeURIComponent(
+          // fallback GET upsert with flat query
+          const webhookUrl = `${bxBaseUrl.trim().replace(/\/+$/, "")}/rest/${encodeURIComponent(
             bxUserId.trim()
           )}/${encodeURIComponent(bxWebhook.trim())}/`;
           await api("/api/sources/upsert", {
             method: "GET",
             query: {
-              orgId,
+              orgId: orgIdFinal,
               code: "bitrix_main",
               name: "Bitrix24 (Deals)",
               kind: "bitrix",
@@ -129,11 +147,15 @@ function SourcesPageImpl() {
 
   // ---- Test (POST + orgId in body) ----
   async function testSource(id: string) {
+    if (!orgIdFinal) {
+      alert("กรุณาระบุ Org ID ก่อน (การ์ดด้านบน)");
+      return;
+    }
     try {
       setTestingId(id);
       const j = await api("/api/sources/test", {
         method: "POST",
-        body: JSON.stringify({ orgId, sourceId: id }),
+        body: JSON.stringify({ orgId: orgIdFinal, sourceId: id }),
       });
       alert(`ทดสอบสำเร็จ (${j.kind}) • sample=${j.sample ?? "ok"}`);
     } catch (e: any) {
@@ -145,11 +167,15 @@ function SourcesPageImpl() {
 
   // ---- Sync (POST + orgId in body) ----
   async function syncSource(id: string) {
+    if (!orgIdFinal) {
+      alert("กรุณาระบุ Org ID ก่อน (การ์ดด้านบน)");
+      return;
+    }
     try {
       setSyncingId(id);
       const j = await api("/api/sources/sync", {
         method: "POST",
-        body: JSON.stringify({ orgId, sourceId: id }),
+        body: JSON.stringify({ orgId: orgIdFinal, sourceId: id }),
       });
       alert(`ซิงก์สำเร็จ: ${j.kind} • ${j.from} → ${j.to}`);
       await load();
@@ -160,18 +186,45 @@ function SourcesPageImpl() {
     }
   }
 
+  // ---- UI ----
   return (
     <div className="p-6 space-y-6">
       <h1 className="text-2xl font-bold text-[var(--text-1)]">Data Sources</h1>
+
+      {/* Org selector (dev only) */}
+      {!((profile as any)?.org_id || (profile as any)?.company_id || (profile as any)?.id) && (
+        <div className="panel-dark p-4">
+          <div className="font-semibold mb-2">Org ID (ชั่วคราวสำหรับ Dev)</div>
+          <div className="flex gap-2">
+            <input
+              className="input-dark"
+              placeholder="ใส่ Org ID ของคุณ"
+              value={orgOverride}
+              onChange={(e) => setOrgOverride(e.target.value)}
+            />
+            <button
+              className="btn-outline"
+              onClick={() => {
+                if (typeof window !== "undefined") window.localStorage.setItem("ceopolar.orgId", orgOverride.trim());
+                alert("บันทึก Org ID ชั่วคราวแล้ว");
+              }}
+            >
+              Save
+            </button>
+          </div>
+          <div className="text-xs muted mt-2">* ระบบจะใช้ค่านี้หากยังดึง org จาก user profile ไม่ได้</div>
+        </div>
+      )}
 
       {/* Existing Sources */}
       <div className="panel-dark">
         <div className="p-4 flex items-center justify-between">
           <div className="panel-title">แหล่งข้อมูลที่เชื่อมอยู่</div>
-          <button className="btn-outline inline-flex items-center gap-2" onClick={load} disabled={loading}>
+          <button className="btn-outline inline-flex items-center gap-2" onClick={load} disabled={loading || !orgIdFinal}>
             <RefreshCcw size={16} /> โหลดใหม่
           </button>
         </div>
+        {!orgIdFinal && <div className="px-4 pb-2 text-amber-300 text-sm">* กรุณาระบุ Org ID เพื่อดึงรายการแหล่งข้อมูล</div>}
         {err && <div className="p-4 text-rose-300">{err}</div>}
         <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {sources.map((s) => (
@@ -203,10 +256,10 @@ function SourcesPageImpl() {
                 )}
               </div>
               <div className="flex gap-2">
-                <button className="btn-outline inline-flex items-center gap-2 text-xs" onClick={() => testSource(s.id)} disabled={!!testingId}>
+                <button className="btn-outline inline-flex items-center gap-2 text-xs" onClick={() => testSource(s.id)} disabled={!!testingId || !orgIdFinal}>
                   <Radio size={14} /> {testingId === s.id ? "กำลังทดสอบ…" : "Test"}
                 </button>
-                <button className="btn-primary inline-flex items-center gap-2 text-xs" onClick={() => syncSource(s.id)} disabled={!!syncingId}>
+                <button className="btn-primary inline-flex items-center gap-2 text-xs" onClick={() => syncSource(s.id)} disabled={!!syncingId || !orgIdFinal}>
                   <LinkIcon size={14} /> {syncingId === s.id ? "กำลังซิงก์…" : "Sync now"}
                 </button>
               </div>
@@ -226,7 +279,7 @@ function SourcesPageImpl() {
             <input className="input-dark" placeholder="Webhook token" value={bxWebhook} onChange={(e) => setBxWebhook(e.target.value)} />
           </div>
           <div className="mt-3">
-            <button className="btn-primary inline-flex items-center gap-2" onClick={saveBitrix} disabled={!bxBaseUrl || !bxUserId || !bxWebhook || bxSaving}>
+            <button className="btn-primary inline-flex items-center gap-2" onClick={saveBitrix} disabled={!bxBaseUrl || !bxUserId || !bxWebhook || bxSaving || !orgIdFinal}>
               <CheckCircle2 size={16} /> {bxSaving ? "กำลังบันทึก…" : "บันทึก & เปิดใช้งาน"}
             </button>
           </div>
@@ -239,9 +292,9 @@ function SourcesPageImpl() {
         <div className="p-4">
           <div className="panel-title mb-3">อัปโหลด CSV (Manual)</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <CsvUploader title="Sales (รายวัน)" endpoint="/api/import/sales-csv" orgId={orgId} sample="date,channel,net_amount,gross_amount,orders" />
-            <CsvUploader title="AR Aging" endpoint="/api/import/ar-aging-csv" orgId={orgId} sample="as_of_date,bucket,amount" />
-            <CsvUploader title="NPS" endpoint="/api/import/nps-csv" orgId={orgId} sample="date,respondent_id,score,comment" />
+            <CsvUploader title="Sales (รายวัน)" endpoint="/api/import/sales-csv" orgId={orgIdFinal} sample="date,channel,net_amount,gross_amount,orders" />
+            <CsvUploader title="AR Aging" endpoint="/api/import/ar-aging-csv" orgId={orgIdFinal} sample="as_of_date,bucket,amount" />
+            <CsvUploader title="NPS" endpoint="/api/import/nps-csv" orgId={orgIdFinal} sample="date,respondent_id,score,comment" />
           </div>
           <div className="text-xs muted mt-3 flex items-center gap-2">
             <AlertTriangle size={14} className="text-amber-300" />
@@ -288,7 +341,7 @@ function CsvUploader({ title, endpoint, orgId, sample }: { title: string; endpoi
       </div>
       <div className="flex items-center gap-2">
         <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} className="input-dark" />
-        <button className="btn-outline inline-flex items-center gap-2" onClick={upload} disabled={!file || busy}>
+        <button className="btn-outline inline-flex items-center gap-2" onClick={upload} disabled={!file || busy || !orgId}>
           <Upload size={14} /> {busy ? "กำลังอัปโหลด…" : "อัปโหลด"}
         </button>
       </div>
