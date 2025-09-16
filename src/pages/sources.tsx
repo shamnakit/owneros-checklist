@@ -1,4 +1,4 @@
-// src/pages/sources.tsx — CEOPolar Data Sources (M1, fixed leading-slash & orgId in POST)
+// src/pages/sources.tsx — CEOPolar Data Sources (M1, POST primary + GET fallback)
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -45,7 +45,10 @@ function SourcesPageImpl() {
     });
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
-      throw new Error(j?.error || `HTTP ${res.status}`);
+      const msg = j?.error || `HTTP ${res.status}`;
+      const err: any = new Error(msg);
+      err.status = res.status;
+      throw err;
     }
     return res.json();
   }
@@ -68,26 +71,51 @@ function SourcesPageImpl() {
     load();
   }, [orgId]);
 
-  // ---- Save Bitrix (POST + orgId in body) ----
+  // ---- Save Bitrix: POST primary → fallback GET upsert on 405 ----
   async function saveBitrix() {
     try {
       setBxSaving(true);
-      await api("/api/sources/upsert", {
-        method: "POST",
-        body: JSON.stringify({
-          orgId,
-          code: "bitrix_main",
-          name: "Bitrix24 (Deals)",
-          kind: "bitrix",
-          credentials: {
-            mode: "webhook",
-            baseUrl: bxBaseUrl.trim(),
-            userId: bxUserId.trim(),
-            webhook: bxWebhook.trim(),
-          },
-          active: true,
-        }),
-      });
+
+      // 1) ลอง POST /api/sources (ตัวหลัก)
+      try {
+        await api("/api/sources", {
+          method: "POST",
+          body: JSON.stringify({
+            orgId,
+            code: "bitrix_main",
+            name: "Bitrix24 (Deals)",
+            kind: "bitrix",
+            credentials: {
+              mode: "webhook",
+              baseUrl: bxBaseUrl.trim(),
+              userId: bxUserId.trim(),
+              webhook: bxWebhook.trim(),
+            },
+            active: true,
+          }),
+        });
+      } catch (err: any) {
+        // 2) ถ้าเจอ 405 ให้ fallback → GET /api/sources/upsert (แนบค่าทาง query)
+        if (err?.status === 405) {
+          const webhookUrl = `${bxBaseUrl.trim().replace(/\/+$/,"")}/rest/${encodeURIComponent(
+            bxUserId.trim()
+          )}/${encodeURIComponent(bxWebhook.trim())}/`;
+          await api("/api/sources/upsert", {
+            method: "GET",
+            query: {
+              orgId,
+              code: "bitrix_main",
+              name: "Bitrix24 (Deals)",
+              kind: "bitrix",
+              "credentials.webhookUrl": webhookUrl,
+              active: "true",
+            },
+          });
+        } else {
+          throw err;
+        }
+      }
+
       setBxBaseUrl("");
       setBxUserId("");
       setBxWebhook("");
@@ -109,7 +137,7 @@ function SourcesPageImpl() {
       });
       alert(`ทดสอบสำเร็จ (${j.kind}) • sample=${j.sample ?? "ok"}`);
     } catch (e: any) {
-      alert("ทดสอบไม่สำเร็จ: " + (e?.message || "unknown"));
+      alert("ทดสอบไม่สำเร็จ: " + (e?.message || "unknown)"));
     } finally {
       setTestingId(null);
     }
@@ -126,7 +154,7 @@ function SourcesPageImpl() {
       alert(`ซิงก์สำเร็จ: ${j.kind} • ${j.from} → ${j.to}`);
       await load();
     } catch (e: any) {
-      alert("ซิงก์ไม่สำเร็จ: " + (e?.message || "unknown"));
+      alert("ซิงก์ไม่สำเร็จ: " + (e?.message || "unknown)"));
     } finally {
       setSyncingId(null);
     }
@@ -193,21 +221,12 @@ function SourcesPageImpl() {
         <div className="p-4">
           <div className="panel-title mb-3">เชื่อม Bitrix24 (Deals → SalesDaily)</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input
-              className="input-dark"
-              placeholder="Base URL (เช่น https://YOUR.bitrix24.com)"
-              value={bxBaseUrl}
-              onChange={(e) => setBxBaseUrl(e.target.value)}
-            />
+            <input className="input-dark" placeholder="Base URL (เช่น https://YOUR.bitrix24.com)" value={bxBaseUrl} onChange={(e) => setBxBaseUrl(e.target.value)} />
             <input className="input-dark" placeholder="User ID (ตัวเลขหลัง /rest/ เช่น 1)" value={bxUserId} onChange={(e) => setBxUserId(e.target.value)} />
             <input className="input-dark" placeholder="Webhook token" value={bxWebhook} onChange={(e) => setBxWebhook(e.target.value)} />
           </div>
           <div className="mt-3">
-            <button
-              className="btn-primary inline-flex items-center gap-2"
-              onClick={saveBitrix}
-              disabled={!bxBaseUrl || !bxUserId || !bxWebhook || bxSaving}
-            >
+            <button className="btn-primary inline-flex items-center gap-2" onClick={saveBitrix} disabled={!bxBaseUrl || !bxUserId || !bxWebhook || bxSaving}>
               <CheckCircle2 size={16} /> {bxSaving ? "กำลังบันทึก…" : "บันทึก & เปิดใช้งาน"}
             </button>
           </div>
