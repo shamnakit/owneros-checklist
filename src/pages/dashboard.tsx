@@ -590,7 +590,8 @@ function DashboardPageImpl() {
                     <XAxis dataKey="name" />
                     <YAxis domain={[0, 100]} />
                     <Tooltip />
-                    <RBar dataKey="value" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                    <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
+
                   </BarChart>
                 </ResponsiveContainer>
               </div>
