@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (CEO Focus v4.2, wired KPIs)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (CEO Focus v4.3, muted theme)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -427,6 +427,7 @@ function DashboardPageImpl() {
   const categoryBars = useMemo(() => {
     const a = cats[year] || [];
     const w = warns[year] || [];
+    
     const warnCount = new Map<string, number>();
     w.forEach((x) => warnCount.set(x.category, (warnCount.get(x.category) || 0) + 1));
     return CAT_ORDER.map((cat) => {
@@ -569,8 +570,7 @@ function DashboardPageImpl() {
                     <PolarAngleAxis dataKey="category" />
                     <PolarRadiusAxis />
                     <Radar name={`${year}`} dataKey="scoreA" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.45} />
-<Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
-
+                    <Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
                   </RadarChart>
                 </ResponsiveContainer>
               </div>
@@ -591,7 +591,6 @@ function DashboardPageImpl() {
                     <YAxis domain={[0, 100]} />
                     <Tooltip />
                     <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
-
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -612,7 +611,7 @@ function DashboardPageImpl() {
                     <XAxis dataKey="year" />
                     <YAxis />
                     <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#0ea5e9" dot />
+                    <Line type="monotone" dataKey="value" stroke="var(--chart-1)" dot />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -653,7 +652,7 @@ function HeroCard({
         <div className="h-[58px] mt-3">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trend.map((v, i) => ({ x: i, v }))}>
-              <Area type="monotone" dataKey="v" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.12} strokeWidth={2} />
+              <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.08} strokeWidth={1.8} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -717,11 +716,11 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
                 <AreaChart data={k.trend.map((v, i) => ({ x: i, v }))}>
                   <defs>
                     <linearGradient id={`grad-${k.code}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={pack.color} stopOpacity={0.9} />
+                      <stop offset="0%" stopColor={pack.color} stopOpacity={0.22} />
                       <stop offset="100%" stopColor={pack.color} stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="v" stroke={pack.color} fill={`url(#grad-${k.code})`} strokeWidth={2} />
+                  <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill={`url(#grad-${k.code})`} strokeWidth={1.8} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -772,7 +771,7 @@ function SecondaryKpiGridCollapsed({
               <div className="h-[48px] mt-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={k.trend.map((v, i) => ({ x: i, v }))}>
-                    <Area type="monotone" dataKey="v" stroke={color} fill={color} fillOpacity={0.12} strokeWidth={2} />
+                    <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.10} strokeWidth={1.6} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -824,7 +823,8 @@ function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
 /* ====================== Shared tiny utils ====================== */
 
 function statusColor(s: KPI["status"]) {
-  return s === "green" ? "#10B981" : s === "amber" ? "#F59E0B" : "#F43F5E";
+  // muted, executive tones
+  return s === "green" ? "#2FA56D" : s === "amber" ? "#C99532" : "#D26666";
 }
 function renderValue(k: KPI) {
   switch (k.unit) {
