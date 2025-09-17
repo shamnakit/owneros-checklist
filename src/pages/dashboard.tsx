@@ -568,8 +568,9 @@ function DashboardPageImpl() {
                     <PolarGrid />
                     <PolarAngleAxis dataKey="category" />
                     <PolarRadiusAxis />
-                    <Radar name={`${year}`} dataKey="scoreA" stroke="#16a34a" fill="#16a34a" fillOpacity={0.55} />
-                    <Radar name={`${compareYear}`} dataKey="scoreB" stroke="#9ca3af" fill="#9ca3af" fillOpacity={0.28} />
+                    <Radar name={`${year}`} dataKey="scoreA" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.45} />
+<Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
+
                   </RadarChart>
                 </ResponsiveContainer>
               </div>

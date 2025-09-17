@@ -466,7 +466,7 @@ function DashboardPageImpl() {
                 <XAxis dataKey="name" />
                 <YAxis domain={[0, 100]} />
                 <Tooltip />
-                <RBar dataKey="value" fill="#16a34a" radius={[6, 6, 0, 0]} />
+                <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
 
@@ -545,7 +545,8 @@ function DashboardPageImpl() {
                 <Tooltip cursor={{ strokeDasharray: "3 3" }} />
                 <ReferenceLine x={70} stroke="#9ca3af" />
                 <ReferenceLine y={80} stroke="#9ca3af" />
-                <Scatter name="Org" data={quadrantPoint} fill="#16a34a" />
+                <Scatter name="Org" data={quadrantPoint} fill="var(--chart-1)" />
+
               </ScatterChart>
             </ResponsiveContainer>
             <div className="grid grid-cols-2 md:grid-cols-4 text-xs muted mt-2">
