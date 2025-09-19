@@ -1,4 +1,7 @@
-/* CEOPolar – Executive Dark v2 (muted) */
+/* ================================================
+   CEOPolar – Executive Dark v2 (muted, global)
+   Tailwind + Custom Tokens/Utilities
+   ================================================ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -23,7 +26,7 @@
   --muted:#8997AE;         /* helper */
 
   /* Accent & states (desaturated) */
-  --accent:#4F6AA5;        /* ฟ้าน้ำเงินสุขุม */
+  --accent:#4F6AA5;        /* ฟ้าน้ำเงินสุขุม (ค่าเริ่มต้น) */
   --accent-hover:#425B8C;
   --success:#2FA56D;       /* เขียวหม่น */
   --warning:#C99532;       /* เหลืองหม่น */
@@ -41,28 +44,70 @@
   --chart-grid:rgba(255,255,255,.07);
 }
 
+/* --- CEOPolar: Theme wrapper & background guard --- */
+html, body, #__next { min-height:100%; }
+
+/* อย่าบังคับพื้นหลังสว่าง — ใช้ gradient ตามธีมเสมอ */
+.theme-exec,
+.theme-exec main {
+  background-image: linear-gradient(180deg,var(--bg-space),var(--bg-navy)) !important;
+  background-color: var(--bg) !important;
+}
+
+/* kill switch: คลาสพื้นหลังสว่างยอดฮิตให้โปร่งใสในธีม */
+.theme-exec .bg-white,
+.theme-exec .bg-gray-50,
+.theme-exec .bg-slate-50,
+.theme-exec .bg-zinc-50 { background: transparent !important; }
+
+/* map คอมโพเนนต์เก่าให้กลายเป็นการ์ดธีมใหม่ */
+.theme-exec .surface,
+.theme-exec .card-moon {
+  background: linear-gradient(180deg,var(--panel) 0%,var(--panel-elev) 100%) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--text-1) !important;
+}
+
 /* ---------- Base ---------- */
 html,body{
   min-height:100%;
-  background:linear-gradient(180deg,var(--bg-space),var(--bg-navy))!important;
+  background:linear-gradient(180deg,var(--bg-space),var(--bg-navy)) !important;
   color:var(--text-1);
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
 *{box-sizing:border-box}
 ::selection{background:rgba(79,106,165,.35);color:#fff}
+
 a{color:var(--accent);text-decoration:none}
 a:hover{color:var(--accent-hover)}
 
-/* ---------- Panels ---------- */
+/* Better focus ring for a11y */
+:where(a,button,input,select,textarea,[role="button"]):focus-visible{
+  outline:2px solid var(--ring);
+  outline-offset:2px;
+}
+
+/* ---------- Panels / Cards ---------- */
 .panel-dark{
   background:linear-gradient(180deg,var(--panel) 0%,var(--panel-elev) 100%);
   border:1px solid var(--border);
   border-radius:var(--r-lg);
-  box-shadow:var(--shadow);          /* เงาน้อยลง */
+  box-shadow:var(--shadow);
 }
-.panel-title{color:var(--text-1);font-weight:600;font-size:1rem;line-height:1.5rem}
-@media (min-width:768px){.panel-title{font-size:1.125rem;line-height:1.75rem}}
-.panel-note{background:rgba(255,255,255,.03);border:1px dashed var(--border);border-radius:var(--r-md)}
+.panel-title{
+  color:var(--text-1);font-weight:600;
+  font-size:1rem;line-height:1.5rem
+}
+@media (min-width:768px){
+  .panel-title{font-size:1.125rem;line-height:1.75rem}
+}
+.panel-note{
+  background:rgba(255,255,255,.03);
+  border:1px dashed var(--border);
+  border-radius:var(--r-md)
+}
 .muted{color:var(--muted)}
 .metric-contrast{color:var(--text-1);font-weight:700}
 .metric-contrast-sub{color:var(--text-2)}
@@ -76,68 +121,209 @@ a:hover{color:var(--accent-hover)}
 }
 .input-dark::placeholder{color:var(--muted)}
 .input-dark:focus{border-color:var(--ring);box-shadow:0 0 0 3px var(--ring-soft)}
+/* dropdown list (native) */
 select.input-dark option{color:#0f172a;background:#fff}
 
 /* ---------- Buttons (flat, muted) ---------- */
 .btn-primary{
-  background:var(--accent);color:#fff;border:1px solid transparent;border-radius:var(--r-md);
+  background:var(--accent);color:#fff;
+  border:1px solid transparent;border-radius:var(--r-md);
   padding:8px 12px;font-weight:600
 }
 .btn-primary:hover{background:var(--accent-hover)}
 .btn-primary:disabled{opacity:.6;cursor:not-allowed}
 
-.btn-success{
-  background:var(--success);color:#09130E;border:1px solid transparent;border-radius:var(--r-md);
-  padding:8px 12px;font-weight:600
-}
-.btn-success:hover{filter:brightness(.96)}
-.btn-success:disabled{opacity:.6;cursor:not-allowed}
-
 .btn-outline{
   background:transparent;color:var(--text-1);
-  border:1px solid var(--border);border-radius:var(--r-md);padding:8px 12px
+  border:1px solid var(--border);border-radius:var(--r-md);
+  padding:8px 12px;font-weight:500
 }
 .btn-outline:hover{border-color:var(--ring);box-shadow:0 0 0 3px var(--ring-soft)}
 
-.btn-danger{background:var(--danger);color:#fff;border-radius:var(--r-md);padding:8px 12px;font-weight:600}
-
-/* ---------- Progress / Gauges ---------- */
-.progress-track{background:rgba(255,255,255,.07);border-radius:999px}
-.progress-quality{background:linear-gradient(90deg,#6D86B6 0%,var(--chart-1) 100%)}     /* ฟ้าเทา */
-.progress-completion{background:linear-gradient(90deg,#4CA883 0%,var(--success) 100%)}  /* เขียวหม่น */
-.donut-center-contrast{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-1);text-shadow:0 1px 0 rgba(0,0,0,.55)}
-.score-on-dark{font-size:30px;font-weight:800;color:var(--text-1)}
-.score-on-dark-suffix{color:var(--text-2)}
-
-/* ---------- Recharts (mute colors + grid) ---------- */
-.recharts-default-tooltip{
-  background:var(--panel-2)!important;border:1px solid var(--border)!important;
-  color:var(--text-1)!important;border-radius:8px!important
+.btn-danger{
+  background:var(--danger);color:#fff;
+  border-radius:var(--r-md);padding:8px 12px;font-weight:600
 }
-.recharts-cartesian-grid line{stroke:var(--chart-grid)}
-.recharts-polar-grid .recharts-polar-grid-angle line,
-.recharts-polar-grid .recharts-polar-grid-concentric circle{stroke:var(--chart-grid)}
-.recharts-text,.recharts-label tspan,.recharts-polar-angle-axis-tick-value tspan{fill:var(--text-2)}
+.btn-success{
+  background:var(--success);color:#09130E;
+  border-radius:var(--r-md);padding:8px 12px;font-weight:600
+}
+
+/* ---------- Badges / Pills ---------- */
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 8px;border-radius:999px;
+  border:1px solid var(--border);color:var(--text-2)
+}
+.card-ok{border-color:rgba(47,165,109,.32);background:rgba(47,165,109,.08)}
+.card-warn{border-color:rgba(201,149,50,.32);background:rgba(201,149,50,.08)}
+.card-danger{border-color:rgba(211,102,102,.32);background:rgba(211,102,102,.08)}
 
 /* ---------- Tables ---------- */
 .table-dark{width:100%;border-collapse:separate;border-spacing:0;color:var(--text-1)}
 .table-dark th,.table-dark td{border-bottom:1px solid var(--border);padding:10px 12px}
 .table-dark thead th{color:var(--text-2);font-weight:600;background:rgba(255,255,255,.02)}
 
-/* ---------- Badges / Pills ---------- */
-.badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--text-2)}
-.card-ok{border-color:rgba(47,165,109,.32);background:rgba(47,165,109,.08)}
-.card-warn{border-color:rgba(201,149,50,.32);background:rgba(201,149,50,.08)}
-.card-danger{border-color:rgba(211,102,102,.32);background:rgba(211,102,102,.08)}
+/* ---------- Recharts (mute colors + grid) ---------- */
+.recharts-default-tooltip{
+  background:var(--panel-2) !important;
+  border:1px solid var(--border) !important;
+  color:var(--text-1) !important;border-radius:8px !important
+}
+.recharts-cartesian-grid line{stroke:var(--chart-grid)}
+.recharts-polar-grid .recharts-polar-grid-angle line,
+.recharts-polar-grid .recharts-polar-grid-concentric circle{stroke:var(--chart-grid)}
+.recharts-text,.recharts-label tspan,
+.recharts-polar-angle-axis-tick-value tspan{fill:var(--text-2)}
 
 /* ---------- Scrollbar (subtle) ---------- */
+.no-scrollbar{
+  -ms-overflow-style:none; /* IE/Edge */
+  scrollbar-width:none;    /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar{display:none} /* Chrome/Safari */
 *::-webkit-scrollbar{height:8px;width:8px}
 *::-webkit-scrollbar-track{background:transparent}
 *::-webkit-scrollbar-thumb{background:#243046;border-radius:8px}
 *::-webkit-scrollbar-thumb:hover{background:#2b3a52}
 
-/* ---------- Guard background ---------- */
+/* ---------- Guard background (ensure gradient) ---------- */
 html,body{
-  background-color:var(--bg)!important;
-  background-image:linear-gradient(180deg,var(--bg-space),var(--bg-navy))!important;
+  background-color:var(--bg) !important;
+  background-image:linear-gradient(180deg,var(--bg-space),var(--bg-navy)) !important;
+}
+
+/* =========== Compat: shadcn/ui token mapping =========== */
+:root {
+  /* base */
+  --background: var(--bg);
+  --foreground: var(--text-1);
+
+  /* surfaces */
+  --card: var(--panel);
+  --card-foreground: var(--text-1);
+  --popover: var(--panel-2);
+  --popover-foreground: var(--text-1);
+
+  /* brand & states */
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255,255,255,.04);
+  --secondary-foreground: var(--text-1);
+  --muted-foreground: var(--text-2);
+  --accent-foreground: #051418;
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+
+  /* borders & inputs */
+  --border: #1C2738;
+  --input: var(--border);
+  --ring: var(--ring);
+
+  /* shape */
+  --radius: 12px;
+}
+
+/* =========== Compat: generic card selectors =========== */
+.card, .Card, [data-card], .rc-card, .shd-card {
+  background: linear-gradient(180deg,var(--panel) 0%, var(--panel-elev) 100%) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--text-1);
+}
+
+/* =========== Theme wrapper for stronger specificity =========== */
+.theme-exec .panel-dark { 
+  background: linear-gradient(180deg,var(--panel) 0%, var(--panel-elev) 100%) !important;
+  border: 1px solid var(--border) !important;
+}
+.theme-exec .btn-primary { background: var(--accent) !important; }
+.theme-exec .btn-outline  { border-color: var(--border) !important; }
+.theme-exec .input-dark   { background: var(--panel-2) !important; border-color: var(--border) !important; }
+
+/* generic cards from libs (ซ้ำเพื่อเพิ่ม specificity ใต้ .theme-exec) */
+.theme-exec .card,
+.theme-exec .Card,
+.theme-exec [data-card],
+.theme-exec .rc-card,
+.theme-exec .shd-card {
+  background: linear-gradient(180deg,var(--panel) 0%,var(--panel-elev) 100%) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: var(--shadow) !important;
+  color: var(--text-1) !important;
+}
+.theme-exec .card-header,[data-card-header]{color:var(--text-1)}
+.theme-exec .card-subtle,[data-card-sub]{color:var(--text-2)}
+
+/* ===========================================================
+   CEOPolar — Executive Green (เขียวขรึมทางการ)  ⬇️  NEW SKIN
+   ใช้คู่กับ .theme-exec: เพิ่ม .theme-green ที่ตัว wrapper
+   =========================================================== */
+.theme-exec.theme-green{
+  /* Navy background เดิม: มืออาชีพ */
+  --bg-space:#0A1120;
+  --bg-navy:#0A1322;
+  --bg:#0A1120;
+
+  /* Surfaces */
+  --panel:#0E1626;
+  --panel-2:#0C1420;
+  --panel-elev:#0C1522;
+
+  /* Border / shadow (เขียวดำสุภาพ) */
+  --border:#1E2C2A;
+  --shadow:0 6px 18px rgba(0,0,0,.28);
+
+  /* Text (อ่านคม) */
+  --text-1:#E6FFF4;
+  --text-2:#C8EDE0;
+  --muted:#9DC7B9;
+
+  /* Accent: corporate green */
+  --accent:#2E7D32;       /* Green 700 */
+  --accent-hover:#276A2B;
+  --ring:#2E7D32;
+  --ring-soft:rgba(46,125,50,.35);
+
+  /* States */
+  --success:#2FA56D;
+  --warning:#C99532;
+  --danger:#D26666;
+  --info:#5EAAD6;
+
+  /* Charts */
+  --chart-1:#22A06B;      /* Emerald */
+  --chart-2:#7DCFB6;      /* Mint/Teal light */
+  --chart-grid:rgba(255,255,255,.08);
+}
+
+/* เวอร์ชันชัดขึ้นสำหรับโปรเจกเตอร์ */
+.theme-exec.theme-green.high-contrast{
+  --text-1:#F3FFF9;
+  --text-2:#D9FFF0;
+  --border:#224039;
+  --chart-grid:rgba(255,255,255,.12);
+}
+
+/* ทำให้ lib UI ต่างๆ อ่าน token ใต้ธีมนี้ */
+.theme-exec.theme-green{
+  --background: var(--bg);
+  --foreground: var(--text-1);
+  --card: var(--panel);
+  --card-foreground: var(--text-1);
+  --popover: var(--panel-2);
+  --popover-foreground: var(--text-1);
+  --primary: var(--accent);
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255,255,255,.04);
+  --secondary-foreground: var(--text-1);
+  --muted-foreground: var(--text-2);
+  --accent-foreground: #041613;
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+  --input: var(--border);
+  --ring: var(--ring);
+  --radius: 12px;
 }

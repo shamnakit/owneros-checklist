@@ -73,8 +73,8 @@ type CategoryPack = {
   label: string;
   color: string; // hex
   icon: LucideIcon;
-  primary: KPI; // การ์ดใหญ่สุดของหมวด
-  secondary: KPI[]; // การ์ดเล็ก (Top-3 ก่อน)
+  primary: KPI;        // การ์ดใหญ่สุดของหมวด
+  secondary: KPI[];    // การ์ดเล็ก (Top-3 ก่อน)
 };
 
 /** ---------- OwnerOS types (insights) ---------- */
@@ -98,8 +98,6 @@ type WarnRow = {
 
 /* ====================== Helpers ====================== */
 const clampPct = (v: number) => Math.max(0, Math.min(100, v));
-const fmtPct1 = (v: number) =>
-  `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 const fmtPct2 = (v: number) =>
   `${clampPct(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 const fmtMoney2 = (v: number) =>
@@ -225,7 +223,8 @@ function mockCategories(): CategoryPack[] {
 }
 
 /* ====================== OwnerOS constants (insights) ====================== */
-const CAT_LABEL: Record<CategoryKey, string> = {
+type CategoryKeyMap = Record<CategoryKey, string>;
+const CAT_LABEL: CategoryKeyMap = {
   strategy: "Strategy",
   structure: "Org Structure",
   sop: "SOP",
@@ -234,14 +233,6 @@ const CAT_LABEL: Record<CategoryKey, string> = {
   sales: "Sales",
 };
 const CAT_ORDER: CategoryKey[] = ["strategy", "structure", "sop", "hr", "finance", "sales"];
-const COLOR: Record<CategoryKey, string> = {
-  strategy: "#2563eb",
-  structure: "#a855f7",
-  sop: "#f59e0b",
-  hr: "#ec4899",
-  finance: "#16a34a",
-  sales: "#f59e0b",
-};
 
 /* ====================== Page Component ====================== */
 function DashboardPageImpl() {
@@ -410,8 +401,6 @@ function DashboardPageImpl() {
   };
 
   // ===== OwnerOS derived (Insights) =====
-  const totalA = total[year];
-  const totalB = total[compareYear];
   const radarData = useMemo(() => {
     const a = cats[year] || [];
     const b = cats[compareYear] || [];
@@ -427,7 +416,6 @@ function DashboardPageImpl() {
   const categoryBars = useMemo(() => {
     const a = cats[year] || [];
     const w = warns[year] || [];
-    
     const warnCount = new Map<string, number>();
     w.forEach((x) => warnCount.set(x.category, (warnCount.get(x.category) || 0) + 1));
     return CAT_ORDER.map((cat) => {
@@ -500,7 +488,7 @@ function DashboardPageImpl() {
       </div>
 
       {/* Sticky Category Tabs */}
-      <div className="panel-dark p-3 sticky top-0 z-20 backdrop-blur supports-[backdrop-filter]:bg-black/30">
+      <div className="panel-dark p-3 sticky top-0 z-20 backdrop-blur">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           {packs.map((p) => (
             <CategoryChip
@@ -520,94 +508,77 @@ function DashboardPageImpl() {
       {packs.map((p) =>
         p.key !== active ? null : (
           <div key={p.key} className="space-y-6">
-            {/* Primary KPI */}
             <PrimaryKpiCard pack={p} />
-
-            {/* Secondary — โชว์ Top-3 ก่อน */}
             <SecondaryKpiGridCollapsed
               color={p.color}
               items={p.secondary}
               collapsed={!showAllSecondary}
               onToggle={() => setShowAllSecondary((s) => !s)}
             />
-
-            {/* Alerts — แสดงตัวเลขรวม และ Top-3 */}
             <AlertsSummary color={p.color} items={[p.primary, ...p.secondary]} />
           </div>
         )
       )}
 
-      {/* Insights — ซ่อนค่าเริ่มต้น */}
+      {/* Insights */}
       <details className="panel-dark">
         <summary className="p-4 cursor-pointer select-none">Insights (Radar • Progress • Trend)</summary>
         <div className="p-6 space-y-6">
-          {errorMsg && <div className="panel-dark p-4 text-red-300 border-red-400/40">เกิดข้อผิดพลาด: {errorMsg}</div>}
+          {errorMsg && (
+            <div className="panel-dark p-4" style={{ color: "var(--danger)" }}>
+              เกิดข้อผิดพลาด: {errorMsg}
+            </div>
+          )}
 
           {/* Radar */}
-          {!loading && (
-            <div className="panel-dark">
-              <div className="p-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <Target className="text-sky-400" size={18} />
-                  <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
-                  {total[year] && (
-                    <span
-                      className={`ml-auto text-xs px-3 py-1 rounded-full ${
-                        total[year]?.tier_label === "Excellent"
-                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/30"
-                          : total[year]?.tier_label === "Developing"
-                          ? "bg-yellow-500/15 text-yellow-200 border border-yellow-400/30"
-                          : "bg-rose-500/15 text-rose-200 border border-rose-400/30"
-                      }`}
-                    >
-                      Tier: {thaiTier(total[year]!.tier_label)}
-                    </span>
-                  )}
-                </div>
-                <ResponsiveContainer width="100%" height={360}>
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                    <PolarGrid />
-                    <PolarAngleAxis dataKey="category" />
-                    <PolarRadiusAxis />
-                    <Radar name={`${year}`} dataKey="scoreA" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.45} />
-                    <Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
-                  </RadarChart>
-                </ResponsiveContainer>
+          <div className="panel-dark">
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Target size={18} style={{ color: "var(--accent)" }} />
+                <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
               </div>
+              <ResponsiveContainer width="100%" height={360}>
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                  <PolarGrid stroke="var(--chart-grid)" />
+                  <PolarAngleAxis dataKey="category" />
+                  <PolarRadiusAxis />
+                  <Radar name={`${year}`} dataKey="scoreA" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.45} />
+                  <Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
+                </RadarChart>
+              </ResponsiveContainer>
             </div>
-          )}
+          </div>
 
           {/* Category Progress */}
-          {!loading && (
-            <div className="panel-dark">
-              <div className="p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="text-emerald-400" size={18} />
-                  <h3 className="panel-title">ความคืบหน้าตามหมวด (ปี {year})</h3>
-                </div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={categoryBars}>
-                    <XAxis dataKey="name" />
-                    <YAxis domain={[0, 100]} />
-                    <Tooltip />
-                    <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+          <div className="panel-dark">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 size={18} style={{ color: "var(--accent)" }} />
+                <h3 className="panel-title">ความคืบหน้าตามหมวด (ปี {year})</h3>
               </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={categoryBars}>
+                  <CartesianGrid stroke="var(--chart-grid)" />
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          )}
+          </div>
 
           {/* Trend */}
           {trend.length > 0 && (
             <div className="panel-dark">
               <div className="p-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="text-sky-400" size={18} />
+                  <TrendingUp size={18} style={{ color: "var(--accent)" }} />
                   <h3 className="panel-title">Trend Over Time</h3>
                 </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={trend}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
                     <XAxis dataKey="year" />
                     <YAxis />
                     <Tooltip />
@@ -646,7 +617,7 @@ function HeroCard({
         <div className="text-sm muted">{title}</div>
         {status && <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(status) }} />}
       </div>
-      <div className="text-3xl font-extrabold tracking-tight text-white mt-1">{value}</div>
+      <div className="text-3xl font-extrabold tracking-tight text-[var(--text-1)] mt-1">{value}</div>
       {sub && <div className="text-xs muted mt-1">{sub}</div>}
       {trend && (
         <div className="h-[58px] mt-3">
@@ -676,14 +647,27 @@ function CategoryChip({
   brief: KPI;
   onClick: () => void;
 }) {
-  const dot = active ? "ring-2 ring-white/40" : "opacity-80";
+  const base: React.CSSProperties = {
+    background: "var(--panel-2)",
+    border: "1px solid var(--border)",
+    color: "var(--text-1)",
+  };
+  const act: React.CSSProperties = active ? { boxShadow: "0 0 0 3px var(--ring-soft)" } : {};
+
   return (
-    <button onClick={onClick} className={`px-3 py-2 rounded-xl text-sm flex items-center gap-2 bg-white/5 hover:bg-white/10 transition ${dot}`}>
+    <button
+      onClick={onClick}
+      className="px-3 py-2 rounded-xl text-sm flex items-center gap-2 transition hover:brightness-110"
+      style={{ ...base, ...act }}
+    >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: color }}>
-        <Icon size={16} className="text-white" />
+        <Icon size={16} className="text-[var(--text-1)]" />
       </span>
-      <span className="font-medium">{label}</span>
-      <span className="text-xs px-2 py-0.5 rounded-full border border-white/10 ml-1">
+      <span className="font-medium text-[var(--text-1)]">{label}</span>
+      <span
+        className="text-xs px-2 py-0.5 rounded-full ml-1"
+        style={{ border: "1px solid var(--border)", color: "var(--text-2)", background: "transparent" }}
+      >
         {brief.label.split(" ")[0]} {renderValue(brief)}
       </span>
     </button>
@@ -699,7 +683,10 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
           <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(k.status) }} />
           <div className="panel-title">{pack.label} • Primary</div>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-xs" style={{ background: pack.color + "22", color: "#fff", border: `1px solid ${pack.color}66` }}>
+        <span
+          className="px-2.5 py-1 rounded-full text-xs"
+          style={{ background: `${pack.color}22`, color: "var(--text-1)", border: `1px solid ${pack.color}66` }}
+        >
           {k.code.toUpperCase()}
         </span>
       </div>
@@ -707,7 +694,7 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
       <div className="grid grid-cols-12 gap-6 mt-2">
         <div className="col-span-12 md:col-span-5">
           <div className="text-sm muted mb-1">{k.label}</div>
-          <div className="text-3xl font-extrabold tracking-tight text-white">{renderValue(k)}</div>
+          <div className="text-3xl font-extrabold tracking-tight text-[var(--text-1)]">{renderValue(k)}</div>
         </div>
         <div className="col-span-12 md:col-span-7">
           {k.trend && (
@@ -766,7 +753,7 @@ function SecondaryKpiGridCollapsed({
               <div className="text-sm muted">{k.label}</div>
               <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(k.status) }} />
             </div>
-            <div className="text-xl font-semibold text-white mt-1">{renderValue(k)}</div>
+            <div className="text-xl font-semibold text-[var(--text-1)] mt-1">{renderValue(k)}</div>
             {k.trend && (
               <div className="h-[48px] mt-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -794,7 +781,10 @@ function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
       <div className="flex items-center gap-2 mb-2">
         <AlertTriangle size={18} style={{ color }} />
         <div className="panel-title">Alerts</div>
-        <span className="ml-auto text-xs px-2 py-1 rounded-full border border-white/10">
+        <span
+          className="ml-auto text-xs px-2 py-1 rounded-full"
+          style={{ border: "1px solid var(--border)", color: "var(--text-2)" }}
+        >
           {red}R • {amber}A
         </span>
       </div>

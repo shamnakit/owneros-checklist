@@ -1,17 +1,16 @@
 // src/components/ChecklistDashboard.tsx
-'use client';
+"use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import type { CategoryKey, ChecklistItem } from "@/services/checklistService";
 import { loadItems, calcSummary, listYears } from "@/services/checklistService";
 import { getLastYear, setLastYear } from "@/utils/yearPref";
 
-/** สีประจำหมวด (Moonship) */
+/** สีประจำหมวด (เข้าธีม muted) */
 const ACCENT: Record<CategoryKey, string> = {
   strategy: "#FFD54A",
   structure: "#2DD4BF",
-  sop: "#9D7CFF", // ม่วงตามธีมใหม่ (อ่านชัดขึ้น)
+  sop: "#9D7CFF",
   hr: "#22C55E",
   finance: "#F6C453",
   sales: "#FF7A1A",
@@ -39,8 +38,6 @@ type GroupProgress = {
 };
 
 export default function ChecklistDashboard() {
-  const router = useRouter();
-
   // ===== Years =====
   const [years, setYears] = useState<number[]>([]);
   const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -119,25 +116,27 @@ export default function ChecklistDashboard() {
   };
 
   return (
-    <main className="bg-space min-h-screen p-6 md:p-10">
+    <main className="min-h-screen p-6 md:p-10">
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-starlight">Checklist ระบบองค์กร</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--text-1)]">Checklist ระบบองค์กร</h2>
           <p className="muted mt-1">ภาพรวมสถานะ 6 หมวด (นับเฉพาะข้อที่มีหลักฐานแนบ)</p>
         </div>
 
         <div className="flex items-center gap-4">
           {/* ความครบถ้วนรวม */}
-          <div className="surface px-4 py-3 shadow-sm">
-            <div className="metric-label">ความครบถ้วนรวม</div>
-            <div className="metric-number-xl text-right">{avgPct}%</div>
+          <div className="panel-dark px-4 py-3">
+            <div className="muted text-xs">ความครบถ้วนรวม</div>
+            <div className="text-right text-3xl font-extrabold tracking-tight text-[var(--text-1)]">
+              {avgPct}%
+            </div>
           </div>
 
           {/* Year Switcher */}
-          <div className="surface px-3 py-2 shadow-sm">
+          <div className="panel-dark px-3 py-2">
             {yearLoading ? (
-              <div className="text-sm subtle">กำลังโหลดปี…</div>
+              <div className="text-sm muted">กำลังโหลดปี…</div>
             ) : (
               <select
                 value={year}
@@ -145,9 +144,7 @@ export default function ChecklistDashboard() {
                 className="input-dark text-sm"
               >
                 {years.map((y) => (
-                  <option key={y} value={y}>
-                    ปี {y}
-                  </option>
+                  <option key={y} value={y}>ปี {y}</option>
                 ))}
               </select>
             )}
@@ -157,23 +154,32 @@ export default function ChecklistDashboard() {
 
       {/* Body */}
       {loading ? (
-        <div className="surface p-10 text-center subtle">กำลังโหลดข้อมูล…</div>
+        <div className="panel-dark p-10 text-center muted">กำลังโหลดข้อมูล…</div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {groupProgress.map((g) => {
             const href = { pathname: `/checklist/${g.key}`, query: { year } };
             const accent = ACCENT[g.key];
             return (
-              <div key={g.key} className="card-moon p-6">
+              <div key={g.key} className="panel-dark p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold text-starlight">{g.title}</h3>
+                    <h3 className="text-lg font-semibold text-[var(--text-1)]">{g.title}</h3>
                     <div className="mt-1 text-sm muted">
-                      คะแนน: <span className="font-semibold text-starlight">{g.scored.toLocaleString()}</span> / {g.total.toLocaleString()}
+                      คะแนน:{" "}
+                      <span className="font-semibold text-[var(--text-1)]">
+                        {g.scored.toLocaleString()}
+                      </span>{" "}
+                      / {g.total.toLocaleString()}
                     </div>
                   </div>
-                  {/* ตัวเลขเปอร์เซ็นต์ — หนา/มีเงานุ่ม + สีรายหมวด */}
-                  <div className="metric-number" style={{ color: accent }}>{g.pct}%</div>
+                  {/* ตัวเลขเปอร์เซ็นต์ — หนา/เนียนตามธีม + สีรายหมวด */}
+                  <div
+                    className="text-3xl font-extrabold tracking-tight"
+                    style={{ color: accent, textShadow: "0 1px 0 rgba(0,0,0,.35)" }}
+                  >
+                    {g.pct}%
+                  </div>
                 </div>
 
                 {/* Progress bar */}
@@ -182,7 +188,7 @@ export default function ChecklistDashboard() {
                     className="h-2 rounded-full transition-all"
                     style={{
                       width: `${Math.min(100, Math.max(0, g.pct))}%`,
-                      background: `linear-gradient(90deg, ${accent} 0%, #FFFFFFAA 130%)`,
+                      background: `linear-gradient(90deg, ${accent} 0%, ${accent}80 60%, #FFFFFFAA 130%)`,
                       boxShadow: `0 0 18px ${accent}40`,
                     }}
                   />
@@ -190,17 +196,23 @@ export default function ChecklistDashboard() {
 
                 {/* Stats */}
                 <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                  <div className="surface p-2">
+                  <div className="panel-dark p-2">
                     <div className="muted">เสร็จ + มีไฟล์</div>
-                    <div className="mt-1 font-semibold text-starlight">{g.completed.toLocaleString()}</div>
+                    <div className="mt-1 font-semibold text-[var(--text-1)]">
+                      {g.completed.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="surface p-2">
+                  <div className="panel-dark p-2">
                     <div className="muted">ติ๊กแต่ไม่มีไฟล์</div>
-                    <div className="mt-1 font-semibold text-starlight">{g.checkedNoFile.toLocaleString()}</div>
+                    <div className="mt-1 font-semibold text-[var(--text-1)]">
+                      {g.checkedNoFile.toLocaleString()}
+                    </div>
                   </div>
-                  <div className="surface p-2">
+                  <div className="panel-dark p-2">
                     <div className="muted">ยังไม่เริ่ม</div>
-                    <div className="mt-1 font-semibold text-starlight">{g.notStarted.toLocaleString()}</div>
+                    <div className="mt-1 font-semibold text-[var(--text-1)]">
+                      {g.notStarted.toLocaleString()}
+                    </div>
                   </div>
                 </div>
 
@@ -220,11 +232,11 @@ export default function ChecklistDashboard() {
         </div>
       )}
 
-      {/* GAP & ACTION Panel (อ่านชัดขึ้น) */}
+      {/* GAP & ACTION Panel */}
       <section className="mt-8 panel-dark p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="panel-title">GAP & ACTION</h3>
-          <Link href="/actions" className="btn-ghost">ดูรายการทั้งหมด</Link>
+          <Link href="/actions" className="btn-outline">ดูรายการทั้งหมด</Link>
         </div>
         <p className="panel-note mt-2">
           สรุปจุดอ่อนสำคัญและแผนดำเนินการเร็ว — โฟกัส “ติ๊กแล้วแต่ยังไม่มีไฟล์” และ “ยังไม่เริ่ม” ในหมวดที่คะแนนต่ำ
