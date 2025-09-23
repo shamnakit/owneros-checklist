@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (CEO Focus v4.3, muted theme)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -71,10 +71,10 @@ type KPI = {
 type CategoryPack = {
   key: Category7Key;
   label: string;
-  color: string; // hex
+  color: string; // ใช้ var(--accent) ผูกกับธีม
   icon: LucideIcon;
-  primary: KPI;        // การ์ดใหญ่สุดของหมวด
-  secondary: KPI[];    // การ์ดเล็ก (Top-3 ก่อน)
+  primary: KPI;
+  secondary: KPI[];
 };
 
 /** ---------- OwnerOS types (insights) ---------- */
@@ -132,11 +132,14 @@ function mockCategories(): CategoryPack[] {
   const turnover = 10;
   const inventory = 42;
 
+  // ✅ ใช้สีจากธีมทั้งระบบ
+  const ACCENT = "var(--accent)";
+
   return [
     {
       key: "financial",
       label: "Financial",
-      color: "#10B981",
+      color: ACCENT,
       icon: Wallet,
       primary: { code: "runway", label: "Cash & Runway (วัน)", unit: "DAYS", value: runway, trend: randSpark(75, 0.04), status: traffic.runway(runway) },
       secondary: [
@@ -150,7 +153,7 @@ function mockCategories(): CategoryPack[] {
     {
       key: "customer",
       label: "Customer",
-      color: "#0EA5E9",
+      color: ACCENT,
       icon: Users,
       primary: { code: "retention", label: "Retention Rate", unit: "PCT", value: retention, trend: randSpark(86, 0.02), status: traffic.retention(retention) },
       secondary: [
@@ -162,7 +165,7 @@ function mockCategories(): CategoryPack[] {
     {
       key: "people",
       label: "People",
-      color: "#8B5CF6",
+      color: ACCENT,
       icon: UserCircle2,
       primary: { code: "turnover", label: "Turnover (ปี%)", unit: "PCT", value: turnover, trend: randSpark(11, 0.06), status: traffic.turnover(turnover) },
       secondary: [
@@ -174,7 +177,7 @@ function mockCategories(): CategoryPack[] {
     {
       key: "operational",
       label: "Operational",
-      color: "#F59E0B",
+      color: ACCENT,
       icon: Activity,
       primary: { code: "oft", label: "Fulfillment Time (วัน)", unit: "DAYS", value: 3.6, trend: randSpark(3.8, 0.1), status: "green" },
       secondary: [
@@ -186,7 +189,7 @@ function mockCategories(): CategoryPack[] {
     {
       key: "strategy",
       label: "Strategy & Market",
-      color: "#2563EB",
+      color: ACCENT,
       icon: Target,
       primary: { code: "mshare", label: "Market Share", unit: "PCT", value: 8.4, trend: randSpark(8.1, 0.08), status: "green" },
       secondary: [
@@ -198,7 +201,7 @@ function mockCategories(): CategoryPack[] {
     {
       key: "innovation",
       label: "Innovation",
-      color: "#EC4899",
+      color: ACCENT,
       icon: Sparkles,
       primary: { code: "newrev", label: "New Product Rev", unit: "PCT", value: 17, trend: randSpark(16, 0.08), status: "green" },
       secondary: [
@@ -210,7 +213,7 @@ function mockCategories(): CategoryPack[] {
     {
       key: "esg",
       label: "ESG",
-      color: "#84CC16",
+      color: ACCENT,
       icon: Leaf,
       primary: { code: "ghg", label: "GHG Intensity", unit: "COUNT", value: 0.62, trend: randSpark(0.66, 0.05), status: "green" },
       secondary: [
@@ -240,7 +243,6 @@ function DashboardPageImpl() {
   const uid = (profile as any)?.id || null;
   const orgId = uid; // TODO: ถ้า orgId แยกจาก user ให้แก้จุดนี้
 
-  // 7 หมวด + โหมดอ่านง่าย
   const packs = useMemo(() => mockCategories(), []);
   const [active, setActive] = useState<Category7Key>(packs[0].key);
   const [showAllSecondary, setShowAllSecondary] = useState(false);
@@ -292,7 +294,7 @@ function DashboardPageImpl() {
     }
   }, [year, compareYear, availableYears]);
 
-  // โหลด OwnerOS insights (ซ่อนแต่คงข้อมูล)
+  // โหลด OwnerOS insights
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
@@ -400,43 +402,12 @@ function DashboardPageImpl() {
     amber: [riskLevelFromAr(arOver30Real), riskLevelFromNps(npsReal)].filter(r=>r==="amber").length,
   };
 
-  // ===== OwnerOS derived (Insights) =====
-  const radarData = useMemo(() => {
-    const a = cats[year] || [];
-    const b = cats[compareYear] || [];
-    const byA = new Map(a.map((r) => [r.category, r.score]));
-    const byB = new Map(b.map((r) => [r.category, r.score]));
-    return CAT_ORDER.map((cat) => ({
-      category: CAT_LABEL[cat],
-      scoreA: Number(byA.get(cat) ?? 0),
-      scoreB: Number(byB.get(cat) ?? 0),
-    }));
-  }, [cats, year, compareYear]);
-
-  const categoryBars = useMemo(() => {
-    const a = cats[year] || [];
-    const w = warns[year] || [];
-    const warnCount = new Map<string, number>();
-    w.forEach((x) => warnCount.set(x.category, (warnCount.get(x.category) || 0) + 1));
-    return CAT_ORDER.map((cat) => {
-      const row = a.find((c) => c.category === cat);
-      return {
-        key: cat,
-        name: CAT_LABEL[cat],
-        value: row ? Math.round(toPct(Number(row.score), Math.max(1, Number(row.max_score_category)))) : 0,
-        evidenceRate: Number(row?.evidence_rate_pct ?? 0),
-        warnings: warnCount.get(cat) || 0,
-        raw: row,
-      };
-    });
-  }, [cats, warns, year]);
-
   /* ====================== UI ====================== */
   const heroRunway = packs.find(p => p.key === "financial")!.primary;
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header — ลดปุ่มให้เหลือเท่าที่จำเป็น */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-[var(--text-1)]">CEOPolar — Mission Control</h1>
@@ -488,7 +459,10 @@ function DashboardPageImpl() {
       </div>
 
       {/* Sticky Category Tabs */}
-      <div className="panel-dark p-3 sticky top-0 z-20 backdrop-blur">
+      <div
+        className="panel-dark p-3 sticky top-0 z-20 backdrop-blur"
+        style={{ background: "color-mix(in srgb, var(--panel) 70%, transparent)" }}
+      >
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           {packs.map((p) => (
             <CategoryChip
@@ -538,7 +512,7 @@ function DashboardPageImpl() {
                 <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
               </div>
               <ResponsiveContainer width="100%" height={360}>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData(cats, year, compareYear)}>
                   <PolarGrid stroke="var(--chart-grid)" />
                   <PolarAngleAxis dataKey="category" />
                   <PolarRadiusAxis />
@@ -557,7 +531,7 @@ function DashboardPageImpl() {
                 <h3 className="panel-title">ความคืบหน้าตามหมวด (ปี {year})</h3>
               </div>
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={categoryBars}>
+                <BarChart data={categoryBars(cats, warns, year)}>
                   <CartesianGrid stroke="var(--chart-grid)" />
                   <XAxis dataKey="name" />
                   <YAxis domain={[0, 100]} />
@@ -592,6 +566,41 @@ function DashboardPageImpl() {
       </details>
     </div>
   );
+}
+
+// helper memos
+function radarData(cats: Record<number, CatRow[]>, year: number, compareYear: number){
+  const a = cats[year] || [];
+  const b = cats[compareYear] || [];
+  const byA = new Map(a.map((r) => [r.category, r.score]));
+  const byB = new Map(b.map((r) => [r.category, r.score]));
+  return CAT_ORDER.map((cat) => ({
+    category: CAT_LABEL[cat],
+    scoreA: Number(byA.get(cat) ?? 0),
+    scoreB: Number(byB.get(cat) ?? 0),
+  }));
+}
+
+function categoryBars(
+  cats: Record<number, CatRow[]>,
+  warns: Record<number, WarnRow[]>,
+  year: number
+){
+  const a = cats[year] || [];
+  const w = warns[year] || [];
+  const warnCount = new Map<string, number>();
+  w.forEach((x) => warnCount.set(x.category, (warnCount.get(x.category) || 0) + 1));
+  return CAT_ORDER.map((cat) => {
+    const row = a.find((c) => c.category === cat);
+    return {
+      key: cat,
+      name: CAT_LABEL[cat],
+      value: row ? Math.round(toPct(Number(row.score), Math.max(1, Number(row.max_score_category)))) : 0,
+      evidenceRate: Number(row?.evidence_rate_pct ?? 0),
+      warnings: warnCount.get(cat) || 0,
+      raw: row,
+    };
+  });
 }
 
 export default dynamic(() => Promise.resolve(DashboardPageImpl), { ssr: false });
@@ -635,7 +644,7 @@ function HeroCard({
 function CategoryChip({
   active,
   label,
-  color,
+  color,          // ไม่ใช้ตรง ๆ แล้ว แต่คง signature ไว้
   icon: Icon,
   brief,
   onClick,
@@ -647,26 +656,20 @@ function CategoryChip({
   brief: KPI;
   onClick: () => void;
 }) {
-  const base: React.CSSProperties = {
-    background: "var(--panel-2)",
-    border: "1px solid var(--border)",
-    color: "var(--text-1)",
-  };
-  const act: React.CSSProperties = active ? { boxShadow: "0 0 0 3px var(--ring-soft)" } : {};
-
+  const activeStyle = active ? { boxShadow: "0 0 0 2px var(--ring-soft)" } : undefined;
   return (
     <button
       onClick={onClick}
-      className="px-3 py-2 rounded-xl text-sm flex items-center gap-2 transition hover:brightness-110"
-      style={{ ...base, ...act }}
+      className="px-3 py-2 rounded-xl text-sm flex items-center gap-2"
+      style={{ background: "rgba(255,255,255,.05)", ...(activeStyle || {}) }}
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: color }}>
-        <Icon size={16} className="text-[var(--text-1)]" />
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg" style={{ background: "var(--accent)" }}>
+        <Icon size={16} className="text-white" />
       </span>
       <span className="font-medium text-[var(--text-1)]">{label}</span>
       <span
         className="text-xs px-2 py-0.5 rounded-full ml-1"
-        style={{ border: "1px solid var(--border)", color: "var(--text-2)", background: "transparent" }}
+        style={{ border: `1px solid var(--border)`, color: "var(--text-2)" }}
       >
         {brief.label.split(" ")[0]} {renderValue(brief)}
       </span>
@@ -685,7 +688,11 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
         </div>
         <span
           className="px-2.5 py-1 rounded-full text-xs"
-          style={{ background: `${pack.color}22`, color: "var(--text-1)", border: `1px solid ${pack.color}66` }}
+          style={{
+            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+            color: "var(--text-1)",
+            border: "1px solid color-mix(in srgb, var(--accent) 40%, transparent)",
+          }}
         >
           {k.code.toUpperCase()}
         </span>
@@ -703,8 +710,8 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
                 <AreaChart data={k.trend.map((v, i) => ({ x: i, v }))}>
                   <defs>
                     <linearGradient id={`grad-${k.code}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={pack.color} stopOpacity={0.22} />
-                      <stop offset="100%" stopColor={pack.color} stopOpacity={0.0} />
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.22} />
+                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill={`url(#grad-${k.code})`} strokeWidth={1.8} />
@@ -724,7 +731,7 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
 }
 
 function SecondaryKpiGridCollapsed({
-  color,
+  color, // ไม่ใช้ตรง ๆ แล้ว
   items,
   collapsed,
   onToggle,
@@ -739,7 +746,7 @@ function SecondaryKpiGridCollapsed({
     <div className="panel-dark p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <BarChart3 size={18} style={{ color }} />
+          <BarChart3 size={18} style={{ color: "var(--accent)" }} />
           <div className="panel-title">Secondary KPIs</div>
         </div>
         <button className="btn-outline text-xs px-2 py-1" onClick={onToggle}>
@@ -779,7 +786,7 @@ function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
   return (
     <div className="panel-dark p-4">
       <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle size={18} style={{ color }} />
+        <AlertTriangle size={18} style={{ color: "var(--accent)" }} />
         <div className="panel-title">Alerts</div>
         <span
           className="ml-auto text-xs px-2 py-1 rounded-full"
@@ -813,7 +820,6 @@ function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
 /* ====================== Shared tiny utils ====================== */
 
 function statusColor(s: KPI["status"]) {
-  // muted, executive tones
   return s === "green" ? "#2FA56D" : s === "amber" ? "#C99532" : "#D26666";
 }
 function renderValue(k: KPI) {
