@@ -24,7 +24,8 @@ function getActiveKey(pathname: string): string {
   if (pathname === "/checklist") return "checklist";
   if (pathname.startsWith("/checklist/")) {
     const seg = pathname.split("/")[2] || "";
-    return `checklist:${seg}`;
+    // สำคัญ: ต้องคืนค่าเป็น "checklist:slug" เพื่อให้เข้ากับ c.key
+    return `checklist:${seg}`; 
   }
   return "";
 }
@@ -111,27 +112,25 @@ export default function Sidebar() {
     }
   };
 
-  // 1. Sidebar Item Base Style (ใช้ --text-1 และ hover แบบโปร่งใส)
+  // 1. **เปลี่ยนคลาส Tailwind เป็น CSS Variables (var(--...))**
   const baseItem =
-    "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-[var(--text-1)] hover:bg-[color-mix(in_srgb,var(--text-1)_5%,transparent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--panel)]";
-
-  // 2. Active Item Style (ใช้ --accent และ --ring-soft)
+    "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-[var(--text-2)] hover:bg-[var(--sidebar-item-hover-bg)] focus:outline-none focus:ring-2 focus:ring-[var(--ring-soft)]";
+    
+  // 2. **ใช้ active-bg และ text-1 เพื่อไฮไลต์ชัดเจน**
   const activeItem =
-    "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm ring-2 ring-[var(--ring-soft)]";
-
-  // 3. Child Item Base Style (ใช้ --text-2 และ hover แบบโปร่งใส)
+    "bg-[var(--sidebar-item-active-bg)] text-[var(--text-1)] shadow-md"; 
+    
+  // 3. **เมนูย่อยก็ใช้ตัวแปรเดียวกัน**
   const childItem =
-    "ml-9 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--text-2)] hover:bg-[color-mix(in_srgb,var(--text-1)_5%,transparent)]";
-
-  // 4. Active Child Item Style (ใช้ --accent)
-  const childActive = "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]";
+    "ml-9 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--text-2)] hover:bg-[var(--sidebar-item-hover-bg)] transition-colors duration-150";
+    
+  // 4. **เมนูย่อย Active**
+  const childActive = "bg-[var(--sidebar-item-active-bg)] font-medium text-[var(--text-1)]";
 
   return (
-    // Sidebar Container: ใช้ --panel เป็นพื้นหลังและ --border เป็นเส้นขอบเพื่อทำให้อ่านง่ายขึ้น
-    <aside
-      className="fixed left-0 top-0 bottom-0 w-64 px-3 py-6 overflow-y-auto"
-      style={{ background: 'var(--panel)', borderRight: '1px solid var(--border)' }}
-    >
+    // fixed + full-height + scroll-only-inside-sidebar
+    // 5. **แก้ไขพื้นหลังและเพิ่มเส้นขอบด้วยตัวแปร**
+    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border)] px-3 py-6 overflow-y-auto">
       {/* Header */}
       <div className="flex flex-col items-center gap-2 mb-6">
         {profile?.avatar_url ? (
@@ -142,15 +141,10 @@ export default function Sidebar() {
             className="w-16 h-16 rounded-full object-cover"
           />
         ) : (
-          // Avatar Placeholder: ใช้ --panel-2 เป็นพื้นหลังและ --text-1 เป็นสีตัวอักษร
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center text-[var(--text-1)] text-lg"
-            style={{ background: 'var(--panel-2)' }}
-          >
+          <div className="w-16 h-16 rounded-full bg-[var(--panel-2)] flex items-center justify-center text-[var(--text-1)] text-lg">
             {(profile?.full_name || "U").slice(0, 1).toUpperCase()}
           </div>
         )}
-        {/* Profile Name: ใช้ --text-1 */}
         <div className="text-[var(--text-1)] text-sm font-medium">
           {profile?.full_name || "ผู้ใช้งาน"}
         </div>
@@ -173,10 +167,10 @@ export default function Sidebar() {
           <>
             <Link
               href="/checklist"
-              // ปรับสี ring ของ Checklist link ให้เข้ากับธีม
+              // ไฮไลต์ปุ่มหลัก เมื่อเมนูหลักหรือเมนูย่อยใดๆ ถูกใช้งาน
               className={`${baseItem} ${
                 activeKey === "checklist" || activeKey.startsWith("checklist:")
-                  ? "ring-1 ring-[var(--ring-soft)]"
+                  ? activeItem
                   : ""
               }`}
               aria-current={
@@ -194,7 +188,8 @@ export default function Sidebar() {
                 <Link
                   key={c.key}
                   href={c.href}
-                  className={`${childItem} ${activeKey === c.key ? childActive : ""}`}
+                  // *** การแก้ไข: เติม childActive เมื่อ activeKey ตรงกับ c.key ***
+                  className={`${childItem} ${activeKey === c.key ? childActive : ""}`} 
                   aria-current={activeKey === c.key ? "page" : undefined}
                 >
                   <c.icon size={16} />
@@ -221,8 +216,7 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          // ปุ่ม Logout: ใช้ --danger เป็นพื้นหลังและใช้ hover:opacity-80 แทน hover:bg-rose-500
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--danger)] text-white py-2.5 hover:opacity-80 disabled:opacity-70"
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--danger)] text-white py-2.5 hover:bg-rose-500 disabled:opacity-70"
           disabled={loggingOut}
           aria-busy={loggingOut}
         >

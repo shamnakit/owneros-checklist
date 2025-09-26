@@ -819,9 +819,13 @@ function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
 
 /* ====================== Shared tiny utils ====================== */
 
+/**
+ * ✅ แก้ไข: เปลี่ยนไปใช้ CSS Variables เพื่อให้สีสถานะ (G/A/R) เปลี่ยนตามธีมใน globals.css
+ */
 function statusColor(s: KPI["status"]) {
-  return s === "green" ? "#2FA56D" : s === "amber" ? "#C99532" : "#D26666";
+  return s === "green" ? "var(--success)" : s === "amber" ? "var(--warning)" : "var(--danger)";
 }
+
 function renderValue(k: KPI) {
   switch (k.unit) {
     case "THB":

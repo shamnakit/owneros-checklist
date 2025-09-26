@@ -1,48 +1,55 @@
 /* ================================================
-   CEOPolar – Executive Dark v3 (Sharper Blue Accent)
+   CEOPolar – Executive Dark v2 (muted, global)
    Tailwind + Custom Tokens/Utilities
    ================================================ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ---------- Tokens (Sharper Executive Blue Accent) ---------- */
-/* โทนสีนี้จะถูกใช้เป็นค่าเริ่มต้นสำหรับธีม Executive Dark Blue */
+/* ---------- Tokens (Executive Slate Blue: Subtle & Lighter) ---------- */
 :root{
-  /* Backgrounds (Dark Navy/Black) */
-  --bg-space:#0A0A10; --bg-navy:#101724; --bg:#0A0A10;
+  /* Backgrounds: Deep Slate Blue */
+  --bg-space:#192A46; 
+  --bg-navy:#112038; 
+  --bg:#192A46;
 
-  /* Surfaces (Dark Navy/Gray) */
-  --panel:#161C2C;         /* สีการ์ดหลัก */
-  --panel-2:#1F273E;       /* ช่องกรอก/ภายใน */
-  --panel-elev:#273147;    /* ยกนิดหน่อย */
+  /* Surfaces: Card/Panel Colors (สว่างและนุ่มขึ้น) */
+  --panel:#2A4166;         /* การ์ด: พื้นผิวหลัก (สว่างขึ้น) */
+  --panel-2:#1A2C46;       /* ช่องกรอก/ภายใน/Tooltip: เข้มกว่า panel เล็กน้อย */
+  --panel-elev:#334D75;    /* ยกนิดหน่อย: สว่างกว่า panel เล็กน้อย (สว่างขึ้น) */
 
   /* Borders & elevation */
-  --border:#2F3954;        /* สีเส้นขอบ/เส้นแบ่ง */
-  --shadow:0 4px 12px rgba(0,0,0,.35); /* เงาเข้มขึ้นเล็กน้อย */
+  --border:#5F78A3;        /* เส้นขอบ: สีน้ำเงินเทาอ่อน (สว่างขึ้น) */
+  --shadow:0 4px 12px rgba(0,0,0,.35); /* เงาลดลง */
 
-  /* Text (อ่านง่าย AA) */
-  --text-1:#E0E7FF;        /* ข้อความหลัก (สีสว่าง) */
-  --text-2:#AAB4D8;        /* ข้อความรอง */
-  --muted:#6B7280;         /* helper */
+  /* Text (อ่านง่าย) */
+  --text-1:#FFFFFF;        /* primary: ขาวสว่าง */
+  --text-2:#B4C2D8;        /* secondary: เทาอ่อน */
+  --muted:#7F9BBF;         /* helper: เทาหม่น */
 
-  /* Accent & states (Sharp Executive Blue) */
-  --accent:#3A88FF;        /* สีเน้นหลัก: Executive Blue */
-  --accent-hover:#1E62E0;
-  --success:#2FA56D;       /* Green */
-  --warning:#C99532;       /* Amber */
-  --danger:#D26666;        /* Red */
+  /* Accent & states: ใช้สี Cyan/Teal เพื่อความน่าเชื่อถือ */
+  --accent:#1EC0CA;        /* สีเน้น: Cyan/Teal สดใส */
+  --accent-hover:#17A2A9;
+  --success:#2FA56D;       /* เขียวหม่น */
+  --warning:#C99532;       /* เหลืองหม่น */
+  --danger:#D26666;        /* แดงหม่น */
   --info:#5EAAD6;
 
-  --ring:#3A88FF; --ring-soft:rgba(58, 136, 255, 0.4);
+  --ring:var(--accent); 
+  --ring-soft:rgba(30,192,202,.3); 
+
+  /* Sidebar/Nav (NEW) */
+  --sidebar-bg:#152A46;
+  --sidebar-item-active-bg:var(--panel); /* ใช้ Panel ที่สว่างขึ้น */
+  --sidebar-item-hover-bg:#1E3352;
 
   /* Radii */
   --r-sm:8px; --r-md:10px; --r-lg:12px;
 
-  /* Charts (match accent) */
-  --chart-1:#3A88FF;       /* Executive Blue */
-  --chart-2:#19C7C7;       /* Cyan/Teal สำหรับเปรียบเทียบ */
-  --chart-grid:rgba(255,255,255,.07);
+  /* Charts (match accent / neutral) */
+  --chart-1:var(--accent); 
+  --chart-2:#94A3B8;
+  --chart-grid:rgba(255,255,255,.12); 
 }
 
 /* --- CEOPolar: Theme wrapper & background guard --- */
@@ -79,7 +86,7 @@ html,body{
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
 *{box-sizing:border-box}
-::selection{background:rgba(58, 136, 255, 0.4);color:#fff} /* ใช้ accent ใหม่ */
+::selection{background:rgba(30,192,202,.3);color:#fff}
 
 a{color:var(--accent);text-decoration:none}
 a:hover{color:var(--accent-hover)}
@@ -156,7 +163,6 @@ select.input-dark option{color:#0f172a;background:#fff}
   padding:4px 8px;border-radius:999px;
   border:1px solid var(--border);color:var(--text-2)
 }
-/* ใช้สีสถานะที่เข้มขึ้นเล็กน้อยสำหรับ Badges/Alerts */
 .card-ok{border-color:rgba(47,165,109,.32);background:rgba(47,165,109,.08)}
 .card-warn{border-color:rgba(201,149,50,.32);background:rgba(201,149,50,.08)}
 .card-danger{border-color:rgba(211,102,102,.32);background:rgba(211,102,102,.08)}
@@ -218,7 +224,7 @@ html,body{
   --destructive-foreground: #ffffff;
 
   /* borders & inputs */
-  --border: #1C2738; /* ใช้ค่าใหม่ที่เข้มขึ้น */
+  --border: #1C2738;
   --input: var(--border);
   --ring: var(--ring);
 
@@ -260,34 +266,33 @@ html,body{
 .theme-exec .card-subtle,[data-card-sub]{color:var(--text-2)}
 
 /* ===========================================================
-   CEOPolar — Executive Green (เขียวขรึมทางการ)  ⬇️  BACKUP SKIN
-   (ยังคงโค้ดเดิมไว้)
+   CEOPolar — Executive Green (TONE FIX: ใช้สีเดียวกับ Dark Theme)
    =========================================================== */
 .theme-exec.theme-green{
-  /* Navy background เดิม: มืออาชีพ */
-  --bg-space:#1717814e;
-  --bg-navy:#1f2d45;
-  --bg:#1e65ff;
+  /* Backgrounds: Deep Slate Blue */
+  --bg-space:#192A46; 
+  --bg-navy:#112038; 
+  --bg:#192A46;
 
-  /* Surfaces */
-  --panel:#06163b;
-  --panel-2:#6f7bca;
-  --panel-elev:#2f14fd;
+  /* Surfaces: Card/Panel Colors (สว่างและนุ่มขึ้น) */
+  --panel:#2A4166;         
+  --panel-2:#1A2C46;       
+  --panel-elev:#334D75;    
 
-  /* Border / shadow (เขียวดำสุภาพ) */
-  --border:#fafaff;
-  --shadow:0 6px 18px rgba(29, 8, 8, 0.778);
+  /* Border / shadow */
+  --border:#5F78A3;
+  --shadow:0 4px 12px rgba(0,0,0,.35);
 
   /* Text (อ่านคม) */
-  --text-1:#E6FFF4;
-  --text-2:#C8EDE0;
-  --muted:#9DC7B9;
+  --text-1:#FFFFFF;
+  --text-2:#B4C2D8;
+  --muted:#7F9BBF;
 
   /* Accent: corporate green */
-  --accent:#0f4fff;       /* Green 700 */
-  --accent-hover:#a9aac7;
-  --ring:#2E7D32;
-  --ring-soft:rgba(46,125,50,.35);
+  --accent:#1EC0CA;       
+  --accent-hover:#17A2A9;
+  --ring:var(--accent);
+  --ring-soft:rgba(30,192,202,.3);
 
   /* States */
   --success:#2FA56D;
@@ -295,10 +300,15 @@ html,body{
   --danger:#D26666;
   --info:#5EAAD6;
 
+  /* Sidebar/Nav (NEW) */
+  --sidebar-bg:#152A46;
+  --sidebar-item-active-bg:var(--panel);
+  --sidebar-item-hover-bg:#1E3352;
+
   /* Charts */
-  --chart-1:#22A06B;      /* Emerald */
-  --chart-2:#7DCFB6;      /* Mint/Teal light */
-  --chart-grid:rgba(255,255,255,.08);
+  --chart-1:var(--accent);
+  --chart-2:#7DCFB6;
+  --chart-grid:rgba(255,255,255,.12);
 }
 
 /* เวอร์ชันชัดขึ้นสำหรับโปรเจกเตอร์ */
