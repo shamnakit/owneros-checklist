@@ -111,17 +111,27 @@ export default function Sidebar() {
     }
   };
 
+  // 1. Sidebar Item Base Style (ใช้ --text-1 และ hover แบบโปร่งใส)
   const baseItem =
-    "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-slate-200 hover:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-blue-400/40";
+    "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors text-[var(--text-1)] hover:bg-[color-mix(in_srgb,var(--text-1)_5%,transparent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--panel)]";
+
+  // 2. Active Item Style (ใช้ --accent และ --ring-soft)
   const activeItem =
-    "bg-blue-600 text-white hover:bg-blue-600 shadow-sm ring-2 ring-blue-400/30";
+    "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-sm ring-2 ring-[var(--ring-soft)]";
+
+  // 3. Child Item Base Style (ใช้ --text-2 และ hover แบบโปร่งใส)
   const childItem =
-    "ml-9 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-700/60";
-  const childActive = "bg-blue-600 text-white hover:bg-blue-600";
+    "ml-9 mt-1 flex items-center gap-3 px-3 py-2 rounded-lg text-[var(--text-2)] hover:bg-[color-mix(in_srgb,var(--text-1)_5%,transparent)]";
+
+  // 4. Active Child Item Style (ใช้ --accent)
+  const childActive = "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]";
 
   return (
-    // fixed + full-height + scroll-only-inside-sidebar
-    <aside className="fixed left-0 top-0 bottom-0 w-64 bg-slate-900 px-3 py-6 overflow-y-auto">
+    // Sidebar Container: ใช้ --panel เป็นพื้นหลังและ --border เป็นเส้นขอบเพื่อทำให้อ่านง่ายขึ้น
+    <aside
+      className="fixed left-0 top-0 bottom-0 w-64 px-3 py-6 overflow-y-auto"
+      style={{ background: 'var(--panel)', borderRight: '1px solid var(--border)' }}
+    >
       {/* Header */}
       <div className="flex flex-col items-center gap-2 mb-6">
         {profile?.avatar_url ? (
@@ -132,11 +142,16 @@ export default function Sidebar() {
             className="w-16 h-16 rounded-full object-cover"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-slate-700/60 flex items-center justify-center text-white text-lg">
+          // Avatar Placeholder: ใช้ --panel-2 เป็นพื้นหลังและ --text-1 เป็นสีตัวอักษร
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center text-[var(--text-1)] text-lg"
+            style={{ background: 'var(--panel-2)' }}
+          >
             {(profile?.full_name || "U").slice(0, 1).toUpperCase()}
           </div>
         )}
-        <div className="text-slate-100 text-sm font-medium">
+        {/* Profile Name: ใช้ --text-1 */}
+        <div className="text-[var(--text-1)] text-sm font-medium">
           {profile?.full_name || "ผู้ใช้งาน"}
         </div>
       </div>
@@ -158,9 +173,10 @@ export default function Sidebar() {
           <>
             <Link
               href="/checklist"
+              // ปรับสี ring ของ Checklist link ให้เข้ากับธีม
               className={`${baseItem} ${
                 activeKey === "checklist" || activeKey.startsWith("checklist:")
-                  ? "ring-1 ring-blue-400/40"
+                  ? "ring-1 ring-[var(--ring-soft)]"
                   : ""
               }`}
               aria-current={
@@ -205,7 +221,8 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 text-white py-2.5 hover:bg-rose-500 disabled:opacity-70"
+          // ปุ่ม Logout: ใช้ --danger เป็นพื้นหลังและใช้ hover:opacity-80 แทน hover:bg-rose-500
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[var(--danger)] text-white py-2.5 hover:opacity-80 disabled:opacity-70"
           disabled={loggingOut}
           aria-busy={loggingOut}
         >

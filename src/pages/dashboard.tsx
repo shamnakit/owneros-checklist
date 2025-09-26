@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Dashboard)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
