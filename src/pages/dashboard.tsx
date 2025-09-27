@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Dashboard)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -64,6 +64,8 @@ type KPI = {
   trend?: number[];
   mom?: number | null;
   yoy?: number | null;
+  target?: number | null;
+  color?: string; // <-- เพิ่ม: Custom color สำหรับแสดงผล
   status: "green" | "amber" | "red";
   note?: string | null;
 };
@@ -121,6 +123,15 @@ const traffic = {
 const randSpark = (base: number, vol = 0.08, n = 24) =>
   Array.from({ length: n }).map((_, i) => base * (1 + (Math.sin((i + 3) * 1.3) * vol)));
 
+// NEW Muted Colors (ขรึม)
+const COLOR_RUNWAY = "#C9A96A"; // Gold/Bronze
+const COLOR_SALES = "#4A9C9B"; // Teal
+const COLOR_GM = "#58A870";     // Green
+const COLOR_PIPELINE = "#8D7AB5"; // Violet
+const COLOR_RISK = "#A36B4F";   // Brown-Orange (สำหรับ At-risk Card)
+const ACCENT = "var(--accent)"; // Default accent (จาก globals.css)
+
+
 function mockCategories(): CategoryPack[] {
   const revenueYoY = 18;
   const runway = 78;
@@ -132,8 +143,11 @@ function mockCategories(): CategoryPack[] {
   const turnover = 10;
   const inventory = 42;
 
-  // ✅ ใช้สีจากธีมทั้งระบบ
-  const ACCENT = "var(--accent)";
+  // NEW MOCK VALUES:
+  const gmTarget = 30; // Rank 3 target
+  const pipelineValue = 45200000; // Rank 4 Value (฿)
+  const revenueTarget = 1500000; // Sales MTD target
+  const runwayTarget = 90; // Rank 1 target
 
   return [
     {
@@ -141,10 +155,13 @@ function mockCategories(): CategoryPack[] {
       label: "Financial",
       color: ACCENT,
       icon: Wallet,
-      primary: { code: "runway", label: "Cash & Runway (วัน)", unit: "DAYS", value: runway, trend: randSpark(75, 0.04), status: traffic.runway(runway) },
+      // Runway (Rank 1) - กำหนดสีใหม่
+      primary: { code: "runway", label: "Cash & Runway (วัน)", unit: "DAYS", value: runway, trend: randSpark(75, 0.04), status: traffic.runway(runway), target: runwayTarget, color: COLOR_RUNWAY }, 
       secondary: [
-        { code: "revenue", label: "Sales MTD (฿)", unit: "THB", value: 1_250_000, trend: randSpark(1_200_000, 0.12), mom: 12, yoy: revenueYoY, status: traffic.revenueYoY(revenueYoY) },
-        { code: "gm", label: "GM%", unit: "PCT", value: gm, status: traffic.gm(gm) },
+        // Sales MTD (Rank 2) - กำหนดสีใหม่
+        { code: "revenue", label: "Sales MTD (฿)", unit: "THB", value: 1_250_000, trend: randSpark(1_200_000, 0.12), mom: 12, yoy: revenueYoY, status: traffic.revenueYoY(revenueYoY), target: revenueTarget, color: COLOR_SALES }, 
+        // GM% (Rank 3) - กำหนดสีใหม่
+        { code: "gm", label: "GM%", unit: "PCT", value: gm, status: traffic.gm(gm), target: gmTarget, color: COLOR_GM }, 
         { code: "arOver30", label: "AR >30 (฿)", unit: "THB", value: ar30, status: ar30 <= 400000 ? "green" : ar30 <= 600000 ? "amber" : "red" },
         { code: "apOver30", label: "AP >30 (฿)", unit: "THB", value: ap30, status: ap30 <= 300000 ? "green" : ap30 <= 450000 ? "amber" : "red" },
         { code: "inventoryDays", label: "Inventory Days", unit: "DAYS", value: inventory, status: traffic.inventoryDays(inventory) },
@@ -191,11 +208,12 @@ function mockCategories(): CategoryPack[] {
       label: "Strategy & Market",
       color: ACCENT,
       icon: Target,
-      primary: { code: "mshare", label: "Market Share", unit: "PCT", value: 8.4, trend: randSpark(8.1, 0.08), status: "green" },
+      primary: { code: "mshare", label: "Market Share", unit: "PCT", value: 8.4, trend: randSpark(8.1, 0.08), status: "green", color: ACCENT },
       secondary: [
         { code: "ttm", label: "Time-to-Market", unit: "DAYS", value: 58, status: "amber" },
         { code: "winrate", label: "Win Rate", unit: "PCT", value: 28, status: "amber" },
-        { code: "pipeline", label: "Pipeline (x)", unit: "COUNT", value: 2.9, status: "green" },
+        // Pipeline (Rank 4) - กำหนดสีใหม่
+        { code: "pipeline", label: "Sales Pipeline Value (฿)", unit: "THB", value: pipelineValue, status: "green", color: COLOR_PIPELINE }, 
       ],
     },
     {
@@ -384,6 +402,10 @@ function DashboardPageImpl() {
   const salesMtdDisplay = (salesMtdReal ?? mockSales);
   const mockNps = packs.find(p=>p.key==="customer")!.secondary.find(k=>k.code==="nps")!.value;
   const npsDisplay = (npsReal ?? mockNps);
+  
+  // NEW: Extract Sales and Pipeline KPIs for Hero Strip
+  const salesKpi = packs.find(p => p.key === "financial")!.secondary.find(k => k.code === "revenue")!;
+  const heroPipeline = packs.find(p=>p.key==="strategy")!.secondary.find(k=>k.code==="pipeline")!;
 
   function riskLevelFromAr(v: number | null) {
     if (v == null) return "green";
@@ -431,30 +453,43 @@ function DashboardPageImpl() {
         </div>
       </div>
 
-      {/* HERO STRIP — การ์ดใหญ่ 4 ใบ */}
+      {/* HERO STRIP — การ์ดใหญ่ 4 ใบ (อัปเดตสีตาม 5 อันดับแรกของผู้บริหาร) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        
+        {/* Card 1: Sales MTD (Rank 2) - ใช้สี Teal */}
         <HeroCard
           title="Sales MTD"
           value={`฿ ${fmtMoney2(salesMtdDisplay)}`}
-          sub={kpiLoading ? "กำลังโหลด…" : (kpiError ? "เกิดข้อผิดพลาด" : "รวมทุกช่องทาง")}
+          sub={kpiLoading ? "กำลังโหลด…" : (kpiError ? "เกิดข้อผิดพลาด" : (salesKpi.yoy != null ? `YoY +${salesKpi.yoy}%` : "รวมทุกช่องทาง"))}
+          status={salesKpi.status}
+          kpiColor={salesKpi.color} 
         />
+        
+        {/* Card 2: Runway (Rank 1) - ใช้สี Gold/Bronze */}
         <HeroCard
           title="Runway (วัน)"
           value={`${heroRunway.value.toLocaleString()} วัน`}
-          sub="Cash & Liquidity"
+          sub={heroRunway.target ? `เป้าหมาย > ${heroRunway.target} วัน` : "Cash & Liquidity"}
           trend={heroRunway.trend}
           status={heroRunway.status}
+          kpiColor={heroRunway.color} 
         />
+        
+        {/* Card 3: At-risk KPIs (Rank 5) - ใช้สี Brown-Orange (Risk) */}
         <HeroCard
           title="At-risk KPIs"
           value={`${atRiskCount.red}R • ${atRiskCount.amber}A`}
           sub={arOver30Real!=null ? `AR>30 ฿${arOver30Real.toLocaleString(undefined,{minimumFractionDigits:0})}` : "นับจาก NPS/AR (เบื้องต้น)"}
+          kpiColor={COLOR_RISK} 
         />
+        
+        {/* Card 4: Sales Pipeline Value (Rank 4) - ใช้สี Violet */}
         <HeroCard
-          title="NPS"
-          value={`${Math.round(npsDisplay)}`}
-          sub={npsReal==null ? "ยังเป็น mock (อัป NPS CSV เพื่อใช้จริง)" : "คะแนนเดือนนี้"}
-          status={riskLevelFromNps(npsReal)}
+          title="Sales Pipeline Value"
+          value={`฿ ${fmtMoney2(heroPipeline.value)}`}
+          sub="มูลค่ารวมของโอกาสขาย"
+          status={heroPipeline.status}
+          kpiColor={heroPipeline.color} 
         />
       </div>
 
@@ -613,13 +648,17 @@ function HeroCard({
   sub,
   trend,
   status,
+  kpiColor, // <-- รับสีใหม่
 }: {
   title: string;
   value: string;
   sub?: string;
   trend?: number[];
   status?: KPI["status"];
+  kpiColor?: string; // <-- รับสีใหม่
 }) {
+  const chartColor = kpiColor || "var(--chart-1)"; // ใช้สีที่ส่งมา หรือสี Chart-1 เดิม
+
   return (
     <div className="panel-dark p-4">
       <div className="flex items-center justify-between">
@@ -632,7 +671,15 @@ function HeroCard({
         <div className="h-[58px] mt-3">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trend.map((v, i) => ({ x: i, v }))}>
-              <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.08} strokeWidth={1.8} />
+              {/* ใช้สีใหม่สำหรับเส้นกราฟ */}
+              <Area 
+                type="monotone" 
+                dataKey="v" 
+                stroke={chartColor} 
+                fill={chartColor} 
+                fillOpacity={0.08} 
+                strokeWidth={1.8} 
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -679,6 +726,12 @@ function CategoryChip({
 
 function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
   const k = pack.primary;
+  const kpiColor = k.color || "var(--chart-1)"; // สีของ Primary KPI
+  
+  // NEW: Extract GM% (Rank 3)
+  const gmKpi = pack.key === "financial" ? pack.secondary.find(item => item.code === "gm") : null;
+  const gmKpiColor = gmKpi?.color || "var(--chart-1)"; // สีของ GM%
+
   return (
     <div className="panel-dark p-4">
       <div className="flex items-center justify-between">
@@ -710,17 +763,37 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
                 <AreaChart data={k.trend.map((v, i) => ({ x: i, v }))}>
                   <defs>
                     <linearGradient id={`grad-${k.code}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.22} />
-                      <stop offset="100%" stopColor="var(--accent)" stopOpacity={0.0} />
+                      {/* ใช้สีของ Primary KPI สำหรับ Gradient */}
+                      <stop offset="0%" stopColor={kpiColor} stopOpacity={0.22} />
+                      <stop offset="100%" stopColor={kpiColor} stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill={`url(#grad-${k.code})`} strokeWidth={1.8} />
+                  {/* ใช้สีของ Primary KPI สำหรับ Stroke */}
+                  <Area type="monotone" dataKey="v" stroke={kpiColor} fill={`url(#grad-${k.code})`} strokeWidth={1.8} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
         </div>
       </div>
+      
+      {/* Display GM% (Rank 3) prominently for Financial Category */}
+      {gmKpi && (
+        <div 
+          className="mt-4 pt-4 border-t border-dashed" 
+          style={{ borderColor: gmKpiColor, opacity: 0.7 }} // <-- ใช้สี GM% สำหรับเส้นแบ่ง
+        >
+          <div className="flex items-center justify-between">
+            <div className="text-sm muted mb-1">
+              {gmKpi.label}
+              {/* ใช้สี GM% สำหรับ Target เพื่อเน้น */}
+              {gmKpi.target && <span className="ml-2 text-xs" style={{ color: gmKpiColor }}> (Target: {renderValue({ ...gmKpi, value: gmKpi.target })})</span>} 
+            </div>
+            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(gmKpi.status) }} />
+          </div>
+          <div className="text-3xl font-extrabold tracking-tight text-[var(--text-1)]">{renderValue(gmKpi)}</div>
+        </div>
+      )}
 
       <div className="mt-3 flex gap-2">
         <button className="btn-primary inline-flex items-center gap-2">Assign <ArrowRight size={16} /></button>
@@ -819,13 +892,9 @@ function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
 
 /* ====================== Shared tiny utils ====================== */
 
-/**
- * ✅ แก้ไข: เปลี่ยนไปใช้ CSS Variables เพื่อให้สีสถานะ (G/A/R) เปลี่ยนตามธีมใน globals.css
- */
 function statusColor(s: KPI["status"]) {
-  return s === "green" ? "var(--success)" : s === "amber" ? "var(--warning)" : "var(--danger)";
+  return s === "green" ? "#2FA56D" : s === "amber" ? "#C99532" : "#D26666";
 }
-
 function renderValue(k: KPI) {
   switch (k.unit) {
     case "THB":
