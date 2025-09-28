@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1 + Mock Badges)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -65,9 +65,10 @@ type KPI = {
   mom?: number | null;
   yoy?: number | null;
   target?: number | null;
-  color?: string; // <-- เพิ่ม: Custom color สำหรับแสดงผล
+  color?: string; // custom KPI color
   status: "green" | "amber" | "red";
   note?: string | null;
+  mock?: boolean; // ✅ บอกว่าเป็นข้อมูลจำลอง
 };
 
 type CategoryPack = {
@@ -108,6 +109,14 @@ const toPct = (n: number, d: number) => (d ? (Number(n) / Number(d)) * 100 : 0);
 const thaiTier = (t: TotalRow["tier_label"]) =>
   t === "Excellent" ? "Excellent" : t === "Developing" ? "Developing" : "Early Stage";
 
+// NEW: Helper สำหรับ Data Freshness Tag
+const fmtLastUpdated = (date: Date | null) => {
+  if (!date) return "กำลังโหลดข้อมูล...";
+  const time = date.toLocaleTimeString("th-TH", { hour: '2-digit', minute: '2-digit', hour12: false });
+  const day = date.toLocaleDateString("th-TH", { day: 'numeric', month: 'short' });
+  return `ข้อมูลอัปเดต ณ ${time} น. (${day})`;
+};
+
 /* ====================== Thresholds (G/A/R) ====================== */
 const traffic = {
   runway: (v: number) => (v >= 90 ? "green" : v >= 45 ? "amber" : "red"),
@@ -131,6 +140,22 @@ const COLOR_PIPELINE = "#8D7AB5"; // Violet
 const COLOR_RISK = "#A36B4F";   // Brown-Orange (สำหรับ At-risk Card)
 const ACCENT = "var(--accent)"; // Default accent (จาก globals.css)
 
+// ✅ Toggle สำหรับการโชว์ป้าย MOCK ทั้งหน้า (พร้อมซ่อนเมื่อข้อมูลจริงพร้อม)
+const SHOW_MOCK_BADGE = true;
+
+// ✅ ป้าย MOCK ใช้ซ้ำ
+function MockBadge() {
+  if (!SHOW_MOCK_BADGE) return null;
+  return (
+    <span
+      className="ml-2 text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded"
+      style={{ background: "var(--warning)", color: "var(--panel)", border: "1px solid var(--border)" }}
+      title="ข้อมูลตัวอย่าง (Mock Data)"
+    >
+      MOCK
+    </span>
+  );
+}
 
 function mockCategories(): CategoryPack[] {
   const revenueYoY = 18;
@@ -145,8 +170,8 @@ function mockCategories(): CategoryPack[] {
 
   // NEW MOCK VALUES:
   const gmTarget = 30; // Rank 3 target
-  const pipelineValue = 45200000; // Rank 4 Value (฿)
-  const revenueTarget = 1500000; // Sales MTD target
+  const pipelineValue = 45_200_000; // Rank 4 Value (฿)
+  const revenueTarget = 1_500_000; // Sales MTD target
   const runwayTarget = 90; // Rank 1 target
 
   return [
@@ -155,16 +180,17 @@ function mockCategories(): CategoryPack[] {
       label: "Financial",
       color: ACCENT,
       icon: Wallet,
-      // Runway (Rank 1) - กำหนดสีใหม่
-      primary: { code: "runway", label: "Cash & Runway (วัน)", unit: "DAYS", value: runway, trend: randSpark(75, 0.04), status: traffic.runway(runway), target: runwayTarget, color: COLOR_RUNWAY }, 
+      primary: {
+        code: "runway", label: "Cash & Runway (วัน)", unit: "DAYS",
+        value: runway, trend: randSpark(75, 0.04), status: traffic.runway(runway),
+        target: runwayTarget, color: COLOR_RUNWAY, mock: true
+      },
       secondary: [
-        // Sales MTD (Rank 2) - กำหนดสีใหม่
-        { code: "revenue", label: "Sales MTD (฿)", unit: "THB", value: 1_250_000, trend: randSpark(1_200_000, 0.12), mom: 12, yoy: revenueYoY, status: traffic.revenueYoY(revenueYoY), target: revenueTarget, color: COLOR_SALES }, 
-        // GM% (Rank 3) - กำหนดสีใหม่
-        { code: "gm", label: "GM%", unit: "PCT", value: gm, status: traffic.gm(gm), target: gmTarget, color: COLOR_GM }, 
-        { code: "arOver30", label: "AR >30 (฿)", unit: "THB", value: ar30, status: ar30 <= 400000 ? "green" : ar30 <= 600000 ? "amber" : "red" },
-        { code: "apOver30", label: "AP >30 (฿)", unit: "THB", value: ap30, status: ap30 <= 300000 ? "green" : ap30 <= 450000 ? "amber" : "red" },
-        { code: "inventoryDays", label: "Inventory Days", unit: "DAYS", value: inventory, status: traffic.inventoryDays(inventory) },
+        { code: "revenue", label: "Sales MTD (฿)", unit: "THB", value: 1_250_000, trend: randSpark(1_200_000, 0.12), mom: 12, yoy: revenueYoY, status: traffic.revenueYoY(revenueYoY), target: revenueTarget, color: COLOR_SALES, mock: true },
+        { code: "gm", label: "GM%", unit: "PCT", value: gm, status: traffic.gm(gm), target: gmTarget, color: COLOR_GM, mock: true },
+        { code: "arOver30", label: "AR >30 (฿)", unit: "THB", value: ar30, status: ar30 <= 400000 ? "green" : ar30 <= 600000 ? "amber" : "red", mock: true },
+        { code: "apOver30", label: "AP >30 (฿)", unit: "THB", value: ap30, status: ap30 <= 300000 ? "green" : ap30 <= 450000 ? "amber" : "red", mock: true },
+        { code: "inventoryDays", label: "Inventory Days", unit: "DAYS", value: inventory, status: traffic.inventoryDays(inventory), mock: true },
       ],
     },
     {
@@ -172,11 +198,11 @@ function mockCategories(): CategoryPack[] {
       label: "Customer",
       color: ACCENT,
       icon: Users,
-      primary: { code: "retention", label: "Retention Rate", unit: "PCT", value: retention, trend: randSpark(86, 0.02), status: traffic.retention(retention) },
+      primary: { code: "retention", label: "Retention Rate", unit: "PCT", value: retention, trend: randSpark(86, 0.02), status: traffic.retention(retention), mock: true },
       secondary: [
-        { code: "nps", label: "NPS", unit: "PCT", value: nps, status: traffic.nps(nps) },
-        { code: "cac", label: "CAC (฿)", unit: "THB", value: 950, status: "amber" },
-        { code: "clv", label: "CLV (฿)", unit: "THB", value: 18_500, status: "green" },
+        { code: "nps", label: "NPS", unit: "PCT", value: nps, status: traffic.nps(nps), mock: true },
+        { code: "cac", label: "CAC (฿)", unit: "THB", value: 950, status: "amber", mock: true },
+        { code: "clv", label: "CLV (฿)", unit: "THB", value: 18_500, status: "green", mock: true },
       ],
     },
     {
@@ -184,11 +210,11 @@ function mockCategories(): CategoryPack[] {
       label: "People",
       color: ACCENT,
       icon: UserCircle2,
-      primary: { code: "turnover", label: "Turnover (ปี%)", unit: "PCT", value: turnover, trend: randSpark(11, 0.06), status: traffic.turnover(turnover) },
+      primary: { code: "turnover", label: "Turnover (ปี%)", unit: "PCT", value: turnover, trend: randSpark(11, 0.06), status: traffic.turnover(turnover), mock: true },
       secondary: [
-        { code: "engagement", label: "Engage", unit: "PCT", value: 76, status: "green" },
-        { code: "vacancy", label: "Vacancy", unit: "PCT", value: 3.2, status: "green" },
-        { code: "tth", label: "Time-to-Hire", unit: "DAYS", value: 22, status: "amber" },
+        { code: "engagement", label: "Engage", unit: "PCT", value: 76, status: "green", mock: true },
+        { code: "vacancy", label: "Vacancy", unit: "PCT", value: 3.2, status: "green", mock: true },
+        { code: "tth", label: "Time-to-Hire", unit: "DAYS", value: 22, status: "amber", mock: true },
       ],
     },
     {
@@ -196,11 +222,11 @@ function mockCategories(): CategoryPack[] {
       label: "Operational",
       color: ACCENT,
       icon: Activity,
-      primary: { code: "oft", label: "Fulfillment Time (วัน)", unit: "DAYS", value: 3.6, trend: randSpark(3.8, 0.1), status: "green" },
+      primary: { code: "oft", label: "Fulfillment Time (วัน)", unit: "DAYS", value: 3.6, trend: randSpark(3.8, 0.1), status: "green", mock: true },
       secondary: [
-        { code: "rpe", label: "Rev/Emp (฿)", unit: "THB", value: 385_000, status: "green" },
-        { code: "defect", label: "Defect", unit: "PCT", value: 0.9, status: "green" },
-        { code: "otd", label: "On-time", unit: "PCT", value: 94, status: "green" },
+        { code: "rpe", label: "Rev/Emp (฿)", unit: "THB", value: 385_000, status: "green", mock: true },
+        { code: "defect", label: "Defect", unit: "PCT", value: 0.9, status: "green", mock: true },
+        { code: "otd", label: "On-time", unit: "PCT", value: 94, status: "green", mock: true },
       ],
     },
     {
@@ -208,12 +234,11 @@ function mockCategories(): CategoryPack[] {
       label: "Strategy & Market",
       color: ACCENT,
       icon: Target,
-      primary: { code: "mshare", label: "Market Share", unit: "PCT", value: 8.4, trend: randSpark(8.1, 0.08), status: "green", color: ACCENT },
+      primary: { code: "mshare", label: "Market Share", unit: "PCT", value: 8.4, trend: randSpark(8.1, 0.08), status: "green", color: ACCENT, mock: true },
       secondary: [
-        { code: "ttm", label: "Time-to-Market", unit: "DAYS", value: 58, status: "amber" },
-        { code: "winrate", label: "Win Rate", unit: "PCT", value: 28, status: "amber" },
-        // Pipeline (Rank 4) - กำหนดสีใหม่
-        { code: "pipeline", label: "Sales Pipeline Value (฿)", unit: "THB", value: pipelineValue, status: "green", color: COLOR_PIPELINE }, 
+        { code: "ttm", label: "Time-to-Market", unit: "DAYS", value: 58, status: "amber", mock: true },
+        { code: "winrate", label: "Win Rate", unit: "PCT", value: 28, status: "amber", mock: true },
+        { code: "pipeline", label: "Sales Pipeline Value (฿)", unit: "THB", value: pipelineValue, status: "green", color: COLOR_PIPELINE, mock: true },
       ],
     },
     {
@@ -221,11 +246,11 @@ function mockCategories(): CategoryPack[] {
       label: "Innovation",
       color: ACCENT,
       icon: Sparkles,
-      primary: { code: "newrev", label: "New Product Rev", unit: "PCT", value: 17, trend: randSpark(16, 0.08), status: "green" },
+      primary: { code: "newrev", label: "New Product Rev", unit: "PCT", value: 17, trend: randSpark(16, 0.08), status: "green", mock: true },
       secondary: [
-        { code: "rnd", label: "R&D/Rev", unit: "PCT", value: 6.2, status: "green" },
-        { code: "ideas", label: "Ideas (#)", unit: "COUNT", value: 28, status: "green" },
-        { code: "t2proto", label: "Time-to-Proto", unit: "DAYS", value: 21, status: "green" },
+        { code: "rnd", label: "R&D/Rev", unit: "PCT", value: 6.2, status: "green", mock: true },
+        { code: "ideas", label: "Ideas (#)", unit: "COUNT", value: 28, status: "green", mock: true },
+        { code: "t2proto", label: "Time-to-Proto", unit: "DAYS", value: 21, status: "green", mock: true },
       ],
     },
     {
@@ -233,11 +258,11 @@ function mockCategories(): CategoryPack[] {
       label: "ESG",
       color: ACCENT,
       icon: Leaf,
-      primary: { code: "ghg", label: "GHG Intensity", unit: "COUNT", value: 0.62, trend: randSpark(0.66, 0.05), status: "green" },
+      primary: { code: "ghg", label: "GHG Intensity", unit: "COUNT", value: 0.62, trend: randSpark(0.66, 0.05), status: "green", mock: true },
       secondary: [
-        { code: "waste", label: "Waste YoY", unit: "PCT", value: 12, status: "green" },
-        { code: "energy", label: "Energy/Unit", unit: "COUNT", value: 1.14, status: "amber" },
-        { code: "gov", label: "Governance", unit: "PCT", value: 92, status: "green" },
+        { code: "waste", label: "Waste YoY", unit: "PCT", value: 12, status: "green", mock: true },
+        { code: "energy", label: "Energy/Unit", unit: "COUNT", value: 1.14, status: "amber", mock: true },
+        { code: "gov", label: "Governance", unit: "PCT", value: 92, status: "green", mock: true },
       ],
     },
   ];
@@ -285,6 +310,8 @@ function DashboardPageImpl() {
   const [npsReal, setNpsReal] = useState<number | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
   const [kpiError, setKpiError] = useState<string | null>(null);
+  // NEW: State สำหรับเก็บเวลาอัปเดตล่าสุด
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     try { posthog?.capture("Dashboard Viewed", { section: "ceo_focus", active }); } catch {}
@@ -388,6 +415,7 @@ function DashboardPageImpl() {
         setSalesMtdReal(s);
         setArOver30Real(ar);
         setNpsReal(nps);
+        setLastUpdated(new Date());
       } catch (e: any) {
         setKpiError(e?.message || "Load KPI failed");
       } finally {
@@ -402,10 +430,11 @@ function DashboardPageImpl() {
   const salesMtdDisplay = (salesMtdReal ?? mockSales);
   const mockNps = packs.find(p=>p.key==="customer")!.secondary.find(k=>k.code==="nps")!.value;
   const npsDisplay = (npsReal ?? mockNps);
-  
+
   // NEW: Extract Sales and Pipeline KPIs for Hero Strip
   const salesKpi = packs.find(p => p.key === "financial")!.secondary.find(k => k.code === "revenue")!;
   const heroPipeline = packs.find(p=>p.key==="strategy")!.secondary.find(k=>k.code==="pipeline")!;
+  const heroRunway = packs.find(p => p.key === "financial")!.primary;
 
   function riskLevelFromAr(v: number | null) {
     if (v == null) return "green";
@@ -424,16 +453,44 @@ function DashboardPageImpl() {
     amber: [riskLevelFromAr(arOver30Real), riskLevelFromNps(npsReal)].filter(r=>r==="amber").length,
   };
 
-  /* ====================== UI ====================== */
-  const heroRunway = packs.find(p => p.key === "financial")!.primary;
+  // ✅ Banner รวม: มี mock อยู่ในหน้าไหม
+  const hasAnyMock = useMemo(() => {
+    if (!SHOW_MOCK_BADGE) return false;
+    const inPacks = packs.some(p => p.primary.mock || p.secondary.some(s => s.mock));
+    const inHero = (salesMtdReal == null) || (npsReal == null);
+    return inPacks || inHero;
+  }, [packs, salesMtdReal, npsReal]);
 
+  /* ====================== UI ====================== */
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
+      {/* Header (ปรับปรุงเพื่อรวม Data Freshness Tag) */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-[var(--text-1)]">CEOPolar — Mission Control</h1>
-          <div className="flex items-center gap-2 text-sm">
+        {/* Left Side: Title and Data Freshness Tag */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-[var(--text-1)]">CEOPolar — Mission Control</h1>
+            {/* KPI Year/Compare Selects (Show on larger screens) */}
+            <div className="items-center gap-2 text-sm hidden sm:flex">
+              <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-dark">
+                {availableYears.map((y) => (<option key={y} value={y}>ปี {y}</option>))}
+              </select>
+              <span className="muted">เทียบกับ</span>
+              <select value={compareYear} onChange={(e) => setCompareYear(Number(e.target.value))} className="input-dark">
+                {availableYears.map((y) => (<option key={y} value={y}>ปี {y}</option>))}
+              </select>
+            </div>
+          </div>
+          {/* Data Freshness Tag */}
+          <div className="text-xs text-[var(--text-2)] ml-1">
+            {fmtLastUpdated(lastUpdated)}
+          </div>
+        </div>
+
+        {/* Right Side: Actions & Mobile Year Select */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* KPI Year/Compare Selects (Show on smaller screens) */}
+          <div className="flex items-center gap-2 text-sm sm:hidden">
             <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-dark">
               {availableYears.map((y) => (<option key={y} value={y}>ปี {y}</option>))}
             </select>
@@ -442,8 +499,7 @@ function DashboardPageImpl() {
               {availableYears.map((y) => (<option key={y} value={y}>ปี {y}</option>))}
             </select>
           </div>
-        </div>
-        <div className="flex gap-2">
+
           <button className="inline-flex items-center gap-2 btn-primary" onClick={() => alert("ส่งรายงานเช้า (mock)")}>
             ส่ง Morning Report <ArrowRight size={18} />
           </button>
@@ -453,43 +509,50 @@ function DashboardPageImpl() {
         </div>
       </div>
 
-      {/* HERO STRIP — การ์ดใหญ่ 4 ใบ (อัปเดตสีตาม 5 อันดับแรกของผู้บริหาร) */}
+      {/* ✅ แบนเนอร์รวม: แจ้งว่ามี MOCK อยู่ในหน้า */}
+      {hasAnyMock && (
+        <div className="panel-dark p-3 border-l-4" style={{ borderColor: "var(--warning)" }}>
+          ⚠️ บางตัวชี้วัดยังเป็นข้อมูลตัวอย่าง (MOCK) — ป้ายนี้จะซ่อนอัตโนมัติเมื่อเชื่อมข้อมูลจริงครบ
+        </div>
+      )}
+
+      {/* HERO STRIP — การ์ดใหญ่ 4 ใบ */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        
-        {/* Card 1: Sales MTD (Rank 2) - ใช้สี Teal */}
+        {/* 1) Sales MTD — แสดง MOCK ถ้ายัง fallback */}
         <HeroCard
           title="Sales MTD"
           value={`฿ ${fmtMoney2(salesMtdDisplay)}`}
           sub={kpiLoading ? "กำลังโหลด…" : (kpiError ? "เกิดข้อผิดพลาด" : (salesKpi.yoy != null ? `YoY +${salesKpi.yoy}%` : "รวมทุกช่องทาง"))}
           status={salesKpi.status}
-          kpiColor={salesKpi.color} 
+          kpiColor={salesKpi.color}
+          isMock={salesMtdReal == null}
         />
-        
-        {/* Card 2: Runway (Rank 1) - ใช้สี Gold/Bronze */}
+        {/* 2) Runway — ยัง mock */}
         <HeroCard
           title="Runway (วัน)"
-          value={`${heroRunway.value.toLocaleString()} วัน`}
-          sub={heroRunway.target ? `เป้าหมาย > ${heroRunway.target} วัน` : "Cash & Liquidity"}
-          trend={heroRunway.trend}
-          status={heroRunway.status}
-          kpiColor={heroRunway.color} 
+          value={`${packs.find(p => p.key === "financial")!.primary.value.toLocaleString()} วัน`}
+          sub={packs.find(p => p.key === "financial")!.primary.target ? `เป้าหมาย > ${packs.find(p => p.key === "financial")!.primary.target} วัน` : "Cash & Liquidity"}
+          trend={packs.find(p => p.key === "financial")!.primary.trend}
+          status={packs.find(p => p.key === "financial")!.primary.status}
+          kpiColor={packs.find(p => p.key === "financial")!.primary.color}
+          isMock={true}
         />
-        
-        {/* Card 3: At-risk KPIs (Rank 5) - ใช้สี Brown-Orange (Risk) */}
+        {/* 3) At-risk KPIs — ใช้จริงจาก AR/NPS ถ้าครบ */}
         <HeroCard
           title="At-risk KPIs"
           value={`${atRiskCount.red}R • ${atRiskCount.amber}A`}
           sub={arOver30Real!=null ? `AR>30 ฿${arOver30Real.toLocaleString(undefined,{minimumFractionDigits:0})}` : "นับจาก NPS/AR (เบื้องต้น)"}
-          kpiColor={COLOR_RISK} 
+          kpiColor={COLOR_RISK}
+          isMock={!(arOver30Real != null && npsReal != null)}
         />
-        
-        {/* Card 4: Sales Pipeline Value (Rank 4) - ใช้สี Violet */}
+        {/* 4) Pipeline — ยัง mock */}
         <HeroCard
           title="Sales Pipeline Value"
           value={`฿ ${fmtMoney2(heroPipeline.value)}`}
           sub="มูลค่ารวมของโอกาสขาย"
           status={heroPipeline.status}
-          kpiColor={heroPipeline.color} 
+          kpiColor={heroPipeline.color}
+          isMock={true}
         />
       </div>
 
@@ -539,63 +602,74 @@ function DashboardPageImpl() {
             </div>
           )}
 
-          {/* Radar */}
-          <div className="panel-dark">
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Target size={18} style={{ color: "var(--accent)" }} />
-                <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={360}>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData(cats, year, compareYear)}>
-                  <PolarGrid stroke="var(--chart-grid)" />
-                  <PolarAngleAxis dataKey="category" />
-                  <PolarRadiusAxis />
-                  <Radar name={`${year}`} dataKey="scoreA" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.45} />
-                  <Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Category Progress */}
-          <div className="panel-dark">
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <BarChart3 size={18} style={{ color: "var(--accent)" }} />
-                <h3 className="panel-title">ความคืบหน้าตามหมวด (ปี {year})</h3>
-              </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={categoryBars(cats, warns, year)}>
-                  <CartesianGrid stroke="var(--chart-grid)" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip />
-                  <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Trend */}
-          {trend.length > 0 && (
-            <div className="panel-dark">
-              <div className="p-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={18} style={{ color: "var(--accent)" }} />
-                  <h3 className="panel-title">Trend Over Time</h3>
+          {/* NEW: Loading Guard for Charts */}
+          {loading ? (
+            <div className="text-center muted p-8">กำลังโหลดข้อมูลเชิงลึก OwnerOS...</div>
+          ) : (
+            <>
+              {/* Radar */}
+              {cats[year]?.length > 0 && (
+              <div className="panel-dark">
+                <div className="p-6">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target size={18} style={{ color: "var(--accent)" }} />
+                    <h3 className="panel-title">Radar Chart (ปี {compareYear} vs ปี {year})</h3>
+                  </div>
+                  <ResponsiveContainer width="100%" height={360}>
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData(cats, year, compareYear)}>
+                      <PolarGrid stroke="var(--chart-grid)" />
+                      <PolarAngleAxis dataKey="category" />
+                      <PolarRadiusAxis />
+                      <Radar name={`${year}`} dataKey="scoreA" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.45} />
+                      <Radar name={`${compareYear}`} dataKey="scoreB" stroke="var(--chart-2)" fill="var(--chart-2)" fillOpacity={0.22} />
+                    </RadarChart>
+                  </ResponsiveContainer>
                 </div>
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={trend}>
-                    <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
-                    <XAxis dataKey="year" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="var(--chart-1)" dot />
-                  </LineChart>
-                </ResponsiveContainer>
               </div>
-            </div>
+              )}
+
+              {/* Category Progress */}
+              {cats[year]?.length > 0 && (
+              <div className="panel-dark">
+                <div className="p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={18} style={{ color: "var(--accent)" }} />
+                    <h3 className="panel-title">ความคืบหน้าตามหมวด (ปี {year})</h3>
+                  </div>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={categoryBars(cats, warns, year)}>
+                      <CartesianGrid stroke="var(--chart-grid)" />
+                      <XAxis dataKey="name" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <RBar dataKey="value" fill="var(--chart-1)" radius={[6,6,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              )}
+
+              {/* Trend */}
+              {trend.length > 0 && (
+                <div className="panel-dark">
+                  <div className="p-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp size={18} style={{ color: "var(--accent)" }} />
+                      <h3 className="panel-title">Trend Over Time</h3>
+                    </div>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <LineChart data={trend}>
+                        <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
+                        <XAxis dataKey="year" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="value" stroke="var(--chart-1)" dot />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </details>
@@ -648,21 +722,25 @@ function HeroCard({
   sub,
   trend,
   status,
-  kpiColor, // <-- รับสีใหม่
+  kpiColor,
+  isMock,      // ✅ เพิ่ม
 }: {
   title: string;
   value: string;
   sub?: string;
   trend?: number[];
   status?: KPI["status"];
-  kpiColor?: string; // <-- รับสีใหม่
+  kpiColor?: string;
+  isMock?: boolean; // ✅ เพิ่ม
 }) {
-  const chartColor = kpiColor || "var(--chart-1)"; // ใช้สีที่ส่งมา หรือสี Chart-1 เดิม
-
+  const chartColor = kpiColor || "var(--chart-1)";
   return (
     <div className="panel-dark p-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm muted">{title}</div>
+        <div className="text-sm muted flex items-center">
+          {title}
+          {isMock && <MockBadge />}
+        </div>
         {status && <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(status) }} />}
       </div>
       <div className="text-3xl font-extrabold tracking-tight text-[var(--text-1)] mt-1">{value}</div>
@@ -671,19 +749,12 @@ function HeroCard({
         <div className="h-[58px] mt-3">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={trend.map((v, i) => ({ x: i, v }))}>
-              {/* ใช้สีใหม่สำหรับเส้นกราฟ */}
-              <Area 
-                type="monotone" 
-                dataKey="v" 
-                stroke={chartColor} 
-                fill={chartColor} 
-                fillOpacity={0.08} 
-                strokeWidth={1.8} 
-              />
+              <Area type="monotone" dataKey="v" stroke={chartColor} fill={chartColor} fillOpacity={0.08} strokeWidth={1.8} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       )}
+      {!trend && <div className="h-[58px] mt-3" />}
     </div>
   );
 }
@@ -691,7 +762,7 @@ function HeroCard({
 function CategoryChip({
   active,
   label,
-  color,          // ไม่ใช้ตรง ๆ แล้ว แต่คง signature ไว้
+  color,          // keep signature
   icon: Icon,
   brief,
   onClick,
@@ -715,10 +786,11 @@ function CategoryChip({
       </span>
       <span className="font-medium text-[var(--text-1)]">{label}</span>
       <span
-        className="text-xs px-2 py-0.5 rounded-full ml-1"
+        className="text-xs px-2 py-0.5 rounded-full ml-1 flex items-center gap-1"
         style={{ border: `1px solid var(--border)`, color: "var(--text-2)" }}
       >
         {brief.label.split(" ")[0]} {renderValue(brief)}
+        {brief.mock && <MockBadge />}
       </span>
     </button>
   );
@@ -726,184 +798,184 @@ function CategoryChip({
 
 function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
   const k = pack.primary;
-  const kpiColor = k.color || "var(--chart-1)"; // สีของ Primary KPI
-  
-  // NEW: Extract GM% (Rank 3)
-  const gmKpi = pack.key === "financial" ? pack.secondary.find(item => item.code === "gm") : null;
-  const gmKpiColor = gmKpi?.color || "var(--chart-1)"; // สีของ GM%
+  const kpiColor = k.color || "var(--chart-1)";
+  const Icon = pack.icon;
 
   return (
-    <div className="panel-dark p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(k.status) }} />
-          <div className="panel-title">{pack.label} • Primary</div>
-        </div>
-        <span
-          className="px-2.5 py-1 rounded-full text-xs"
-          style={{
-            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
-            color: "var(--text-1)",
-            border: "1px solid color-mix(in srgb, var(--accent) 40%, transparent)",
-          }}
-        >
-          {k.code.toUpperCase()}
+    <div className="panel-dark p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Icon size={24} style={{ color: kpiColor }} />
+        <h2 className="text-lg font-semibold text-[var(--text-1)]">{pack.label}: {k.label}</h2>
+        {k.mock && <MockBadge />}
+        <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: statusColor(k.status), color: "var(--panel)" }}>
+          {k.status.toUpperCase()}
         </span>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 mt-2">
-        <div className="col-span-12 md:col-span-5">
-          <div className="text-sm muted mb-1">{k.label}</div>
-          <div className="text-3xl font-extrabold tracking-tight text-[var(--text-1)]">{renderValue(k)}</div>
-        </div>
-        <div className="col-span-12 md:col-span-7">
-          {k.trend && (
-            <div className="h-[110px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={k.trend.map((v, i) => ({ x: i, v }))}>
-                  <defs>
-                    <linearGradient id={`grad-${k.code}`} x1="0" y1="0" x2="0" y2="1">
-                      {/* ใช้สีของ Primary KPI สำหรับ Gradient */}
-                      <stop offset="0%" stopColor={kpiColor} stopOpacity={0.22} />
-                      <stop offset="100%" stopColor={kpiColor} stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  {/* ใช้สีของ Primary KPI สำหรับ Stroke */}
-                  <Area type="monotone" dataKey="v" stroke={kpiColor} fill={`url(#grad-${k.code})`} strokeWidth={1.8} />
-                </AreaChart>
-              </ResponsiveContainer>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Value & Trend */}
+        <div className="col-span-1">
+          <div className="text-5xl font-extrabold tracking-tighter text-[var(--text-1)]">
+            {renderValue(k)}
+          </div>
+          <div className="muted mt-1">{k.label}</div>
+          {k.target && (
+            <div className="text-sm mt-2" style={{ color: kpiColor }}>
+              เป้าหมาย: {renderValue({ ...k, value: k.target })}
             </div>
           )}
         </div>
-      </div>
-      
-      {/* Display GM% (Rank 3) prominently for Financial Category */}
-      {gmKpi && (
-        <div 
-          className="mt-4 pt-4 border-t border-dashed" 
-          style={{ borderColor: gmKpiColor, opacity: 0.7 }} // <-- ใช้สี GM% สำหรับเส้นแบ่ง
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-sm muted mb-1">
-              {gmKpi.label}
-              {/* ใช้สี GM% สำหรับ Target เพื่อเน้น */}
-              {gmKpi.target && <span className="ml-2 text-xs" style={{ color: gmKpiColor }}> (Target: {renderValue({ ...gmKpi, value: gmKpi.target })})</span>} 
-            </div>
-            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(gmKpi.status) }} />
-          </div>
-          <div className="text-3xl font-extrabold tracking-tight text-[var(--text-1)]">{renderValue(gmKpi)}</div>
-        </div>
-      )}
 
-      <div className="mt-3 flex gap-2">
-        <button className="btn-primary inline-flex items-center gap-2">Assign <ArrowRight size={16} /></button>
-        <button className="btn-outline inline-flex items-center gap-2">เปิดแหล่งข้อมูล <FileText size={16} /></button>
+        {/* Sparkline/Trend */}
+        <div className="col-span-2">
+          <div className="h-[120px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={(k.trend || randSpark(k.value, 0.05)).map((v, i) => ({ x: i, v }))}>
+                <Tooltip />
+                <Area type="monotone" dataKey="v" stroke={kpiColor} fill={kpiColor} fillOpacity={0.15} strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* Call to Action */}
+      <div className="flex justify-end pt-4 border-t border-[var(--border)]">
+        {/* ✅ FIX: legacyBehavior + <a> กัน error child.props */}
+        <Link href={`/kpi/${k.code}`} legacyBehavior>
+          <a className="btn-outline">ดูแนวโน้มและรายละเอียด</a>
+        </Link>
+        <button onClick={() => alert(`สร้าง Action Plan สำหรับ ${k.label}`)} className="btn-primary ml-2">
+          สร้าง Action Plan
+        </button>
       </div>
     </div>
   );
 }
 
 function SecondaryKpiGridCollapsed({
-  color, // ไม่ใช้ตรง ๆ แล้ว
   items,
   collapsed,
   onToggle,
+  color,
 }: {
-  color: string;
   items: KPI[];
   collapsed: boolean;
   onToggle: () => void;
+  color: string;
 }) {
-  const shown = collapsed ? items.slice(0, 3) : items;
+  const displayItems = collapsed ? items.slice(0, 4) : items;
+
   return (
-    <div className="panel-dark p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <BarChart3 size={18} style={{ color: "var(--accent)" }} />
-          <div className="panel-title">Secondary KPIs</div>
-        </div>
-        <button className="btn-outline text-xs px-2 py-1" onClick={onToggle}>
-          {collapsed ? "ดูทั้งหมด" : "ย่อ"}
-        </button>
+    <div className="panel-dark p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <FileText size={18} style={{ color: color }} />
+        <h3 className="panel-title">Secondary KPIs ({items.length} ตัวชี้วัดสำคัญ)</h3>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
-        {shown.map((k) => (
-          <div key={k.code} className="panel-dark p-3">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {displayItems.map((k) => (
+          <div key={k.code} className="p-4 rounded-xl" style={{ border: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between">
-              <div className="text-sm muted">{k.label}</div>
-              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(k.status) }} />
+              <div className="text-sm muted flex items-center">
+                {k.label}
+                {k.mock && <MockBadge />}
+              </div>
+              <span className="inline-block w-2 h-2 rounded-full" style={{ background: statusColor(k.status) }} />
             </div>
-            <div className="text-xl font-semibold text-[var(--text-1)] mt-1">{renderValue(k)}</div>
-            {k.trend && (
-              <div className="h-[48px] mt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={k.trend.map((v, i) => ({ x: i, v }))}>
-                    <Area type="monotone" dataKey="v" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.10} strokeWidth={1.6} />
-                  </AreaChart>
-                </ResponsiveContainer>
+            <div className="text-2xl font-bold tracking-tight text-[var(--text-1)] mt-1">{renderValue(k)}</div>
+            {k.yoy && (
+              <div className="text-xs mt-1" style={{ color: k.yoy >= 0 ? "var(--success)" : "var(--danger)" }}>
+                YoY: {k.yoy > 0 ? "+" : ""}{k.yoy}%
               </div>
             )}
           </div>
         ))}
       </div>
+
+      {items.length > 4 && (
+        <button className="btn-link mt-4" onClick={onToggle}>
+          {collapsed ? `+ ดูอีก ${items.length - 4} รายการ` : "- ซ่อนรายการ"}
+        </button>
+      )}
     </div>
   );
 }
 
-function AlertsSummary({ color, items }: { color: string; items: KPI[] }) {
-  const list = items.filter((k) => k.status !== "green");
-  const red = list.filter((k) => k.status === "red").length;
-  const amber = list.filter((k) => k.status === "amber").length;
-  const top = list.slice(0, 3);
+function AlertsSummary({ items }: { items: KPI[]; color: string }) {
+  const critical = items.filter((k) => k.status === "red");
+  const warning = items.filter((k) => k.status === "amber");
+
+  if (critical.length === 0 && warning.length === 0) return null;
 
   return (
-    <div className="panel-dark p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <AlertTriangle size={18} style={{ color: "var(--accent)" }} />
-        <div className="panel-title">Alerts</div>
-        <span
-          className="ml-auto text-xs px-2 py-1 rounded-full"
-          style={{ border: "1px solid var(--border)", color: "var(--text-2)" }}
-        >
-          {red}R • {amber}A
-        </span>
-      </div>
-      {top.length ? (
-        <ul className="space-y-2">
-          {top.map((a) => (
-            <li key={a.code} className="panel-dark p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(a.status) }} />
-                <div className="font-medium text-[var(--text-1)]">{a.label}</div>
-              </div>
-              <span className="text-xs muted">{renderValue(a)}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-sm muted">ไม่มีความเสี่ยงสำคัญ</div>
+    <div className="space-y-4">
+      {/* Critical Alerts (RED) */}
+      {critical.length > 0 && (
+        <div className="panel-dark p-4 border-l-4" style={{ borderColor: statusColor("red") }}>
+          <div className="flex items-center gap-3 mb-3">
+            <AlertTriangle size={24} style={{ color: statusColor("red") }} />
+            <div className="font-semibold text-[var(--text-1)]">Alerts & Warnings ({critical.length} รายการ)</div>
+          </div>
+          <ul className="space-y-2">
+            {critical.map((k) => (
+              <li key={k.code} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full" style={{ background: statusColor("red") }} />
+                  <span className="muted">{k.label}:</span>
+                  <span className="font-medium" style={{ color: statusColor("red") }}>{renderValue(k)}</span>
+                </div>
+                <button onClick={() => alert(`มอบหมายงาน ${k.label}`)} className="btn-link text-xs">
+                  มอบหมายงาน
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-      <div className="mt-3">
-        <Link href={`/checklist`} className="btn-primary inline-flex items-center gap-2">Assign งาน <ArrowRight size={16} /></Link>
-      </div>
+
+      {/* Warning Alerts (AMBER) */}
+      {warning.length > 0 && (
+        <div className="panel-dark p-4 border-l-4" style={{ borderColor: statusColor("amber") }}>
+          <div className="flex items-center gap-3 mb-3">
+            <AlertTriangle size={24} style={{ color: statusColor("amber") }} />
+            <div className="font-semibold text-[var(--text-1)]">Needs Attention ({warning.length} รายการ)</div>
+          </div>
+          <ul className="space-y-2">
+            {warning.map((k) => (
+              <li key={k.code} className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full" style={{ background: statusColor("amber") }} />
+                  <span className="muted">{k.label}:</span>
+                  <span className="font-medium" style={{ color: statusColor("amber") }}>{renderValue(k)}</span>
+                </div>
+                <button onClick={() => alert(`สร้าง Action Plan ${k.label}`)} className="btn-link text-xs">
+                  สร้าง Action Plan
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ====================== Shared tiny utils ====================== */
-
-function statusColor(s: KPI["status"]) {
-  return s === "green" ? "#2FA56D" : s === "amber" ? "#C99532" : "#D26666";
+function statusColor(status: KPI["status"]) {
+  switch (status) {
+    case "green": return "var(--success)";
+    case "amber": return "var(--warning)";
+    case "red":   return "var(--danger)";
+  }
 }
-function renderValue(k: KPI) {
+
+function renderValue(k: KPI): string {
+  const v = k.value;
   switch (k.unit) {
-    case "THB":
-      return `฿ ${fmtMoney2(k.value)}`;
-    case "PCT":
-      return fmtPct2(k.value);
-    case "DAYS":
-      return `${k.value.toLocaleString()} วัน`;
-    default:
-      return k.value.toLocaleString();
+    case "THB":  return `฿${fmtMoney2(v)}`;
+    case "PCT":  return fmtPct2(v);
+    case "DAYS": return `${Math.round(v).toLocaleString()}`;
+    case "COUNT":return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    default:     return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
 }
