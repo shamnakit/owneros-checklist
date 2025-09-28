@@ -1,4 +1,4 @@
-// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1 + Mock Badges)
+// /src/pages/dashboard.tsx — CEOPolar Mission Control (Executive Green v1 + Mock Badges + TH labels)
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -68,7 +68,7 @@ type KPI = {
   color?: string; // custom KPI color
   status: "green" | "amber" | "red";
   note?: string | null;
-  mock?: boolean; // ✅ บอกว่าเป็นข้อมูลจำลอง
+  mock?: boolean; // ✅ ข้อมูลจำลอง?
 };
 
 type CategoryPack = {
@@ -117,6 +117,63 @@ const fmtLastUpdated = (date: Date | null) => {
   return `ข้อมูลอัปเดต ณ ${time} น. (${day})`;
 };
 
+/* ===== TH labels for KPI headers ===== */
+const LABEL_TH: Record<string, string> = {
+  // Finance
+  runway: "เงินสดพอใช้ (วัน)",
+  revenue: "ยอดขายเดือนนี้ (MTD)",
+  gm: "อัตรากำไรขั้นต้น",
+  arOver30: "ลูกหนี้เกิน 30 วัน",
+  apOver30: "เจ้าหนี้เกิน 30 วัน",
+  inventoryDays: "สต็อกคงเหลือ (วัน)",
+
+  // Customer
+  retention: "อัตราการรักษาลูกค้า",
+  nps: "คะแนนความพึงพอใจ (NPS)",
+  cac: "ต้นทุนหาลูกค้า (CAC)",
+  clv: "มูลค่าตลอดอายุลูกค้า (CLV)",
+
+  // People
+  turnover: "อัตราลาออกต่อปี",
+  engagement: "คะแนนมีส่วนร่วม",
+  vacancy: "ตำแหน่งว่าง",
+  tth: "เวลาหาคน (Time-to-Hire)",
+
+  // Operational
+  oft: "ระยะเวลาส่งมอบ (วัน)",
+  rpe: "รายได้ต่อพนักงาน",
+  defect: "อัตราของเสีย",
+  otd: "ส่งตรงเวลา",
+
+  // Strategy
+  mshare: "ส่วนแบ่งตลาด",
+  ttm: "เวลาสู่ตลาด (Time-to-Market)",
+  winrate: "อัตราชนะดีล",
+  pipeline: "มูลค่าโอกาสขาย",
+
+  // Innovation
+  newrev: "รายได้จากสินค้านวัตกรรม",
+  rnd: "งบวิจัยต่อรายได้",
+  ideas: "จำนวนไอเดีย",
+  t2proto: "เวลาถึงต้นแบบ",
+
+  // ESG
+  ghg: "ความเข้มข้นก๊าซเรือนกระจก",
+  waste: "ของเสียเทียบปีก่อน (YoY)",
+  energy: "พลังงานต่อหน่วย",
+  gov: "ธรรมาภิบาล",
+
+  // Virtual (Hero)
+  at_risk: "ตัวชี้วัดเสี่ยงรวม",
+  sales_mtd: "ยอดขายเดือนนี้ (MTD)",
+  runway_days: "เงินสดพอใช้ (วัน)",
+  pipeline_value: "มูลค่าโอกาสขายรวม",
+};
+function withThai(enLabel: string, code?: string) {
+  const th = code && LABEL_TH[code];
+  return th ? `${enLabel} · ${th}` : enLabel;
+}
+
 /* ====================== Thresholds (G/A/R) ====================== */
 const traffic = {
   runway: (v: number) => (v >= 90 ? "green" : v >= 45 ? "amber" : "red"),
@@ -137,10 +194,10 @@ const COLOR_RUNWAY = "#C9A96A"; // Gold/Bronze
 const COLOR_SALES = "#4A9C9B"; // Teal
 const COLOR_GM = "#58A870";     // Green
 const COLOR_PIPELINE = "#8D7AB5"; // Violet
-const COLOR_RISK = "#A36B4F";   // Brown-Orange (สำหรับ At-risk Card)
-const ACCENT = "var(--accent)"; // Default accent (จาก globals.css)
+const COLOR_RISK = "#A36B4F";   // Brown-Orange
+const ACCENT = "var(--accent)"; // Default accent
 
-// ✅ Toggle สำหรับการโชว์ป้าย MOCK ทั้งหน้า (พร้อมซ่อนเมื่อข้อมูลจริงพร้อม)
+// ✅ Toggle ป้าย MOCK ทั้งหน้า
 const SHOW_MOCK_BADGE = true;
 
 // ✅ ป้าย MOCK ใช้ซ้ำ
@@ -168,11 +225,10 @@ function mockCategories(): CategoryPack[] {
   const turnover = 10;
   const inventory = 42;
 
-  // NEW MOCK VALUES:
-  const gmTarget = 30; // Rank 3 target
-  const pipelineValue = 45_200_000; // Rank 4 Value (฿)
-  const revenueTarget = 1_500_000; // Sales MTD target
-  const runwayTarget = 90; // Rank 1 target
+  const gmTarget = 30;
+  const pipelineValue = 45_200_000;
+  const revenueTarget = 1_500_000;
+  const runwayTarget = 90;
 
   return [
     {
@@ -310,7 +366,6 @@ function DashboardPageImpl() {
   const [npsReal, setNpsReal] = useState<number | null>(null);
   const [kpiLoading, setKpiLoading] = useState(false);
   const [kpiError, setKpiError] = useState<string | null>(null);
-  // NEW: State สำหรับเก็บเวลาอัปเดตล่าสุด
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -425,13 +480,10 @@ function DashboardPageImpl() {
     return () => { mounted = false; };
   }, [orgId]);
 
-  // ===== Hero values (ผสม real + mock สำรอง) =====
+  // ===== Hero values (Real + Fallback) =====
   const mockSales = packs.find(p=>p.key==="financial")!.secondary.find(k=>k.code==="revenue")!.value;
   const salesMtdDisplay = (salesMtdReal ?? mockSales);
-  const mockNps = packs.find(p=>p.key==="customer")!.secondary.find(k=>k.code==="nps")!.value;
-  const npsDisplay = (npsReal ?? mockNps);
 
-  // NEW: Extract Sales and Pipeline KPIs for Hero Strip
   const salesKpi = packs.find(p => p.key === "financial")!.secondary.find(k => k.code === "revenue")!;
   const heroPipeline = packs.find(p=>p.key==="strategy")!.secondary.find(k=>k.code==="pipeline")!;
   const heroRunway = packs.find(p => p.key === "financial")!.primary;
@@ -464,13 +516,12 @@ function DashboardPageImpl() {
   /* ====================== UI ====================== */
   return (
     <div className="p-6 space-y-6">
-      {/* Header (ปรับปรุงเพื่อรวม Data Freshness Tag) */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        {/* Left Side: Title and Data Freshness Tag */}
+        {/* Left: Title & freshness */}
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-[var(--text-1)]">CEOPolar — Mission Control</h1>
-            {/* KPI Year/Compare Selects (Show on larger screens) */}
             <div className="items-center gap-2 text-sm hidden sm:flex">
               <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-dark">
                 {availableYears.map((y) => (<option key={y} value={y}>ปี {y}</option>))}
@@ -481,15 +532,13 @@ function DashboardPageImpl() {
               </select>
             </div>
           </div>
-          {/* Data Freshness Tag */}
           <div className="text-xs text-[var(--text-2)] ml-1">
             {fmtLastUpdated(lastUpdated)}
           </div>
         </div>
 
-        {/* Right Side: Actions & Mobile Year Select */}
+        {/* Right: actions & mobile selects */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* KPI Year/Compare Selects (Show on smaller screens) */}
           <div className="flex items-center gap-2 text-sm sm:hidden">
             <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-dark">
               {availableYears.map((y) => (<option key={y} value={y}>ปี {y}</option>))}
@@ -509,45 +558,52 @@ function DashboardPageImpl() {
         </div>
       </div>
 
-      {/* ✅ แบนเนอร์รวม: แจ้งว่ามี MOCK อยู่ในหน้า */}
+      {/* ✅ แบนเนอร์รวม */}
       {hasAnyMock && (
         <div className="panel-dark p-3 border-l-4" style={{ borderColor: "var(--warning)" }}>
           ⚠️ บางตัวชี้วัดยังเป็นข้อมูลตัวอย่าง (MOCK) — ป้ายนี้จะซ่อนอัตโนมัติเมื่อเชื่อมข้อมูลจริงครบ
         </div>
       )}
 
-      {/* HERO STRIP — การ์ดใหญ่ 4 ใบ */}
+      {/* HERO STRIP — 4 cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* 1) Sales MTD — แสดง MOCK ถ้ายัง fallback */}
+        {/* Sales MTD (Real fallback) */}
         <HeroCard
           title="Sales MTD"
+          kpiCode="sales_mtd"
           value={`฿ ${fmtMoney2(salesMtdDisplay)}`}
           sub={kpiLoading ? "กำลังโหลด…" : (kpiError ? "เกิดข้อผิดพลาด" : (salesKpi.yoy != null ? `YoY +${salesKpi.yoy}%` : "รวมทุกช่องทาง"))}
           status={salesKpi.status}
           kpiColor={salesKpi.color}
           isMock={salesMtdReal == null}
         />
-        {/* 2) Runway — ยัง mock */}
+
+        {/* Runway (mock) */}
         <HeroCard
           title="Runway (วัน)"
-          value={`${packs.find(p => p.key === "financial")!.primary.value.toLocaleString()} วัน`}
-          sub={packs.find(p => p.key === "financial")!.primary.target ? `เป้าหมาย > ${packs.find(p => p.key === "financial")!.primary.target} วัน` : "Cash & Liquidity"}
-          trend={packs.find(p => p.key === "financial")!.primary.trend}
-          status={packs.find(p => p.key === "financial")!.primary.status}
-          kpiColor={packs.find(p => p.key === "financial")!.primary.color}
+          kpiCode="runway_days"
+          value={`${heroRunway.value.toLocaleString()} วัน`}
+          sub={heroRunway.target ? `เป้าหมาย > ${heroRunway.target} วัน` : "Cash & Liquidity"}
+          trend={heroRunway.trend}
+          status={heroRunway.status}
+          kpiColor={heroRunway.color}
           isMock={true}
         />
-        {/* 3) At-risk KPIs — ใช้จริงจาก AR/NPS ถ้าครบ */}
+
+        {/* At-risk (mix real) */}
         <HeroCard
           title="At-risk KPIs"
+          kpiCode="at_risk"
           value={`${atRiskCount.red}R • ${atRiskCount.amber}A`}
           sub={arOver30Real!=null ? `AR>30 ฿${arOver30Real.toLocaleString(undefined,{minimumFractionDigits:0})}` : "นับจาก NPS/AR (เบื้องต้น)"}
           kpiColor={COLOR_RISK}
           isMock={!(arOver30Real != null && npsReal != null)}
         />
-        {/* 4) Pipeline — ยัง mock */}
+
+        {/* Pipeline (mock) */}
         <HeroCard
           title="Sales Pipeline Value"
+          kpiCode="pipeline_value"
           value={`฿ ${fmtMoney2(heroPipeline.value)}`}
           sub="มูลค่ารวมของโอกาสขาย"
           status={heroPipeline.status}
@@ -556,7 +612,7 @@ function DashboardPageImpl() {
         />
       </div>
 
-      {/* Sticky Category Tabs */}
+      {/* Sticky tabs */}
       <div
         className="panel-dark p-3 sticky top-0 z-20 backdrop-blur"
         style={{ background: "color-mix(in srgb, var(--panel) 70%, transparent)" }}
@@ -576,7 +632,7 @@ function DashboardPageImpl() {
         </div>
       </div>
 
-      {/* Active Category Panel */}
+      {/* Active category */}
       {packs.map((p) =>
         p.key !== active ? null : (
           <div key={p.key} className="space-y-6">
@@ -602,7 +658,6 @@ function DashboardPageImpl() {
             </div>
           )}
 
-          {/* NEW: Loading Guard for Charts */}
           {loading ? (
             <div className="text-center muted p-8">กำลังโหลดข้อมูลเชิงลึก OwnerOS...</div>
           ) : (
@@ -680,6 +735,8 @@ function DashboardPageImpl() {
 // helper memos
 function radarData(cats: Record<number, CatRow[]>, year: number, compareYear: number){
   const a = cats[year] || [];
+  the: {
+  }
   const b = cats[compareYear] || [];
   const byA = new Map(a.map((r) => [r.category, r.score]));
   const byB = new Map(b.map((r) => [r.category, r.score]));
@@ -723,7 +780,8 @@ function HeroCard({
   trend,
   status,
   kpiColor,
-  isMock,      // ✅ เพิ่ม
+  isMock,
+  kpiCode,     // ✅ TH label mapping
 }: {
   title: string;
   value: string;
@@ -731,14 +789,15 @@ function HeroCard({
   trend?: number[];
   status?: KPI["status"];
   kpiColor?: string;
-  isMock?: boolean; // ✅ เพิ่ม
+  isMock?: boolean;
+  kpiCode?: string;
 }) {
   const chartColor = kpiColor || "var(--chart-1)";
   return (
     <div className="panel-dark p-4">
       <div className="flex items-center justify-between">
         <div className="text-sm muted flex items-center">
-          {title}
+          {withThai(title, kpiCode)}
           {isMock && <MockBadge />}
         </div>
         {status && <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: statusColor(status) }} />}
@@ -789,7 +848,7 @@ function CategoryChip({
         className="text-xs px-2 py-0.5 rounded-full ml-1 flex items-center gap-1"
         style={{ border: `1px solid var(--border)`, color: "var(--text-2)" }}
       >
-        {brief.label.split(" ")[0]} {renderValue(brief)}
+        {withThai(brief.label.split(" ")[0], brief.code)}{": "}{renderValue(brief)}
         {brief.mock && <MockBadge />}
       </span>
     </button>
@@ -805,7 +864,9 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
     <div className="panel-dark p-6 space-y-4">
       <div className="flex items-center gap-2">
         <Icon size={24} style={{ color: kpiColor }} />
-        <h2 className="text-lg font-semibold text-[var(--text-1)]">{pack.label}: {k.label}</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-1)]">
+          {pack.label}: {withThai(k.label, k.code)}
+        </h2>
         {k.mock && <MockBadge />}
         <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={{ background: statusColor(k.status), color: "var(--panel)" }}>
           {k.status.toUpperCase()}
@@ -818,7 +879,7 @@ function PrimaryKpiCard({ pack }: { pack: CategoryPack }) {
           <div className="text-5xl font-extrabold tracking-tighter text-[var(--text-1)]">
             {renderValue(k)}
           </div>
-          <div className="muted mt-1">{k.label}</div>
+          <div className="muted mt-1">{withThai(k.label, k.code)}</div>
           {k.target && (
             <div className="text-sm mt-2" style={{ color: kpiColor }}>
               เป้าหมาย: {renderValue({ ...k, value: k.target })}
@@ -878,7 +939,7 @@ function SecondaryKpiGridCollapsed({
           <div key={k.code} className="p-4 rounded-xl" style={{ border: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between">
               <div className="text-sm muted flex items-center">
-                {k.label}
+                {withThai(k.label, k.code)}
                 {k.mock && <MockBadge />}
               </div>
               <span className="inline-block w-2 h-2 rounded-full" style={{ background: statusColor(k.status) }} />
@@ -922,7 +983,7 @@ function AlertsSummary({ items }: { items: KPI[]; color: string }) {
               <li key={k.code} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full" style={{ background: statusColor("red") }} />
-                  <span className="muted">{k.label}:</span>
+                  <span className="muted">{withThai(k.label, k.code)}:</span>
                   <span className="font-medium" style={{ color: statusColor("red") }}>{renderValue(k)}</span>
                 </div>
                 <button onClick={() => alert(`มอบหมายงาน ${k.label}`)} className="btn-link text-xs">
@@ -946,7 +1007,7 @@ function AlertsSummary({ items }: { items: KPI[]; color: string }) {
               <li key={k.code} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full" style={{ background: statusColor("amber") }} />
-                  <span className="muted">{k.label}:</span>
+                  <span className="muted">{withThai(k.label, k.code)}:</span>
                   <span className="font-medium" style={{ color: statusColor("amber") }}>{renderValue(k)}</span>
                 </div>
                 <button onClick={() => alert(`สร้าง Action Plan ${k.label}`)} className="btn-link text-xs">
