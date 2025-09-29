@@ -245,15 +245,17 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-10">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">⚙️ ตั้งค่าระบบ</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-6">
+        <span className="text-blue-800">⚙️</span> ตั้งค่าระบบ
+      </h1>
 
       <div className="space-y-6">
         {/* ชื่อบริษัท */}
         <div>
-          <label className="block font-semibold text-sm mb-1">ชื่อบริษัท</label>
+          <label className="block font-semibold text-sm mb-1 text-gray-700">ชื่อบริษัท</label>
           <input
             type="text"
-            className="w-full border px-4 py-2 rounded"
+            className="w-full border border-gray-300 px-4 py-2 rounded focus:ring-blue-500 focus:border-blue-500"
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
             placeholder="เช่น เจ้าของกิจการ จำกัด"
@@ -262,11 +264,11 @@ export default function SettingsPage() {
 
         {/* โลโก้บริษัท (อัปโหลด & URL ทางเลือก) */}
         <div className="space-y-3">
-          <label className="block font-semibold text-sm">โลโก้บริษัท</label>
+          <label className="block font-semibold text-sm text-gray-700">โลโก้บริษัท</label>
 
           {/* ปุ่มอัปโหลด */}
           <div className="flex items-center gap-3">
-            <label className="inline-flex items-center gap-2 px-4 py-2 rounded bg-slate-100 hover:bg-slate-200 cursor-pointer">
+            <label className="inline-flex items-center gap-2 px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-800 cursor-pointer disabled:opacity-50">
               {uploading ? "กำลังอัปโหลด..." : "📤 อัปโหลดโลโก้"}
               <input
                 type="file"
@@ -285,7 +287,8 @@ export default function SettingsPage() {
               <button
                 onClick={handleLogoDelete}
                 disabled={uploading}
-                className="px-3 py-2 rounded bg-red-50 text-red-600 hover:bg-red-100"
+                // ปรับปุ่มลบให้เป็นโทนเทาเพื่อความเป็นทางการ แต่ยังคงสีแดงอ่อนไว้ด้านใน
+                className="px-3 py-2 rounded bg-gray-100 text-red-600 border border-gray-300 hover:bg-red-50"
                 title="ลบโลโก้"
               >
                 🗑️ ลบโลโก้
@@ -296,11 +299,11 @@ export default function SettingsPage() {
           {/* ป้อน URL เอง (ทางเลือก) */}
           <div>
             <label className="block font-semibold text-xs text-gray-600 mb-1">
-              หรือใส่ URL
+              หรือใส่ URL (เฉพาะผู้เชี่ยวชาญ)
             </label>
             <input
               type="url"
-              className="w-full border px-4 py-2 rounded"
+              className="w-full border border-gray-300 px-4 py-2 rounded focus:ring-blue-500 focus:border-blue-500"
               value={companyLogoUrl}
               onChange={(e) => setCompanyLogoUrl(e.target.value)}
               placeholder="เช่น https://.../logo.png"
@@ -315,7 +318,7 @@ export default function SettingsPage() {
                 alt="Company Logo"
                 width={140}
                 height={140}
-                className="rounded border"
+                className="rounded border border-gray-300 shadow-sm"
               />
             </div>
           )}
@@ -326,7 +329,8 @@ export default function SettingsPage() {
           <button
             onClick={handleSave}
             disabled={updating}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            // เปลี่ยนเป็นสีน้ำเงินเข้ม (Blue-700) และ Hover เป็นสีเข้มขึ้น (Blue-800)
+            className="bg-blue-700 text-white px-6 py-2 rounded shadow-md hover:bg-blue-800 disabled:opacity-50 transition-colors"
           >
             {updating ? "กำลังบันทึก..." : "💾 บันทึกการเปลี่ยนแปลง"}
           </button>

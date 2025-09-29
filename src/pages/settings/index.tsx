@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ChevronDown,
+  FileText,
+  Plug,
 } from "lucide-react";
 
 /* ================= System settings (client only - MVP) ================= */
@@ -233,11 +235,11 @@ export default function SettingsPage() {
 
   /* ================= UI ================= */
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 text-[var(--text-2)]">
       {/* Tabs */}
       <div className="flex gap-2">
         <button
-          className={`px-3 py-2 rounded-lg border ${tab === "personal" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          className={`px-3 py-2 rounded-lg border-[var(--border)] ${tab === "personal" ? "bg-[var(--accent)] text-white" : "bg-[var(--panel)]"}`}
           onClick={() => setTab("personal")}
         >
           <div className="flex items-center gap-2">
@@ -245,7 +247,7 @@ export default function SettingsPage() {
           </div>
         </button>
         <button
-          className={`px-3 py-2 rounded-lg border ${tab === "company" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          className={`px-3 py-2 rounded-lg border-[var(--border)] ${tab === "company" ? "bg-[var(--accent)] text-white" : "bg-[var(--panel)]"}`}
           onClick={() => setTab("company")}
         >
           <div className="flex items-center gap-2">
@@ -253,7 +255,7 @@ export default function SettingsPage() {
           </div>
         </button>
         <button
-          className={`px-3 py-2 rounded-lg border ${tab === "system" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          className={`px-3 py-2 rounded-lg border-[var(--border)] ${tab === "system" ? "bg-[var(--accent)] text-white" : "bg-[var(--panel)]"}`}
           onClick={() => setTab("system")}
         >
           <div className="flex items-center gap-2">
@@ -261,7 +263,7 @@ export default function SettingsPage() {
           </div>
         </button>
         <button
-          className={`px-3 py-2 rounded-lg border ${tab === "integrations" ? "bg-blue-600 text-white border-blue-600" : "bg-white"}`}
+          className={`px-3 py-2 rounded-lg border-[var(--border)] ${tab === "integrations" ? "bg-[var(--accent)] text-white" : "bg-[var(--panel)]"}`}
           onClick={() => setTab("integrations")}
         >
           <div className="flex items-center gap-2">
@@ -272,31 +274,31 @@ export default function SettingsPage() {
 
       {/* Personal */}
       {tab === "personal" && (
-        <div className="rounded-xl border bg-white p-5 space-y-4">
-          <h2 className="font-semibold mb-2">ข้อมูลส่วนตัว (Personal)</h2>
+        <div className="rounded-xl border-[var(--border)] bg-[var(--panel)] p-5 space-y-4">
+          <h2 className="font-semibold mb-2 text-[var(--text-1)]">ข้อมูลส่วนตัว (Personal)</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">ชื่อ-นามสกุล</label>
+              <label className="block text-sm font-medium mb-1">ชื่อ-นามสกุล</label>
               <input
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2"
+                className="w-full rounded-lg border-[var(--border)] bg-[var(--panel-2)] px-3 py-2 text-[var(--text-1)]"
                 placeholder="เช่น คุณสมชาย ใจดี"
               />
             </div>
 
             <div className="md:col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">รูปโปรไฟล์</label>
+              <label className="block text-sm font-medium mb-1">รูปโปรไฟล์</label>
               <div className="flex items-center gap-3">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatarUrl} alt="avatar" className="h-16 w-16 rounded-full object-cover" />
                 ) : (
-                  <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center text-slate-400">IMG</div>
+                  <div className="h-16 w-16 rounded-full bg-[var(--panel-2)] flex items-center justify-center text-[var(--muted)]">IMG</div>
                 )}
-                <label className="inline-flex items-center gap-2 text-blue-600 cursor-pointer">
+                <label className="inline-flex items-center gap-2 text-[var(--accent)] cursor-pointer">
                   <Upload size={16} /> <span>{uploading ? "กำลังอัปโหลด…" : "อัปโหลด/เปลี่ยน"}</span>
                   <input
                     type="file"
@@ -312,7 +314,7 @@ export default function SettingsPage() {
                 </label>
                 {avatarUrl && (
                   <button
-                    className="inline-flex items-center gap-2 text-rose-600"
+                    className="inline-flex items-center gap-2 text-[var(--danger)]"
                     onClick={() => {
                       setAvatarUrl(null);
                       setAvatarKey(null);
@@ -329,7 +331,7 @@ export default function SettingsPage() {
             <button
               onClick={savePersonal}
               disabled={savingPersonal}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] text-white px-4 py-2 disabled:opacity-60 hover:bg-[var(--accent-hover)]"
             >
               <Save size={18} />
               {savingPersonal ? "กำลังบันทึก..." : "บันทึก"}
@@ -340,15 +342,15 @@ export default function SettingsPage() {
 
       {/* Company */}
       {tab === "company" && (
-        <div className="rounded-xl border bg-white p-5 space-y-4">
-          <h2 className="font-semibold mb-2">ข้อมูลบริษัท (Company)</h2>
+        <div className="rounded-xl border-[var(--border)] bg-[var(--panel)] p-5 space-y-4">
+          <h2 className="font-semibold mb-2 text-[var(--text-1)]">ข้อมูลบริษัท (Company)</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">ชื่อบริษัท</label>
+              <label className="block text-sm font-medium mb-1">ชื่อบริษัท</label>
               <input
                 type="text"
-                className="w-full rounded-lg border px-3 py-2"
+                className="w-full rounded-lg border-[var(--border)] bg-[var(--panel-2)] px-3 py-2 text-[var(--text-1)]"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="เช่น Justacost Co., Ltd."
@@ -356,15 +358,15 @@ export default function SettingsPage() {
             </div>
 
             <div className="md:col-span-1">
-              <label className="block text-sm font-medium text-slate-700 mb-1">โลโก้บริษัท</label>
+              <label className="block text-sm font-medium mb-1">โลโก้บริษัท</label>
               <div className="flex items-center gap-3">
                 {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt="logo" className="h-16 w-16 rounded bg-gray-100 object-contain" />
+                  <img src={logoUrl} alt="logo" className="h-16 w-16 rounded bg-[var(--panel-2)] object-contain" />
                 ) : (
-                  <div className="h-16 w-16 rounded bg-gray-100 flex items-center justify-center text-slate-400">LOGO</div>
+                  <div className="h-16 w-16 rounded bg-[var(--panel-2)] flex items-center justify-center text-[var(--muted)]">LOGO</div>
                 )}
-                <label className="inline-flex items-center gap-2 text-blue-600 cursor-pointer">
+                <label className="inline-flex items-center gap-2 text-[var(--accent)] cursor-pointer">
                   <Upload size={16} />
                   <span>{uploading ? "กำลังอัปโหลด…" : "อัปโหลด/เปลี่ยน"}</span>
                   <input
@@ -381,7 +383,7 @@ export default function SettingsPage() {
                 </label>
                 {logoUrl && (
                   <button
-                    className="inline-flex items-center gap-2 text-rose-600"
+                    className="inline-flex items-center gap-2 text-[var(--danger)]"
                     onClick={() => {
                       setLogoUrl(null);
                       setLogoKey(null);
@@ -396,21 +398,20 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">เลขทะเบียนนิติบุคคล (13 หลัก)</label>
+              <label className="block text-sm font-medium mb-1">เลขทะเบียนนิติบุคคล (13 หลัก)</label>
               <input
                 type="text"
                 inputMode="numeric"
                 value={juristicMasked}
                 onChange={(e) => setJuristicRaw(e.target.value.replace(/\D+/g, "").slice(0, 13))}
-                className={`w-full rounded-lg border px-3 py-2 ${juristicRaw && !isJuristic13(juristicRaw) ? "border-rose-400" : ""}`}
+                className={`w-full rounded-lg border-[var(--border)] bg-[var(--panel-2)] px-3 py-2 text-[var(--text-1)] ${juristicRaw && !isJuristic13(juristicRaw) ? "border-[var(--danger)]" : ""}`}
                 placeholder="X-XXXX-XXXXX-XX"
               />
-              <div className="text-xs text-slate-500 mt-1">* ไม่บังคับกรอก (ถ้ากรอกครบ 13 หลัก จะใช้เชื่อม benchmark ภายนอกภายหลัง)</div>
+              <div className="text-xs text-[var(--muted)] mt-1">* ไม่บังคับกรอก (ถ้ากรอกครบ 13 หลัก จะใช้เชื่อม benchmark ภายนอกภายหลัง)</div>
             </div>
-
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">อุตสาหกรรม (TSIC/DBD – Section A–U)</label>
-              <select className="w-full rounded-lg border px-3 py-2" value={industry} onChange={(e) => setIndustry(e.target.value)}>
+              <label className="block text-sm font-medium mb-1">อุตสาหกรรม (TSIC/DBD – Section A–U)</label>
+              <select className="w-full rounded-lg border-[var(--border)] bg-[var(--panel-2)] px-3 py-2 text-[var(--text-1)]" value={industry} onChange={(e) => setIndustry(e.target.value)}>
                 <option value="">— เลือกหมวดอุตสาหกรรม —</option>
                 {MOC_INDUSTRY_SECTIONS.map((s) => (
                   <option key={s.code} value={s.code}>
@@ -422,13 +423,15 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <div className="text-sm font-medium text-slate-700 mb-2">ช่วงยอดขายต่อปี (Revenue Band)</div>
+            <div className="text-sm font-medium mb-2">ช่วงยอดขายต่อปี (Revenue Band)</div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {REVENUE_BANDS.map((opt) => (
                 <label
                   key={opt.value}
-                  className={`border rounded-xl p-3 cursor-pointer transition ${
-                    revenueBand === opt.value ? "border-blue-600 ring-2 ring-blue-200 bg-blue-50" : "hover:border-slate-400 bg-white"
+                  className={`border-[var(--border)] rounded-xl p-3 cursor-pointer transition ${
+                    revenueBand === opt.value
+                      ? "border-[var(--accent)] ring-2 ring-[var(--ring-soft)] bg-[var(--panel-elev)]"
+                      : "hover:border-[var(--border)] bg-[var(--panel)]"
                   }`}
                 >
                   <input
@@ -439,7 +442,7 @@ export default function SettingsPage() {
                     checked={revenueBand === opt.value}
                     onChange={() => setRevenueBand(opt.value)}
                   />
-                  <div className="font-medium">{opt.label}</div>
+                  <div className="font-medium text-[var(--text-1)]">{opt.label}</div>
                 </label>
               ))}
             </div>
@@ -449,7 +452,7 @@ export default function SettingsPage() {
             <button
               onClick={saveCompany}
               disabled={savingCompany}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] text-white px-4 py-2 disabled:opacity-60 hover:bg-[var(--accent-hover)]"
             >
               <Save size={18} />
               {savingCompany ? "กำลังบันทึก..." : "บันทึก"}
@@ -460,25 +463,23 @@ export default function SettingsPage() {
 
       {/* System */}
       {tab === "system" && (
-        <div className="rounded-xl border bg-white p-5 space-y-4">
-          <h2 className="font-semibold mb-2">การตั้งค่าระบบ (System)</h2>
-
+        <div className="rounded-xl border-[var(--border)] bg-[var(--panel)] p-5 space-y-4">
+          <h2 className="font-semibold mb-2 text-[var(--text-1)]">การตั้งค่าระบบ (System)</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">ภาษา (MVP: บันทึกในเบราว์เซอร์)</label>
-              <select className="w-full rounded-lg border px-3 py-2" value={lang} onChange={(e) => setLang(e.target.value)}>
+              <label className="block text-sm font-medium mb-1">ภาษา (MVP: บันทึกในเบราว์เซอร์)</label>
+              <select className="w-full rounded-lg border-[var(--border)] bg-[var(--panel-2)] px-3 py-2 text-[var(--text-1)]" value={lang} onChange={(e) => setLang(e.target.value)}>
                 <option value="th">ไทย</option>
                 <option value="en">English</option>
               </select>
-              <div className="text-xs text-slate-500 mt-1">* MVP ยังไม่เก็บใน DB เพื่อหลีกเลี่ยง schema change</div>
+              <div className="text-xs text-[var(--muted)] mt-1">* MVP ยังไม่เก็บใน DB เพื่อหลีกเลี่ยง schema change</div>
             </div>
           </div>
-
           <div className="flex justify-end">
             <button
               onClick={saveSystem}
               disabled={savingSystem}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white px-4 py-2 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] text-white px-4 py-2 disabled:opacity-60 hover:bg-[var(--accent-hover)]"
             >
               <Save size={18} />
               {savingSystem ? "กำลังบันทึก..." : "บันทึก"}
@@ -490,7 +491,7 @@ export default function SettingsPage() {
       {/* Integrations */}
       {tab === "integrations" && <IntegrationsPanel />}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 text-white px-4 py-2 rounded-lg shadow-lg ${toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"}`}>
+        <div className={`fixed bottom-6 right-6 z-50 text-white px-4 py-2 rounded-lg shadow-lg ${toast.type === "success" ? "bg-[var(--success)]" : "bg-[var(--danger)]"}`}>
           {toast.msg}
         </div>
       )}
@@ -501,23 +502,16 @@ export default function SettingsPage() {
 /* ================= Integrations Panel (Data Sources) ================= */
 function IntegrationsPanel() {
   const { profile } = useUserProfile();
-
   // org binding + dev override (advanced)
   const [orgOverride, setOrgOverride] = useState<string>("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem("ceopolar.orgId") || "";
     if (saved) setOrgOverride(saved);
   }, []);
 
-  const orgId =
-    (profile as any)?.org_id ||
-    (profile as any)?.company_id ||
-    (profile as any)?.id ||
-    orgOverride ||
-    "";
+  const orgId = (profile as any)?.org_id || (profile as any)?.company_id || (profile as any)?.id || orgOverride || "";
 
   type SourceView = {
     id: string;
@@ -526,9 +520,13 @@ function IntegrationsPanel() {
     kind: string;
     active: boolean;
     created_at: string;
-    last_sync?: { status: string; started_at: string; finished_at?: string; message?: string } | null;
+    last_sync?: {
+      status: string;
+      started_at: string;
+      finished_at?: string;
+      message?: string;
+    } | null;
   };
-
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<SourceView[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -539,255 +537,206 @@ function IntegrationsPanel() {
   const [bxWebhook, setBxWebhook] = useState("");
   const [bxSaving, setBxSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
 
-  const hasBitrix = useMemo(() => sources.some((s) => s.kind === "bitrix"), [sources]);
+  useEffect(() => {
+    fetchSources();
+  }, [orgId]);
 
-  // API helper
-  async function api(path: string, init?: RequestInit & { query?: Record<string, string> }) {
-    const href = path.startsWith("http") ? path : path.startsWith("/") ? path : `/${path}`;
-    const url = new URL(href, window.location.origin);
-    if (init?.query) Object.entries(init.query).forEach(([k, v]) => url.searchParams.set(k, String(v)));
-    const res = await fetch(url.toString(), {
-      method: init?.method || "GET",
-      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-      body: init?.body,
-    });
-    if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
-      const e: any = new Error(j?.error || `HTTP ${res.status}`);
-      e.status = res.status;
-      throw e;
-    }
-    return res.json();
-  }
-
-  // Load list
-  async function load() {
+  const fetchSources = async () => {
     if (!orgId) return;
-    setLoading(true);
-    setErr(null);
     try {
-      const j = await api("/api/sources", { query: { orgId } });
-      setSources(j.sources || []);
-    } catch (e: any) {
-      setErr(e?.message || "โหลดล้มเหลว");
+      setLoading(true);
+      const res = await fetch(`/api/integrations/list`, {
+        headers: { "x-org-id": orgId },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setSources(json.sources || []);
+      setErr(null);
+    } catch (e) {
+      console.error("fetch sources failed", e);
+      setErr("ดึงข้อมูลไม่สำเร็จ");
     } finally {
       setLoading(false);
     }
-  }
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
+  };
 
-  // Save Bitrix (POST → fallback GET upsert on 405)
-  async function saveBitrix() {
-    if (!orgId) {
-      alert("ระบบยังไม่รู้จัก Org ของคุณ (เปิด Advanced เพื่อระบุชั่วคราวได้)");
+  const sync = async (sourceId: string) => {
+    try {
+      setTestingId(sourceId);
+      const res = await fetch(`/api/integrations/sync/${sourceId}`, {
+        method: "POST",
+        headers: { "x-org-id": orgId },
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.error || `HTTP ${res.status}`);
+      }
+      alert("เริ่มซิงค์ข้อมูลแล้ว");
+    } catch (e: any) {
+      console.error("sync failed", e);
+      alert(`ไม่สามารถซิงค์ได้: ${e?.message || "unknown"}`);
+    } finally {
+      setTestingId(null);
+      fetchSources();
+    }
+  };
+
+  const saveBitrix = async () => {
+    if (!bxBaseUrl || !bxUserId || !bxWebhook) {
+      alert("กรอกข้อมูลให้ครบ");
       return;
     }
+    setBxSaving(true);
     try {
-      setBxSaving(true);
-      try {
-        await api("/api/sources", {
-          method: "POST",
-          body: JSON.stringify({
-            orgId,
-            code: "bitrix_main",
-            name: "Bitrix24 (Deals)",
-            kind: "bitrix",
-            credentials: {
-              mode: "webhook",
-              baseUrl: bxBaseUrl.trim(),
-              userId: bxUserId.trim(),
-              webhook: bxWebhook.trim(),
-            },
-            active: true,
-          }),
-        });
-      } catch (err: any) {
-        if (err?.status === 405) {
-          const webhookUrl = `${bxBaseUrl.trim().replace(/\/+$/, "")}/rest/${encodeURIComponent(bxUserId.trim())}/${encodeURIComponent(bxWebhook.trim())}/`;
-          await api("/api/sources/upsert", {
-            method: "GET",
-            query: {
-              orgId,
-              code: "bitrix_main",
-              name: "Bitrix24 (Deals)",
-              kind: "bitrix",
-              "credentials.webhookUrl": webhookUrl,
-              active: "true",
-            },
-          });
-        } else {
-          throw err;
-        }
-      }
-      setBxBaseUrl("");
-      setBxUserId("");
-      setBxWebhook("");
-      await load();
+      const payload = {
+        kind: "bitrix24_webhook",
+        config: {
+          webhook_url: bxWebhook,
+          user_id: bxUserId,
+          base_url: bxBaseUrl,
+        },
+      };
+      const res = await fetch(`/api/integrations/save`, {
+        method: "POST",
+        headers: { "x-org-id": orgId, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || "unknown error");
+      alert("บันทึก Bitrix24 แล้ว");
+      fetchSources();
     } catch (e: any) {
-      alert("บันทึกไม่สำเร็จ: " + (e?.message || "unknown"));
+      console.error("save bitrix failed", e);
+      alert(`บันทึกไม่สำเร็จ: ${e?.message || "unknown"}`);
     } finally {
       setBxSaving(false);
     }
-  }
-
-  async function testSource(id: string) {
-    if (!orgId) {
-      alert("ยังไม่พบ Org ID");
-      return;
-    }
-    try {
-      setTestingId(id);
-      const j = await api("/api/sources/test", { method: "POST", body: JSON.stringify({ orgId, sourceId: id }) });
-      alert(`ทดสอบสำเร็จ (${j.kind}) • sample=${j.sample ?? "ok"}`);
-    } catch (e: any) {
-      alert("ทดสอบไม่สำเร็จ: " + (e?.message || "unknown)"));
-    } finally {
-      setTestingId(null);
-    }
-  }
-
-  async function syncSource(id: string) {
-    if (!orgId) {
-      alert("ยังไม่พบ Org ID");
-      return;
-    }
-    try {
-      setSyncingId(id);
-      const j = await api("/api/sources/sync", { method: "POST", body: JSON.stringify({ orgId, sourceId: id }) });
-      alert(`ซิงก์สำเร็จ: ${j.kind} • ${j.from} → ${j.to}`);
-      await load();
-    } catch (e: any) {
-      alert("ซิงก์ไม่สำเร็จ: " + (e?.message || "unknown)"));
-    } finally {
-      setSyncingId(null);
-    }
-  }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Advanced: Org override (dev only) */}
-      {!( (profile as any)?.org_id || (profile as any)?.company_id || (profile as any)?.id ) && (
-        <div className="rounded-xl border bg-white p-5">
-          <button className="flex items-center gap-2 text-sm" onClick={() => setShowAdvanced((v) => !v)}>
-            <ChevronDown size={16} className={`transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
-            Advanced (Dev) — Org ID Override
-          </button>
-          {showAdvanced && (
-            <div className="mt-3 flex gap-2">
-              <input className="w-full rounded-lg border px-3 py-2" placeholder="ใส่ Org ID" value={orgOverride} onChange={(e) => setOrgOverride(e.target.value)} />
-              <button
-                className="px-3 py-2 rounded-lg border bg-white"
-                onClick={() => {
-                  if (typeof window !== "undefined") window.localStorage.setItem("ceopolar.orgId", orgOverride.trim());
-                  alert("บันทึก Org ID ชั่วคราวแล้ว");
-                }}
-              >
-                Save
-              </button>
+    <div className="rounded-xl border-[var(--border)] bg-[var(--panel)] p-5 space-y-4 text-[var(--text-2)]">
+      <h2 className="font-semibold text-[var(--text-1)]">แหล่งข้อมูล (Data Sources)</h2>
+      <p>เชื่อมต่อกับแหล่งข้อมูลเพื่อดึงข้อมูลอัตโนมัติมาแสดงบน Dashboard ของท่าน</p>
+
+      {/* Section 1: Manual Data Upload */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-[var(--text-1)] font-semibold text-lg">
+          <FileText size={20} />
+          อัปโหลดไฟล์ด้วยตนเอง (Manual Data Upload)
+        </div>
+        <p className="text-sm text-[var(--muted)]">
+          เหมาะสำหรับข้อมูลที่ไม่ได้อัปเดตแบบ Real-time เช่น ข้อมูลยอดขายประจำไตรมาส
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+          <UploadCSV title="ยอดขาย (Sales)" endpoint="/api/upload/sales" orgId={orgId} sample="date,value,note" />
+          <UploadCSV title="กระแสเงินสด (Cash Flow)" endpoint="/api/upload/cash" orgId={orgId} sample="date,type,amount,note" />
+          <UploadCSV title="ค่าใช้จ่าย (Expenses)" endpoint="/api/upload/expenses" orgId={orgId} sample="date,type,amount,note" />
+          {/* You can add more upload cards here */}
+        </div>
+      </div>
+      
+      {/* Horizontal Line for separation */}
+      <hr className="my-6 border-[var(--border)]" />
+
+      {/* Section 2: Automated Business Systems */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-[var(--text-1)] font-semibold text-lg">
+          <Plug size={20} />
+          เชื่อมต่อระบบธุรกิจอัตโนมัติ (Automated Business Systems)
+        </div>
+        <p className="text-sm text-[var(--muted)]">
+          เชื่อมต่อกับแพลตฟอร์มยอดนิยมเพื่อดึงข้อมูลแบบ Real-time
+        </p>
+
+        {/* Category: Accounting & ERP */}
+        <div>
+          <h3 className="font-medium text-[var(--text-1)] mb-2">Accounting & ERP</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <IntegrationCard title="Odoo" description="ระบบ ERP & บัญชี" status="ยังไม่ได้เชื่อมต่อ" />
+            <IntegrationCard title="Oracle NetSuite" description="ระบบ ERP & การเงิน" status="ยังไม่ได้เชื่อมต่อ" />
+            <IntegrationCard title="Xero" description="ระบบบัญชีออนไลน์" status="ยังไม่ได้เชื่อมต่อ" />
+            <IntegrationCard title="QuickBooks" description="ระบบบัญชีออนไลน์" status="ยังไม่ได้เชื่อมต่อ" />
+          </div>
+        </div>
+
+        {/* Category: Sales & CRM */}
+        <div>
+          <h3 className="font-medium text-[var(--text-1)] mb-2">Sales & CRM</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <IntegrationCard
+              title="Bitrix24"
+              description="ระบบ CRM และการสื่อสาร"
+              status="เชื่อมต่อแล้ว"
+              showConnectForm={true}
+              connectFormProps={{ bxWebhook, setBxWebhook, bxUserId, setBxUserId, bxBaseUrl, setBxBaseUrl, bxSaving, saveBitrix }}
+            />
+            <IntegrationCard title="Salesforce" description="ระบบ CRM ระดับโลก" status="ยังไม่ได้เชื่อมต่อ" />
+            <IntegrationCard title="HubSpot" description="ระบบการตลาด & CRM" status="ยังไม่ได้เชื่อมต่อ" />
+          </div>
+        </div>
+        {/* You can add more categories here */}
+      </div>
+
+      {/* Connected sources status */}
+      <div className="rounded-xl border-[var(--border)] bg-[var(--panel)] p-5 space-y-4 text-[var(--text-2)]">
+        <h2 className="font-semibold text-[var(--text-1)]">ข้อมูลที่เชื่อมต่อแล้ว</h2>
+        <p className="text-xs text-[var(--muted)]">
+          แสดงข้อมูลแหล่งที่มาที่ท่านได้เชื่อมต่อไว้แล้ว
+        </p>
+        <div className="bg-[var(--panel-2)] rounded-lg p-3 space-y-2">
+          {loading && (
+            <div className="text-center py-5 text-[var(--muted)]">กำลังดึงข้อมูล...</div>
+          )}
+          {!loading && err && (
+            <div className="text-center py-5 text-[var(--danger)]">
+              <div className="flex justify-center mb-2">
+                <AlertTriangle size={24} />
+              </div>
+              {err}
             </div>
           )}
-          <div className="text-xs text-slate-500 mt-2">* ระบบจะใช้ค่านี้เมื่อยังดึง org จาก account ไม่ได้</div>
-        </div>
-      )}
-
-      {/* Existing Sources */}
-      <div className="rounded-xl border bg-white">
-        <div className="p-5 flex items-center justify-between">
-          <div className="font-semibold">Integrations · Data Sources</div>
-          <button className="px-3 py-2 rounded-lg border bg-white inline-flex items-center gap-2" onClick={load} disabled={loading || !orgId}>
-            <RefreshCcw size={16} /> โหลดใหม่
-          </button>
-        </div>
-        {!orgId && <div className="px-5 pb-2 text-amber-600 text-sm">* ระบบยังไม่ทราบ Org — โปรดเข้าสู่ระบบ/เลือกบริษัท หรือใส่ใน Advanced</div>}
-        {err && <div className="px-5 pb-2 text-rose-600">{err}</div>}
-
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-          {sources.map((s) => (
-            <div key={s.id} className="rounded-lg border bg-white p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">{s.name}</div>
-                  <div className="text-xs text-slate-500">
-                    {s.code} • {s.kind}
-                  </div>
-                </div>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full border ${
-                    s.active ? "text-emerald-700 border-emerald-300 bg-emerald-50" : "text-rose-700 border-rose-300 bg-rose-50"
-                  }`}
-                >
-                  {s.active ? "Active" : "Inactive"}
-                </span>
-              </div>
-              <div className="text-xs text-slate-500">
-                {s.last_sync ? (
-                  <>
-                    สถานะล่าสุด: <b>{s.last_sync.status}</b>
-                    {s.last_sync.finished_at ? ` • ${new Date(s.last_sync.finished_at).toLocaleString()}` : ""}
-                    {s.last_sync.message ? ` • ${s.last_sync.message}` : ""}
-                  </>
-                ) : (
-                  "ยังไม่เคยซิงก์"
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button className="px-3 py-1.5 rounded-lg border bg-white inline-flex items-center gap-2 text-xs" onClick={() => testSource(s.id)} disabled={!!testingId || !orgId}>
-                  <Radio size={14} /> {testingId === s.id ? "กำลังทดสอบ…" : "Test"}
-                </button>
-                <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white inline-flex items-center gap-2 text-xs" onClick={() => syncSource(s.id)} disabled={!!syncingId || !orgId}>
-                  <LinkIcon size={14} /> {syncingId === s.id ? "กำลังซิงก์…" : "Sync now"}
-                </button>
-              </div>
+          {!loading && !err && sources.length === 0 && (
+            <div className="text-center py-5 text-[var(--muted)]">
+              ยังไม่มีแหล่งข้อมูลที่เชื่อมต่อ
             </div>
-          ))}
-          {!sources.length && <div className="p-4 text-sm text-slate-500">ยังไม่มีแหล่งข้อมูล กรอกแบบฟอร์มด้านล่างเพื่อเชื่อมแหล่งข้อมูลแรกของคุณ</div>}
-        </div>
-      </div>
-
-      {/* Add Source: Bitrix */}
-      <div className="rounded-xl border bg-white">
-        <div className="p-5">
-          <div className="font-semibold mb-3">เชื่อม Bitrix24 (Deals → SalesDaily)</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input className="w-full rounded-lg border px-3 py-2" placeholder="Base URL (เช่น https://YOUR.bitrix24.com)" value={bxBaseUrl} onChange={(e) => setBxBaseUrl(e.target.value)} />
-            <input className="w-full rounded-lg border px-3 py-2" placeholder="User ID (ตัวเลขหลัง /rest/ เช่น 1)" value={bxUserId} onChange={(e) => setBxUserId(e.target.value)} />
-            <input className="w-full rounded-lg border px-3 py-2" placeholder="Webhook token" value={bxWebhook} onChange={(e) => setBxWebhook(e.target.value)} />
-          </div>
-          <div className="mt-3">
-            <button className="px-3 py-2 rounded-lg bg-blue-600 text-white inline-flex items-center gap-2" onClick={saveBitrix} disabled={!bxBaseUrl || !bxUserId || !bxWebhook || bxSaving || !orgId}>
-              <CheckCircle2 size={16} /> {bxSaving ? "กำลังบันทึก…" : "บันทึก & เปิดใช้งาน"}
-            </button>
-          </div>
-          {hasBitrix && <div className="text-xs text-slate-500 mt-2">* มี Bitrix source แล้ว 1 รายการ</div>}
-        </div>
-      </div>
-
-      {/* CSV Uploaders */}
-      <div className="rounded-xl border bg-white">
-        <div className="p-5">
-          <div className="font-semibold mb-3">อัปโหลด CSV (Manual)</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <CsvUploader title="Sales (รายวัน)" endpoint="/api/import/sales-csv" orgId={orgId} sample="date,channel,net_amount,gross_amount,orders" />
-            <CsvUploader title="AR Aging" endpoint="/api/import/ar-aging-csv" orgId={orgId} sample="as_of_date,bucket,amount" />
-            <CsvUploader title="NPS" endpoint="/api/import/nps-csv" orgId={orgId} sample="date,respondent_id,score,comment" />
-          </div>
-          <div className="text-xs text-slate-500 mt-3 flex items-center gap-2">
-            <AlertTriangle size={14} className="text-amber-500" />
-            ไฟล์ต้องเป็น UTF-8 / มี header คอลัมน์ตามตัวอย่าง
-          </div>
+          )}
+          {!loading &&
+            !err &&
+            sources.map((s) => (
+              <div key={s.id} className="flex items-center justify-between p-2 rounded-lg bg-[var(--panel-elev)]">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[var(--text-1)] truncate">{s.name}</div>
+                  <div className="text-xs text-[var(--muted)] truncate">{s.kind}</div>
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-2">
+                  <span
+                    className={`text-sm font-medium ${s.active ? "text-[var(--success)]" : "text-[var(--danger)]"}`}
+                  >
+                    <Radio size={14} className="inline-block mr-1" />
+                    {s.active ? "เชื่อมต่อแล้ว" : "ไม่ได้ใช้งาน"}
+                  </span>
+                  <button
+                    onClick={() => sync(s.id)}
+                    className="flex items-center gap-1 rounded-full text-[var(--accent)] transition-transform hover:rotate-90 disabled:opacity-50"
+                    disabled={testingId === s.id}
+                  >
+                    <RefreshCcw size={16} />
+                  </button>
+                  <button className="flex items-center gap-1 text-[var(--danger)] transition hover:text-rose-400">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))}
         </div>
       </div>
     </div>
   );
 }
 
-/* ================ CSV Uploader sub-component ================ */
-function CsvUploader({ title, endpoint, orgId, sample }: { title: string; endpoint: string; orgId: string; sample: string }) {
+function UploadCSV({ title, endpoint, orgId, sample }: { title: string; endpoint: string; orgId: string; sample: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -815,17 +764,96 @@ function CsvUploader({ title, endpoint, orgId, sample }: { title: string; endpoi
   }
 
   return (
-    <div className="rounded-lg border bg-white p-3">
-      <div className="font-semibold">{title}</div>
-      <div className="text-xs text-slate-500 mb-2">
-        ตัวอย่าง header: <code>{sample}</code>
+    <div className="rounded-lg border-[var(--border)] bg-[var(--panel)] p-3 text-[var(--text-2)]">
+      <div className="font-semibold text-[var(--text-1)]">{title}</div>
+      <div className="text-xs text-[var(--muted)] mb-2">
+        ตัวอย่าง header: <code className="text-[var(--accent)]">{sample}</code>
       </div>
       <div className="flex items-center gap-2">
-        <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} className="w-full rounded-lg border px-3 py-2" />
-        <button className="px-3 py-2 rounded-lg border bg-white inline-flex items-center gap-2" onClick={upload} disabled={!file || busy || !orgId}>
-          <Upload size={14} /> {busy ? "กำลังอัปโหลด…" : "อัปโหลด"}
+        <input type="file" accept=".csv" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        <button
+          onClick={upload}
+          disabled={!file || busy}
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] text-white px-3 py-2 text-sm disabled:opacity-60 hover:bg-[var(--accent-hover)]"
+        >
+          <Upload size={16} />
+          {busy ? "กำลังอัปโหลด..." : "อัปโหลด"}
         </button>
+        {file && <div className="text-sm truncate">{file.name}</div>}
       </div>
+    </div>
+  );
+}
+
+interface IntegrationCardProps {
+  title: string;
+  description: string;
+  status: 'เชื่อมต่อแล้ว' | 'ยังไม่ได้เชื่อมต่อ';
+  showConnectForm?: boolean;
+  connectFormProps?: any;
+}
+
+function IntegrationCard({ title, description, status, showConnectForm, connectFormProps }: IntegrationCardProps) {
+  return (
+    <div className="rounded-lg border-[var(--border)] bg-[var(--panel)] p-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="font-semibold text-[var(--text-1)]">{title}</div>
+          <div className="text-sm text-[var(--muted)]">{description}</div>
+        </div>
+        <div className={`text-xs font-medium px-2 py-1 rounded-full ${
+            status === 'เชื่อมต่อแล้ว' ? 'bg-[var(--success)] text-white' : 'bg-gray-500 text-white'
+        }`}>
+          {status}
+        </div>
+      </div>
+      {showConnectForm ? (
+        <div className="space-y-2 text-sm">
+          <div>
+            <label className="block mb-1">Webhook URL</label>
+            <input
+              type="text"
+              className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
+              value={connectFormProps.bxWebhook}
+              onChange={(e) => connectFormProps.setBxWebhook(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block mb-1">User ID</label>
+            <input
+              type="text"
+              className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
+              value={connectFormProps.bxUserId}
+              onChange={(e) => connectFormProps.setBxUserId(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block mb-1">Base URL</label>
+            <input
+              type="text"
+              className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
+              value={connectFormProps.bxBaseUrl}
+              onChange={(e) => connectFormProps.setBxBaseUrl(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={connectFormProps.saveBitrix}
+              disabled={connectFormProps.bxSaving}
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] text-white px-4 py-2 disabled:opacity-60 hover:bg-[var(--accent-hover)]"
+            >
+              <Save size={18} />
+              {connectFormProps.bxSaving ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] text-white px-4 py-2 disabled:opacity-60 hover:bg-[var(--accent-hover)]"
+        >
+          เชื่อมต่อ
+        </button>
+      )}
     </div>
   );
 }
