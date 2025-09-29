@@ -546,9 +546,8 @@ function IntegrationsPanel() {
     if (!orgId) return;
     try {
       setLoading(true);
-      const res = await fetch(`/api/integrations/list`, {
-        headers: { "x-org-id": orgId },
-      });
+      // NOTE: Fixed the URL here
+      const res = await fetch(`/api/integrations/list?orgId=${orgId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setSources(json.sources || []);
@@ -564,9 +563,9 @@ function IntegrationsPanel() {
   const sync = async (sourceId: string) => {
     try {
       setTestingId(sourceId);
-      const res = await fetch(`/api/integrations/sync/${sourceId}`, {
+      // NOTE: Fixed the URL here
+      const res = await fetch(`/api/integrations/sync?orgId=${orgId}&sourceId=${sourceId}`, {
         method: "POST",
-        headers: { "x-org-id": orgId },
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -597,9 +596,10 @@ function IntegrationsPanel() {
           base_url: bxBaseUrl,
         },
       };
-      const res = await fetch(`/api/integrations/save`, {
+      // NOTE: Fixed the URL here
+      const res = await fetch(`/api/integrations/save?orgId=${orgId}`, {
         method: "POST",
-        headers: { "x-org-id": orgId, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
