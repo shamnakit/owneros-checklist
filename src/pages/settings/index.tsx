@@ -12,9 +12,7 @@ import {
   Link as LinkIcon,
   RefreshCcw,
   Radio,
-  CheckCircle2,
   AlertTriangle,
-  ChevronDown,
   FileText,
   Plug,
 } from "lucide-react";
@@ -69,6 +67,13 @@ const maskJuristic = (raw: string) => {
   const e = d.slice(10, 12);
   return [a, b && `-${b}`, c && `-${c}`, e && `-${e}`].join("");
 };
+
+/* ===== Helpers (UUID & Webhook validators) ===== */
+const isUuid = (s?: string | null) =>
+  !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+
+const isValidWebhook = (u: string) =>
+  /^https:\/\/.+bitrix24\..+\/rest\/\d+\/[A-Za-z0-9]+\/$/.test(u);
 
 /* ================= Settings Page ================= */
 export default function SettingsPage() {
@@ -532,21 +537,21 @@ function IntegrationsPanel() {
   const [err, setErr] = useState<string | null>(null);
 
   // Bitrix form
-  const [bxBaseUrl, setBxBaseUrl] = useState("");
-  const [bxUserId, setBxUserId] = useState("");
+  const [bxBaseUrl, setBxBaseUrl] = useState(""); // kept for backward UI, not used in payload
+  const [bxUserId, setBxUserId] = useState("");  // kept for backward UI, not used in payload
   const [bxWebhook, setBxWebhook] = useState("");
   const [bxSaving, setBxSaving] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSources();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId]);
 
   const fetchSources = async () => {
     if (!orgId) return;
     try {
       setLoading(true);
-      // NOTE: Fixed the URL here
       const res = await fetch(`/api/integrations/list?orgId=${orgId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -563,7 +568,6 @@ function IntegrationsPanel() {
   const sync = async (sourceId: string) => {
     try {
       setTestingId(sourceId);
-      // NOTE: Fixed the URL here
       const res = await fetch(`/api/integrations/sync?orgId=${orgId}&sourceId=${sourceId}`, {
         method: "POST",
       });
@@ -582,29 +586,44 @@ function IntegrationsPanel() {
   };
 
   const saveBitrix = async () => {
-    if (!bxBaseUrl || !bxUserId || !bxWebhook) {
-      alert("กรอกข้อมูลให้ครบ");
+    if (!bxWebhook) {
+      alert("กรอก Webhook URL ให้ครบ");
       return;
     }
+    if (!isValidWebhook(bxWebhook)) {
+      alert("Webhook URL ต้องเป็นแบบเต็มและลงท้ายด้วย '/' เช่น https://{portal}.bitrix24.com/rest/{user}/{code}/");
+      return;
+    }
+    if (!isUuid(orgId)) {
+      alert("orgId ต้องเป็น UUID (ตรวจค่าที่ผูกบริษัท/LocalStorage)");
+      return;
+    }
+
     setBxSaving(true);
     try {
+      const host = new URL(bxWebhook).hostname;
       const payload = {
         kind: "bitrix24_webhook",
-        config: {
-          webhook_url: bxWebhook,
-          user_id: bxUserId,
-          base_url: bxBaseUrl,
-        },
+        credentials: { webhook_url: bxWebhook }, // ✅ โครงใหม่
+        config: { webhook_url: bxWebhook },      // 🛟 กันพังย้อนหลัง
+        name: `Bitrix24 (${host})`,
+        code: "bitrix24",
       };
-      // NOTE: Fixed the URL here
-      const res = await fetch(`/api/integrations/save?orgId=${orgId}`, {
+      const res = await fetch(`/api/integrations/save?orgId=${encodeURIComponent(orgId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error || "unknown error");
+
+      const raw = await res.text();
+      let json: any = null;
+      try { json = JSON.parse(raw); } catch {}
+
+      if (!res.ok || !json?.success) {
+        const msg = json?.error || raw || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+
       alert("บันทึก Bitrix24 แล้ว");
       fetchSources();
     } catch (e: any) {
@@ -633,11 +652,9 @@ function IntegrationsPanel() {
           <UploadCSV title="ยอดขาย (Sales)" endpoint="/api/upload/sales" orgId={orgId} sample="date,value,note" />
           <UploadCSV title="กระแสเงินสด (Cash Flow)" endpoint="/api/upload/cash" orgId={orgId} sample="date,type,amount,note" />
           <UploadCSV title="ค่าใช้จ่าย (Expenses)" endpoint="/api/upload/expenses" orgId={orgId} sample="date,type,amount,note" />
-          {/* You can add more upload cards here */}
         </div>
       </div>
-      
-      {/* Horizontal Line for separation */}
+
       <hr className="my-6 border-[var(--border)]" />
 
       {/* Section 2: Automated Business Systems */}
@@ -668,15 +685,20 @@ function IntegrationsPanel() {
             <IntegrationCard
               title="Bitrix24"
               description="ระบบ CRM และการสื่อสาร"
-              status="เชื่อมต่อแล้ว"
+              status="ยังไม่ได้เชื่อมต่อ"
               showConnectForm={true}
-              connectFormProps={{ bxWebhook, setBxWebhook, bxUserId, setBxUserId, bxBaseUrl, setBxBaseUrl, bxSaving, saveBitrix }}
+              connectFormProps={{
+                bxWebhook, setBxWebhook,
+                // ซ่อนสองช่องนี้โดยไม่ส่ง prop (จะไม่เรนเดอร์ในฟอร์ม)
+                // bxUserId, setBxUserId,
+                // bxBaseUrl, setBxBaseUrl,
+                bxSaving, saveBitrix,
+              }}
             />
             <IntegrationCard title="Salesforce" description="ระบบ CRM ระดับโลก" status="ยังไม่ได้เชื่อมต่อ" />
             <IntegrationCard title="HubSpot" description="ระบบการตลาด & CRM" status="ยังไม่ได้เชื่อมต่อ" />
           </div>
         </div>
-        {/* You can add more categories here */}
       </div>
 
       {/* Connected sources status */}
@@ -816,26 +838,34 @@ function IntegrationCard({ title, description, status, showConnectForm, connectF
               className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
               value={connectFormProps.bxWebhook}
               onChange={(e) => connectFormProps.setBxWebhook(e.target.value)}
+              placeholder="https://{portal}.bitrix24.{tld}/rest/{user}/{code}/"
             />
           </div>
-          <div>
-            <label className="block mb-1">User ID</label>
-            <input
-              type="text"
-              className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
-              value={connectFormProps.bxUserId}
-              onChange={(e) => connectFormProps.setBxUserId(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block mb-1">Base URL</label>
-            <input
-              type="text"
-              className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
-              value={connectFormProps.bxBaseUrl}
-              onChange={(e) => connectFormProps.setBxBaseUrl(e.target.value)}
-            />
-          </div>
+
+          {/* แสดง 2 ช่องนี้เฉพาะเมื่อส่ง props มา (กัน UI เก่าไม่พัง, แต่ default ซ่อนไว้) */}
+          {connectFormProps.bxUserId !== undefined && (
+            <div>
+              <label className="block mb-1">User ID</label>
+              <input
+                type="text"
+                className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
+                value={connectFormProps.bxUserId}
+                onChange={(e) => connectFormProps.setBxUserId(e.target.value)}
+              />
+            </div>
+          )}
+          {connectFormProps.bxBaseUrl !== undefined && (
+            <div>
+              <label className="block mb-1">Base URL</label>
+              <input
+                type="text"
+                className="w-full rounded-lg bg-[var(--panel-2)] border-[var(--border)] px-3 py-2 text-[var(--text-1)]"
+                value={connectFormProps.bxBaseUrl}
+                onChange={(e) => connectFormProps.setBxBaseUrl(e.target.value)}
+              />
+            </div>
+          )}
+
           <div className="flex justify-end mt-4">
             <button
               onClick={connectFormProps.saveBitrix}
