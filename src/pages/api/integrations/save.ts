@@ -1,79 +1,89 @@
+// src/pages/api/integrations/save.ts
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/utils/supabaseServer";
 
-type IntegrationKind = "bitrix24_webhook";
-
-interface BitrixCredentials {
-  webhook_url: string; // https://{portal}.bitrix24.{tld}/rest/{user}/{code}/ (ต้องลงท้ายด้วย '/')
-}
-
-interface SavePayload {
-  kind: IntegrationKind;      // 'bitrix24_webhook'
-  name?: string;              // ชื่อที่จะแสดง เช่น "Bitrix24 (synergysoft.bitrix24.com)"
-  code?: string | null;       // โค้ดสั้นๆ ถ้าต้องการ เช่น "bitrix24"
-  credentials: BitrixCredentials;
-  active?: boolean;
-}
-
+// ---------- helpers ----------
 const bad = (res: NextApiResponse, msg: string, code = 400) =>
   res.status(code).json({ success: false, error: msg });
 
-const isUuid = (s: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+const isUuid = (s?: string | null) =>
+  !!s && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s as string);
 
-function isWebhookUrl(u: unknown): u is string {
+// orgIdOrKey: UUID หรือ key (text) -> คืน UUID ของ organizations.id
+async function resolveOrg(orgIdOrKey: string): Promise<string> {
+  if (isUuid(orgIdOrKey)) return orgIdOrKey;
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("key", orgIdOrKey)
+    .single();
+  if (error || !data) throw new Error("Invalid org identifier (not UUID and key not found)");
+  return data.id as string;
+}
+
+const isWebhookUrl = (u: unknown): u is string => {
   if (typeof u !== "string") return false;
   try {
     const url = new URL(u);
-    const okProto = url.protocol === "https:";
-    const okHost = /bitrix24\./i.test(url.hostname);
-    const okPath = url.pathname.toLowerCase().startsWith("/rest/");
-    const endSlash = u.endsWith("/");
-    return okProto && okHost && okPath && endSlash;
+    return (
+      url.protocol === "https:" &&
+      /bitrix24\./i.test(url.hostname) &&
+      url.pathname.toLowerCase().startsWith("/rest/") &&
+      u.endsWith("/")
+    );
   } catch {
     return false;
   }
+};
+
+// 兼容: ดึง webhook จาก credentials (ใหม่) หรือ config (เก่า)
+function deriveWebhookUrl(body: any): string | null {
+  if (body?.credentials?.webhook_url) return String(body.credentials.webhook_url).trim();
+  if (body?.config?.webhook_url) return String(body.config.webhook_url).trim();
+  return null;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return bad(res, "Method Not Allowed (Expected POST)", 405);
 
-  const orgId = (req.query.orgId as string) || "";
-  if (!orgId.trim()) return bad(res, "Missing orgId in query");
-  if (!isUuid(orgId)) return bad(res, "orgId must be a valid UUID");
+  const rawOrg = (req.query.orgId as string) || "";
+  if (!rawOrg.trim()) return bad(res, "Missing orgId in query");
 
-  const payload = req.body as Partial<SavePayload> | undefined;
-  if (!payload || !payload.kind || !payload.credentials) {
-    return bad(res, "Missing kind or credentials in body");
-  }
-  if (payload.kind !== "bitrix24_webhook") {
-    return bad(res, "Unsupported kind. Use 'bitrix24_webhook' only");
+  // ✅ รองรับ orgId เป็น UUID หรือ key
+  let orgUuid: string;
+  try {
+    orgUuid = await resolveOrg(rawOrg);
+  } catch (e: any) {
+    return bad(res, e?.message || "Invalid org identifier");
   }
 
-  const { webhook_url } = payload.credentials as BitrixCredentials;
-  if (!isWebhookUrl(webhook_url)) {
+  const payload = req.body as any;
+  if (!payload?.kind) return bad(res, "Missing kind in body");
+  if (payload.kind !== "bitrix24_webhook") return bad(res, "Unsupported kind. Use 'bitrix24_webhook' only");
+
+  const webhookUrl = deriveWebhookUrl(payload);
+  if (!isWebhookUrl(webhookUrl)) {
     return bad(
       res,
-      "Invalid credentials.webhook_url. ใช้ URL เต็มของ Bitrix และลงท้ายด้วย '/' เช่น https://{portal}.bitrix24.com/rest/{user}/{code}/"
+      "Invalid webhook_url. ใช้ URL เต็มของ Bitrix และลงท้ายด้วย '/' เช่น https://{portal}.bitrix24.com/rest/{user}/{code}/"
     );
   }
 
-  // สร้างค่าเริ่มต้นให้ name / code
-  const host = new URL(webhook_url).hostname;
+  const host = new URL(webhookUrl).hostname;
   const name = (payload.name || `Bitrix24 (${host})`).trim();
   const code = (payload.code || "bitrix24").trim();
 
   try {
-    // upsert โดยยึดคู่คีย์ (org_id, kind) — ถ้าตารางคุณมี unique index คู่คีย์นี้จะสมบูรณ์
     const { data, error } = await supabase
       .from("data_sources")
       .upsert(
         {
-          org_id: orgId,
-          kind: payload.kind,
+          org_id: orgUuid,                  // ✅ ใช้ UUID ที่ resolve มา
+          kind: "bitrix24_webhook",
           name,
           code,
-          credentials: { webhook_url },
+          credentials: { webhook_url: webhookUrl }, // jsonb ตามสคีมา
           active: payload.active ?? true,
         },
         { onConflict: "org_id,kind", ignoreDuplicates: false }
@@ -86,13 +96,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return bad(res, `Database save failed: ${error.message}`, 500);
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Integration saved successfully",
-      data,
-    });
+    return res.status(200).json({ success: true, message: "Integration saved successfully", data });
   } catch (e: any) {
-    console.error("Database save failed:", e?.message || e);
+    console.error("Database save failed:", e);
     return bad(res, "Database save failed: " + (e?.message || "unknown"), 500);
   }
 }
